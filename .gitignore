@@ -1,0 +1,44 @@
+# ---- 编译输出 ----
+build/
+bin/
+lib/
+*.o
+*.obj
+*.so
+*.a
+*.dll
+*.dylib
+*.exe
+*.out
+
+# ---- CMake 构建 ----
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# ---- 日志和调试 ----
+*.log
+*.stackdump
+
+# ---- IDE / 编辑器 ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+*.tmp
+*.DS_Store
+
+# ---- Libtorch 临时文件 ----
+torch_*.tmp.*
+torch_*.jit.*
+
+# ---- Python 辅助脚本（如果有）----
+__pycache__/
+*.pyc
+*.pyo
+
+
+resources/
