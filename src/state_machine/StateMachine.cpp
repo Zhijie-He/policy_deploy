@@ -27,7 +27,7 @@ StateMachine::StateMachine(std::shared_ptr<const RobotConfig> cfg)
 
 void StateMachine::run(){
   Timer _loopTimer(_policyDt); // 创建一个定时器，周期是 _policyDt 秒（比如 0.01s，表示 100Hz）
-  // while(_loopTimer.getMs() < 100) _loopTimer.wait(); // 等待系统至少运行 100ms 再开始主循环，常用于启动缓冲/初始化等待。
+  while(_loopTimer.getMs() < 100) _loopTimer.wait(); // 等待系统至少运行 100ms 再开始主循环，常用于启动缓冲/初始化等待。
   while(_isRunning){
     step();
     _loopTimer.wait();  // 这个函数让状态机以固定的时间间隔 _policyDt 运行 step() 方法，实现一个定周期的控制循环。
@@ -40,10 +40,8 @@ void StateMachine::parseRobotStates(){
   assert(_motorStates != nullptr);
   // 把电机状态中的时间戳拷贝到 robotState，用于后续时间同步、调试、记录。
   robotState.timestamp = _motorStates->data.timestamp;
+
   // 读取电机状态
-  // memcpy 是 C/C++ 中的一个标准函数，用于在内存中复制一段数据块。它的全称是 memory copy。
-  // void* memcpy(void* dest, const void* src, size_t count);
-  // dest：目标地址（复制到哪儿） src：源地址（从哪儿复制） count：要复制的字节数
   memcpy(robotState.motorPosition.data(), _motorStates->data.position, _jointNum * sizeof(float));
   memcpy(robotState.motorVelocity.data(), _motorStates->data.velocity, _jointNum * sizeof(float));
   memcpy(robotState.motorTorque.data(), _motorStates->data.ampere, _jointNum * sizeof(float));
@@ -56,13 +54,14 @@ void StateMachine::parseRobotStates(){
   // 🔁 姿态变换：欧拉角 → 矩阵 / 四元数
   robotState.baseRotMat = ori::rpyToRotMat(robotState.baseRpy);
   robotState.baseQuat = ori::rpyToQuat(robotState.baseRpy);
+  
   // 🌍 坐标变换：角速度从机体坐标系 → 世界坐标系
   robotState.baseRpyRate_w = robotState.baseRotMat.transpose() * robotState.baseRpyRate;
 }
 
 void StateMachine::stop() { _isRunning = false; }
 
-// 你的函数 StateMachine::updateCommands() 是用于根据用户输入（键盘或手柄）更新机器人的目标速度和转向目标（yaw）的逻辑模块。
+
 void StateMachine::updateCommands(){
   float deltaYaw = 0; // deltaYaw 表示当前目标朝向与机器人当前朝向的差值
   Vec3f maxVelCmd{1.0, 0.3,0}; // 最大线速度限制（1.0 前进，0.3 横向，0 竖直）；

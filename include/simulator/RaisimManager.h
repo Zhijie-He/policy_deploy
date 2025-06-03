@@ -10,6 +10,11 @@
 class RaisimManager {
 public:
   RaisimManager(std::shared_ptr<const RobotConfig> cfg, GyroData *gyroPtr, jointStateData *motorInputPtr, jointTargetData *motorOutputPtr);
+  void initWorld();
+  void loadRobotModel();
+  void initState();
+  void setupRobotProperties();
+  void launchServer();
   void run();
   void updateRobotState();
   void integrate();
@@ -34,7 +39,8 @@ private:
   
   int gcDim_ = 7, gvDim_ = 6;
   int jointDim_ = 0;
-  double *simTime;
+  
+  std::unique_ptr<double> simTime;
   jointStateData *motorReadingBuf_;
   jointTargetData *motorCommandBuf_;
   GyroData *gyro_data_;

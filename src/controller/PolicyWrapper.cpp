@@ -50,6 +50,27 @@ Eigen::Vector3f getGravityOrientation(const Eigen::Vector4f& quat) {
     return gravity_orientation;
 }
 
+void PolicyWrapper::loadRobotState(const CustomTypes::State &robotState){
+  simulationTime = robotState.timestamp;
+  bVel_w     = robotState.baseVelocity_w;     // base 线速度（世界坐标系）
+  bOmg_w     = robotState.baseRpyRate_w;      // base 角速度（世界坐标系）
+  bOri_eu    = robotState.baseRpy;            // base 姿态欧拉角
+  bOri_rm    = robotState.baseRotMat;         // base 姿态旋转矩阵
+  bOri_quat  = robotState.baseQuat;           // base 姿态四元数
+
+  footForce = robotState.footForce;           // 足端接触力（可用于接触判断）
+  jTau      = robotState.motorTorque;         // 电机力矩（当前输出）
+  jPos      = robotState.motorPosition;       // 电机角度
+  jVel      = robotState.motorVelocity;       // 电机角速度
+
+  baseLinVelTarget = robotState.targetVelocity;  // 想走的线速度（机体坐标系）
+  baseAngVelTarget = robotState.targetOmega;     // 想转的角速度（机体坐标系）
+
+  // 坐标变换到世界系目标速度（可选/分析用）
+  curVelTarg = bOri_rm * baseLinVelTarget;
+  curOmgTarg = bOri_rm * baseAngVelTarget;
+}
+
 void PolicyWrapper::updateObservation(const CustomTypes::State &robotState) {
   loadRobotState(robotState);
   float t_sec = simulationTime / 1e6f; // 这行代码是把变量 simulationTime 从 微秒（microseconds） 转换为 秒（seconds），因为：
@@ -60,6 +81,7 @@ void PolicyWrapper::updateObservation(const CustomTypes::State &robotState) {
 
   observation.setZero(obDim);
   Eigen::Vector3f omega = bOmg_w * cfg_->ang_vel_scale;
+  
   Eigen::Vector3f gravity = getGravityOrientation(bOri_quat);
   Eigen::Vector3f cmd_scaled = baseLinVelTarget.cwiseProduct(cfg_->cmd_scale);
   Eigen::VectorXf qj = (jPos - cfg_->default_angles) * cfg_->dof_pos_scale;

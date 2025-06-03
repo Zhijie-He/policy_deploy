@@ -1,25 +1,23 @@
 cmake_minimum_required(VERSION 3.14)
 project(policy_depoly)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-
-# 通过 CMake 传入根目录
 add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+
+# 启用 AddressSanitizer 调试（可选）
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
+set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 
 # 同时设置 libtorch 和 raisim 的路径
 set(CMAKE_PREFIX_PATH "$ENV{LIBTORCH_DIR};$ENV{RAISIM_DIR}")
+set(MUJOCO_DIR $ENV{MUJOCO_DIR})
 
 # 查找依赖库
 find_package(Torch REQUIRED)
-
-# 查找 yaml-cpp
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(YAMLCPP REQUIRED yaml-cpp)
-
 find_package(Eigen3 REQUIRED)
-
+pkg_check_modules(GLFW REQUIRED glfw3) # GLFW
 find_package(raisim CONFIG REQUIRED)
 message(STATUS "Found Raisim. " ${RAISIM_DIR})
 
@@ -28,29 +26,34 @@ file(GLOB_RECURSE SRC_FILES
     ${CMAKE_SOURCE_DIR}/src/*.cpp
 )
 
-# 头文件路径（你项目头文件 + 第三方头文件）
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${YAMLCPP_INCLUDE_DIRS} 
     ${EIGEN3_INCLUDE_DIRS}
     ${RAISIM_DIR}
+    ${MUJOCO_DIR}/include
+    ${GLFW_INCLUDE_DIRS}
 )
 
 # 设置库目录
 link_directories(
     ${YAMLCPP_LIBRARY_DIRS}
+    ${GLFW_LIBRARY_DIRS}
+    ${MUJOCO_DIR}/lib 
 )
 
-# 添加可执行文件
-add_executable(deploy_mujoco
-    exec/deploy_mujoco.cpp
-    ${SRC_FILES}
-)
-
-# 链接所需库
-target_link_libraries(deploy_mujoco
+set(COMMON_LIBS
     ${TORCH_LIBRARIES}
     yaml-cpp
     raisim::raisim
+    ${GLFW_LIBRARIES}
+    mujoco
 )
 
+# 添加 Raisim 可执行程序
+# add_executable(deploy_raisim exec/deploy_raisim.cpp ${SRC_FILES})
+# target_link_libraries(deploy_raisim ${COMMON_LIBS})
+
+# MuJoCo 版本执行文件
+add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
+target_link_libraries(deploy_mujoco ${COMMON_LIBS})

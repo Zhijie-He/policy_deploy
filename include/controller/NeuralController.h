@@ -13,7 +13,7 @@ public:
 
 protected:
     void initMembers();
-    void loadRobotState(const CustomTypes::State& robotState);
+    virtual void loadRobotState(const CustomTypes::State& robotState);
     CustomTypes::Action constructAction(const Eigen::VectorXf& jntPosTarg) const;
     
     std::shared_ptr<const RobotConfig> cfg_; 

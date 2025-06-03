@@ -27,14 +27,33 @@ namespace CustomTypes {
     } State;
 
     inline std::ostream& operator<<(std::ostream& os, const State& s) {
-        os << "[State] "
-          << "t=" << s.timestamp << ", phase=" << s.phaseValue << "\n"
-          << "  pos=" << s.basePosition.transpose()
-          << ", vel=" << s.baseVelocity.transpose() << "\n"
-          << "  rpy=" << s.baseRpy.transpose()
-          << ", quat=" << s.baseQuat.transpose() << "\n"
-          << "  target_vel=" << s.targetVelocity.transpose()
-          << ", target_omega=" << s.targetOmega.transpose();
+        os << "[State Dump]\n";
+        os << "  ── Time Stamp      : " << s.timestamp << "\n";
+        os << "  ── Phase Value     : " << s.phaseValue << "\n";
+
+        os << "\n  ▸ Base State\n";
+        os << "    Base Position    : " << s.basePosition.transpose() << "\n";
+        os << "    Base Velocity    : " << s.baseVelocity.transpose() << "\n";
+        os << "    Base Velocity (W): " << s.baseVelocity_w.transpose() << "\n";
+        os << "    Base Acc         : " << s.baseAcc.transpose() << "\n";
+        os << "    Base Orientation : (quat) " << s.baseQuat.transpose() << "\n";
+        os << "    Base Orientation : (RPY)  " << s.baseRpy.transpose() << "\n";
+        os << "    RPY Rate (body)  : " << s.baseRpyRate.transpose() << "\n";
+        os << "    RPY Rate (world) : " << s.baseRpyRate_w.transpose() << "\n";
+        os << "    Base Rot Mat     : \n" << s.baseRotMat << "\n";
+
+        os << "\n  ▸ Motor State\n";
+        os << "    Motor Position   : " << s.motorPosition.transpose() << "\n";
+        os << "    Motor Velocity   : " << s.motorVelocity.transpose() << "\n";
+        os << "    Motor Torque     : " << s.motorTorque.transpose() << "\n";
+
+        os << "\n  ▸ Foot Contact (Force)\n";
+        os << "    Foot Force Matrix: \n" << s.footForce << "\n";
+
+        os << "\n  ▸ Target Command\n";
+        os << "    Target Velocity  : " << s.targetVelocity.transpose() << "\n";
+        os << "    Target Omega     : " << s.targetOmega.transpose() << "\n";
+
         return os;
     }
 

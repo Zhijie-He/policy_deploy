@@ -33,15 +33,15 @@ RobotConfig::RobotConfig(const std::string& yaml_path)
     action_scale  = root_["action_scale"].as<float>();
 
     // ========== 路径信息 ==========
-    std::string root_dir = PROJECT_SOURCE_DIR;
-    policy_path = root_dir + "/" + root_["policy_path"].as<std::string>();
-    xml_path    = root_dir + "/" + root_["xml_path"].as<std::string>();
+    std::string project_source_dir = PROJECT_SOURCE_DIR;
+    policy_path = project_source_dir + "/" + root_["policy_path"].as<std::string>();
+    xml_path    = project_source_dir + "/" + root_["xml_path"].as<std::string>();
 
     // ========== 自定义参数 ==========
     robot_name = root_["robot_name"].as<std::string>();
     on_rack = root_["on_rack"] ? root_["on_rack"].as<bool>() : false;
     world_type = root_["world_type"].as<std::string>();
-    urdf_path = root_["urdf_path"].as<std::string>();
+    urdf_path =  project_source_dir + "/" + root_["urdf_path"].as<std::string>();
     homing_timesteps = root_["homing_timesteps"].as<int>();
 
     // ========== Homing 参数（可选）==========
@@ -53,12 +53,7 @@ RobotConfig::RobotConfig(const std::string& yaml_path)
         homingKp  = Eigen::Map<const Eigen::VectorXf>(kp.data(), kp.size());
         homingKd  = Eigen::Map<const Eigen::VectorXf>(kd.data(), kd.size());
     }
-
-    // ========== 初始 base 位姿 ==========
-    const auto& base_pos = root_["init_base_position"].as<std::vector<float>>();
-    const auto& base_ori = root_["init_base_orientation"].as<std::vector<float>>();
-    init_base_position = Eigen::Map<const Eigen::Vector3f>(base_pos.data());
-    init_base_orientation = Eigen::Map<const Eigen::Vector4f>(base_ori.data());
+    terrain_config_file    = project_source_dir + "/" + root_["terrain_config_file"].as<std::string>();
 }
 
 const YAML::Node& RobotConfig::raw() const {

@@ -40,8 +40,7 @@ public:
     Eigen::VectorXf homingPos;
     Eigen::VectorXf homingKp;
     Eigen::VectorXf homingKd;
-    Eigen::VectorXf init_base_position;
-    Eigen::VectorXf init_base_orientation;
+    std::string terrain_config_file;
 
 private:
     YAML::Node root_;
