@@ -392,7 +392,7 @@ public:
 #define insline         ___CONIO_H.insline
 #define delline         ___CONIO_H.delline
 //#define getpass         ___CONIO_H.getpass
-#define gettext         ___CONIO_H.gettext
+// #define gettext         ___CONIO_H.gettext
 
 
 //DEV C++ only have the next funtions (version: 4.9.9.2)
