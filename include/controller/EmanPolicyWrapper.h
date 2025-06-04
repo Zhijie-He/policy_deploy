@@ -1,9 +1,9 @@
 #pragma once
 #include "controller/NeuralController.h"
 
-class PolicyWrapper : public NeuralController  {
+class EmanPolicyWrapper : public NeuralController  {
 public:
-    PolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg);
+    EmanPolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg);
     CustomTypes::Action getControlAction(const CustomTypes::RobotData &robotData) override;
     
 private:

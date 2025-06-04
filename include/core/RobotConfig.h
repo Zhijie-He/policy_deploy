@@ -4,35 +4,15 @@
 #include <yaml-cpp/yaml.h>
 #include <Eigen/Dense>
 #include <string>
+#include "core/BaseRobotConfig.h"
 
-class RobotConfig {
+class RobotConfig : public BaseRobotConfig {
 public:
     explicit RobotConfig(const std::string& yaml_path);
     const YAML::Node& raw() const;
-    float getPolicyDt() const; 
+    float getPolicyDt() const override;
 
-    int num_actions;
-    int num_obs;
-    float simulation_duration;
-    float simulation_dt;
-    int control_decimation;
-
-    Eigen::VectorXf kP;
-    Eigen::VectorXf kD;
-    Eigen::VectorXf default_angles;
-    Eigen::Vector3f cmd_scale;
-    Eigen::Vector3f cmd_init;
-
-    float ang_vel_scale;
-    float dof_pos_scale;
-    float dof_vel_scale;
-    float action_scale;
-
-    std::string policy_path;
-    std::string xml_path;
-
-    // custom
-    std::string robot_name;
+    // ✅ 仅保留 custom 字段（属于该机器人独有）
     bool on_rack;
     std::string world_type;
     std::string urdf_path;
@@ -41,7 +21,7 @@ public:
     Eigen::VectorXf homingKp;
     Eigen::VectorXf homingKd;
     std::string terrain_config_file;
-
+    
 private:
     YAML::Node root_;
 };

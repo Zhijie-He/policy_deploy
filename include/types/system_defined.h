@@ -83,3 +83,31 @@ typedef union
   } data;
   float buffer[5][SLAVE_NUMBER];
 } jointTargetData;
+
+typedef union
+{
+  struct
+  {
+    float position[SLAVE_NUMBER];
+    float velocity[SLAVE_NUMBER];
+    float kp[SLAVE_NUMBER];  // 每个关节的 P 控制增益
+    float kd[SLAVE_NUMBER];   // 每个关节的 D 控制增益
+    uint64_t timestamp;
+  } data;
+  float buffer[4][SLAVE_NUMBER];
+} jointCMD;
+
+
+/// logical robot data
+typedef union humanData
+{
+  struct
+  {
+    float position[SLAVE_NUMBER]; // 各关节位置
+    float velocity[SLAVE_NUMBER]; // 各关节速度
+    float timestamp;
+  } data;
+  float buffer[2][SLAVE_NUMBER];  // 批量访问
+} robotStatus;
+
+

@@ -108,5 +108,30 @@ namespace CustomTypes {
       ret.kD.setZero(jntNum);
       return ret;
     }
+
+    // RobotData
+    struct RobotData {
+      Eigen::Vector3f basePosition = Eigen::Vector3f::Zero();
+      Eigen::Vector4f baseQuat = Eigen::Vector4f::Zero();
+      Eigen::VectorXf jointPosition;
+      
+      Eigen::Vector3f baseVelocity = Eigen::Vector3f::Zero();
+      Eigen::Vector3f baseOmega = Eigen::Vector3f::Zero();
+      Eigen::VectorXf jointVelocity;
+
+      Eigen::Vector3f targetCMD = Eigen::Vector3f::Zero();
+
+      float timestamp = 0;
+      float phaseValue = 0.0f;
+
+      RobotData(int jointDim = 12) {
+        jointPosition = Eigen::VectorXf::Zero(jointDim);
+        jointVelocity = Eigen::VectorXf::Zero(jointDim);
+      }
+    };
+
+    inline RobotData zeroData(int jointNum) {
+      return RobotData(jointNum);
+    }
 };
 

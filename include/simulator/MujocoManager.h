@@ -9,32 +9,29 @@
 #include <vector>
 
 #include "types/system_defined.h"
-#include "core/RobotConfig.h"
+#include "core/BaseRobotConfig.h"
 #include "types/joystickTypes.h"
 
 class MujocoManager {
 public:
-  MujocoManager(std::shared_ptr<const RobotConfig> cfg,
-                GyroData* gyroPtr,
-                jointStateData* motorInputPtr,
-                jointTargetData* motorOutputPtr);
+  MujocoManager(std::shared_ptr<const BaseRobotConfig> cfg,
+                jointCMD* jointCMDPtr,
+                robotStatus* robotStatusPtr);
   ~MujocoManager();
 
   void initWorld();
-  void loadRobotModel();
+  void moveToDefaultPose();
   void initState();
-  void setupRobotProperties();
   void launchServer();
+  void renderLoop();
   void run();
-  void updateRobotState();
   void integrate();
-  void reset();
-  void getContactForce();
+  void updateRobotState();
   void stop() { running_ = false; glfwSetWindowShouldClose(window_, GLFW_TRUE); }
   void setUserInputPtr(char* key, JoystickData* joy) { joyPtr_ = joy; keyPtr_ = key; }
 
 private:
-  std::shared_ptr<const RobotConfig> cfg_;
+  std::shared_ptr<const BaseRobotConfig> cfg_;
 
   std::string robotName_;
   float control_dt_ = 2e-3;
@@ -42,31 +39,23 @@ private:
 
   bool running_ = true;
   bool isStatesReady = false;
-  bool isFixedBase = false;
-  bool isRopeHanging = false;
-  float ropeHeight_ = 0.9f;
 
   int gcDim_ = 0, gvDim_ = 0;
   int jointDim_ = 0;
 
-  jointStateData* motorReadingBuf_ = nullptr;
-  jointTargetData* motorCommandBuf_ = nullptr;
-  GyroData* gyro_data_ = nullptr;
+  robotStatus* robotStatusPtr_ = nullptr;
+  jointCMD* jointCMDPtr_ = nullptr;
+
   JoystickData* joyPtr_ = nullptr;
   char* keyPtr_ = nullptr;
 
   std::mutex state_lock_;
   std::mutex action_lock_;
 
-  Eigen::VectorXd gc_init_, gv_init_;
-  Eigen::VectorXd gc_, gv_, gv_prev_;
+  Eigen::VectorXd gc_, gv_;
   Eigen::VectorXf pTarget, vTarget;
-  Eigen::VectorXf tauCmd, tauCmd_joint;
+  Eigen::VectorXf tauCmd;
   Eigen::VectorXf jointPGain, jointDGain;
-  Eigen::VectorXd contactForce;
-
-  std::vector<int> footBodyIds{0, 0};
-  std::vector<int> footGeomIds{0, 0};
 
   // MuJoCo core members
   mjModel* mj_model_ = nullptr;
@@ -76,11 +65,4 @@ private:
   mjvOption opt_;
   mjvScene scn_;
   mjrContext con_;
-  // mjModel*           mj_model_         = nullptr;
-  // mjData*            mj_data_          = nullptr;
-  // GLFWwindow*        glfw_window_      = nullptr;
-  // mjvCamera          camera_;                  // 摄像机
-  // mjvOption          viz_option_;              // 可视化选项
-  // mjvScene           render_scene_;            // 渲染场景缓存
-  // mjrContext         render_context_;          // OpenGL 渲染上下文
 };

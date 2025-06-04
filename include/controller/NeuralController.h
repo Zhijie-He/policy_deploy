@@ -1,44 +1,26 @@
 #pragma once
-
-#include "core/RobotConfig.h" 
+#include "core/BaseRobotConfig.h" 
 #include "types/CustomTypes.h"
 #include "types/cpp_types.h"
 #include <torch/script.h>
 
-/*  Controller that performs neural net inference */
 class NeuralController
 {
 public:
-    NeuralController(std::shared_ptr<const RobotConfig> cfg);
+    NeuralController(std::shared_ptr<const BaseRobotConfig> cfg);
+    virtual CustomTypes::Action getControlAction(const CustomTypes::RobotData &robotData) = 0;
+    virtual ~NeuralController() = default;
 
 protected:
-    void initMembers();
-    virtual void loadRobotState(const CustomTypes::State& robotState);
-    CustomTypes::Action constructAction(const Eigen::VectorXf& jntPosTarg) const;
-    
-    std::shared_ptr<const RobotConfig> cfg_; 
-    torch::jit::script::Module module_;
-    
-    size_t kNumMotors = 28;
     int obDim, acDim;
+    torch::jit::script::Module module_;
     torch::Tensor obTorch, acTorch;
-    std::vector<c10::IValue> obVector{}; // 创建一个 IValue 容器 obVector
-
-    uint64_t simulationTime{0};
-    Vec3<float> bVel_w, bOmg_w, bOri_eu;
-    Mat3<float> bOri_rm;
-    Vec4<float> bOri_quat;
+    std::vector<c10::IValue> obVector{}; 
+    std::shared_ptr<const BaseRobotConfig> cfg_; 
     
-    Eigen::Matrix<float, 3, 2> footForce;
-    Eigen::VectorXf jTau, jPos, jVel;
-
-    Vec3<float> baseLinVelTarget, baseAngVelTarget;
-
-    Vec3<float> curVelTarg, curOmgTarg;
+    Eigen::VectorXf _kP;
+    Eigen::VectorXf _kD;
 
     Eigen::VectorXf observation;
     Eigen::VectorXf action, actionPrev;
-
-    Eigen::VectorXf _kP;
-    Eigen::VectorXf _kD;
 };

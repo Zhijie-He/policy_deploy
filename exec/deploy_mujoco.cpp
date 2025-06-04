@@ -5,8 +5,12 @@
 #include <memory>
 #include <filesystem>
 #include <csignal>
+#include "controller/NeuralController.h"
 #include "controller/PolicyWrapper.h"
+#include "controller/EmanPolicyWrapper.h"
 #include "state_machine/StateMachine.h"
+#include "core/BaseRobotConfig.h"
+#include "core/EmanRobotConfig.h"
 #include "core/RobotConfig.h"
 #include "hardware/listener.h"
 #include "simulator/MujocoManager.h"  
@@ -19,34 +23,23 @@
 
 class NeuralRunner: public StateMachine {
 public:
-  explicit NeuralRunner(std::shared_ptr<const RobotConfig> cfg) : StateMachine(cfg) {
+  explicit NeuralRunner(std::shared_ptr<const BaseRobotConfig> cfg, const std::string& robot_name) : StateMachine(cfg) {
     FRC_INFO("NeuralRunner init");
-
-    FRC_INFO("[FSM.init] KP_home = " << cfg->homingKp.transpose());
-    FRC_INFO("[FSM.init] KD_home = " << cfg->homingKd.transpose());
-    FRC_INFO("[FSM.init] Pos_home = " << cfg->homingPos.transpose());
-
-    _homingCtrl = std::make_unique<ResetController>(cfg);
-    _neuralCtrl = std::make_unique<PolicyWrapper>(cfg);
+   
+    if (robot_name == "g1_unitree") {
+      _neuralCtrl = std::make_unique<PolicyWrapper>(cfg);
+    } else if (robot_name == "g1_eman") {
+      _neuralCtrl = std::make_unique<EmanPolicyWrapper>(cfg);
+    } else {
+      throw std::runtime_error("Unsupported robot: " + robot_name);
+    }
   }
 
   void step() override {
-    parseRobotStates();
-
-    if (_homingCtrl->isComplete() && !_isPolicyActive && _keyState && *_keyState == ' ') {
-      _isPolicyActive = true;
-      yawTarg = robotState.baseRpy[2];
-      robotState.targetVelocity.setZero();
-    }
-
+    parseRobotData();
     updateCommands();
-
-    if (_isPolicyActive)
-      robotAction = _neuralCtrl->getControlAction(robotState);
-    else
-      robotAction = _homingCtrl->getControlAction(robotState);
-
-    packRobotAction();
+    robotAction = _neuralCtrl->getControlAction(robotData);
+    packJointAction();
     if (*_keyState != '\0') *_keyState = '\0';
   }
 
@@ -55,15 +48,13 @@ public:
   }
 
 private:
-  bool _isPolicyActive = true;
-  std::unique_ptr<ResetController> _homingCtrl;
-  std::unique_ptr<PolicyWrapper> _neuralCtrl;
+  std::unique_ptr<NeuralController> _neuralCtrl;
 };
 
-std::shared_ptr<RobotConfig> cfg = nullptr;
+std::shared_ptr<BaseRobotConfig> cfg = nullptr;
 std::shared_ptr<Listener> listener = nullptr;
 std::shared_ptr<NeuralRunner> ctrl = nullptr;
-std::shared_ptr<MujocoManager> sim = nullptr;  // ⬅️ 替换 RaisimManager
+std::shared_ptr<MujocoManager> sim = nullptr; 
 
 void close_all_threads(int signum) {
   FRC_INFO("Interrupted with SIGINT: " << signum << "\n");
@@ -76,38 +67,44 @@ void close_all_threads(int signum) {
 int main(int argc, char** argv) {
   std::string exec_name = std::filesystem::path(argv[0]).filename().string();
   if (argc < 2) {
-    FRC_ERROR("Usage error: Please provide a config name, e.g., ./" << exec_name << " g1");
+    FRC_ERROR("Usage error: Please provide a config name, e.g., ./" << exec_name << " g1_unitree");
     return -1;
   }
   signal(SIGINT, close_all_threads);
 
   std::string config_path = std::string(PROJECT_SOURCE_DIR) + "/config/" + argv[1] + ".yaml";
-  cfg = std::make_shared<RobotConfig>(config_path);
+  if (argv[1] == std::string("g1_unitree")) {
+      cfg = std::make_shared<RobotConfig>(config_path);
+  } else if (argv[1] == std::string("g1_eman")) {
+      cfg = std::make_shared<EmanRobotConfig>(config_path);
+  } else {
+      throw std::runtime_error("Unsupported robot config: " + std::string(argv[1]));
+  }
+
   listener = std::make_shared<Listener>();
-  ctrl = std::make_shared<NeuralRunner>(cfg);
+  ctrl = std::make_shared<NeuralRunner>(cfg, argv[1]);
   sim = std::make_shared<MujocoManager>(
             cfg,
-            ctrl->getGyroPtr(),
-            ctrl->getMotorStatePtr(),
-            ctrl->getMotorTargetPtr());
+            ctrl->getJointCMDPtr(),
+            ctrl->getRobotStatusPtr());
 
   sim->setUserInputPtr(listener->getKeyInputPtr(), nullptr);
   ctrl->setInputPtr(listener->getKeyInputPtr(), nullptr);
 
-  // std::cin.get(); 
-
-  // 仅控制线程使用 std::thread，主线程负责 GUI（OpenGL）
   std::thread keyboard_thread(&Listener::listenKeyboard, listener);
   std::thread ctrl_thread(&StateMachine::run, ctrl);
+  std::thread comm_thread(&MujocoManager::run, sim);
+  std::thread integrate_thread(&MujocoManager::integrate, sim);
 
-  // 主线程执行 Mujoco 渲染（必须）
-  sim->run();
+  sim->renderLoop();
 
   // 关闭线程（在 sim.run() 退出后执行）
   ctrl->stop();
   listener->stop();
   ctrl_thread.join();
   keyboard_thread.join();
+  comm_thread.join();
+  integrate_thread.join();
 
   return 0;
 }

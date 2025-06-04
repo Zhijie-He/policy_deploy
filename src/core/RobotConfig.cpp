@@ -7,7 +7,6 @@ RobotConfig::RobotConfig(const std::string& yaml_path)
     // ========== 基础参数 ==========
     num_actions = root_["num_actions"].as<int>();
     num_obs = root_["num_obs"].as<int>();
-    simulation_duration = root_["simulation_duration"].as<float>();
     simulation_dt = root_["simulation_dt"].as<float>();
     control_decimation = root_["control_decimation"].as<int>();
 
