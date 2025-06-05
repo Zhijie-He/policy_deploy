@@ -13,7 +13,7 @@
 #include "core/EmanRobotConfig.h"
 #include "core/RobotConfig.h"
 #include "hardware/listener.h"
-#include "simulator/MujocoManager.h"  
+#include "real/G1Manager.h"  
 #include "utility/MathUtilities.h"
 #include "controller/ResetController.h"
 
@@ -54,7 +54,7 @@ private:
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;
 std::shared_ptr<Listener> listener = nullptr;
 std::shared_ptr<NeuralRunner> ctrl = nullptr;
-std::shared_ptr<MujocoManager> sim = nullptr; 
+std::shared_ptr<G1Manager> sim = nullptr; 
 
 void close_all_threads(int signum) {
   FRC_INFO("Interrupted with SIGINT: " << signum << "\n");
@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
 
   listener = std::make_shared<Listener>();
   ctrl = std::make_shared<NeuralRunner>(cfg, argv[1]);
-  sim = std::make_shared<MujocoManager>(
+  sim = std::make_shared<G1Manager>(
             cfg,
             ctrl->getJointCMDPtr(),
             ctrl->getRobotStatusPtr());
@@ -93,8 +93,8 @@ int main(int argc, char** argv) {
 
   std::thread keyboard_thread(&Listener::listenKeyboard, listener);
   std::thread ctrl_thread(&StateMachine::run, ctrl);
-  std::thread comm_thread(&MujocoManager::run, sim);
-  std::thread integrate_thread(&MujocoManager::integrate, sim);
+  std::thread comm_thread(&G1Manager::run, sim);
+  std::thread integrate_thread(&G1Manager::integrate, sim);
 
   sim->renderLoop();
 

@@ -1,14 +1,14 @@
-// MujocoManager.cpp
-#include "simulator/MujocoManager.h"
+// G1Manager.cpp
+#include "real/G1Manager.h"
 #include "utility/logger.h"
 #include "utility/timer.h"
 #include "utility/orientation_tools.h"
-#include "utility/pd_control.h"
 #include <cstring>
 #include <cmath>
 #include <thread>
+#include "utility/pd_control.h"
 
-MujocoManager::MujocoManager(std::shared_ptr<const BaseRobotConfig> cfg,
+G1Manager::G1Manager(std::shared_ptr<const BaseRobotConfig> cfg,
                              jointCMD* jointCMDPtr,
                              robotStatus* robotStatusPtr)
     : cfg_(cfg),
@@ -27,7 +27,7 @@ MujocoManager::MujocoManager(std::shared_ptr<const BaseRobotConfig> cfg,
   FRC_INFO("[MjcMgr.Const] Ready.");
 }
 
-void MujocoManager::initWorld() {
+void G1Manager::initWorld() {
   char error[1000] = "";
   mj_model_ = mj_loadXML(cfg_->xml_path.c_str(), nullptr, error, 1000);
   if (!mj_model_) {
@@ -53,7 +53,7 @@ void MujocoManager::initWorld() {
   FRC_INFO("[MjcMgr.initWorld]: XML Pos " <<oss.str());
 }
 
-void MujocoManager::initState() {
+void G1Manager::initState() {
   // ① 机器人状态变量
   gc_.setZero(gcDim_);      //  当前 generalized coordinate（广义坐标，位置）
   gv_.setZero(gvDim_);      //  当前 generalized velocity（广义速度）
@@ -71,7 +71,7 @@ void MujocoManager::initState() {
   tauCmd.setZero(jointDim_); //	最终输出的控制力矩（全体）
 }
 
-void MujocoManager::updateRobotState() {
+void G1Manager::updateRobotState() {
   Eigen::VectorXf positionVec, velocityVec;
   float timestamp;
 
@@ -91,7 +91,7 @@ void MujocoManager::updateRobotState() {
   }
 }
 
-void MujocoManager::launchServer() {
+void G1Manager::launchServer() {
   if (!glfwInit()) mju_error("Could not initialize GLFW");
   window_ = glfwCreateWindow(1200, 900, "MuJoCo Simulation", NULL, NULL);
   if (!window_) mju_error("Could not create GLFW window");
@@ -116,7 +116,7 @@ void MujocoManager::launchServer() {
     static bool first_move = true;
     static double lastx = 0.0, lasty = 0.0;
 
-    auto* mgr = static_cast<MujocoManager*>(glfwGetWindowUserPointer(window));
+    auto* mgr = static_cast<G1Manager*>(glfwGetWindowUserPointer(window));
     if (!mgr) return;
 
     if (first_move) {
@@ -148,7 +148,7 @@ void MujocoManager::launchServer() {
 
   // 鼠标滚轮缩放
   glfwSetScrollCallback(window_, [](GLFWwindow* window, double xoffset, double yoffset) {
-    auto* mgr = static_cast<MujocoManager*>(glfwGetWindowUserPointer(window));
+    auto* mgr = static_cast<G1Manager*>(glfwGetWindowUserPointer(window));
     if (!mgr) return;
     mjv_moveCamera(mgr->mj_model_, mjMOUSE_ZOOM, 0.0, -0.05 * yoffset, &mgr->scn_, &mgr->cam_);
   });
@@ -157,7 +157,7 @@ void MujocoManager::launchServer() {
   FRC_INFO("[MjcMgr.launchServer] GLFW Window: " << window_);
 }
 
-void MujocoManager::run() {
+void G1Manager::run() {
   Timer controlTimer(control_dt_);
   while (!glfwWindowShouldClose(window_) && running_) {
     auto action = std::make_shared<jointCMD>();
@@ -176,7 +176,7 @@ void MujocoManager::run() {
   }
 }
 
-void MujocoManager::integrate() {
+void G1Manager::integrate() {
   Timer worldTimer(control_dt_);
   while (!glfwWindowShouldClose(window_) && running_) {
     for (int i = 0; i < int(control_dt_ / simulation_dt_); i++) {
@@ -206,7 +206,7 @@ void MujocoManager::integrate() {
   }
 }
 
-void MujocoManager::renderLoop() {
+void G1Manager::renderLoop() {
   // 每秒渲染频率
   const float render_dt = 1.0 / 120.0;
   Timer renderTimer(render_dt);
@@ -225,7 +225,7 @@ void MujocoManager::renderLoop() {
   }
 }
 
-MujocoManager::~MujocoManager() {
+G1Manager::~G1Manager() {
   if (mj_data_) mj_deleteData(mj_data_);
   if (mj_model_) mj_deleteModel(mj_model_);
   mjv_freeScene(&scn_);

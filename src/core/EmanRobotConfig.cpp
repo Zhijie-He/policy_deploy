@@ -42,8 +42,7 @@ EmanRobotConfig::EmanRobotConfig(const std::string& yaml_path)
     obs_scale_projected_gravity_b = root_["obs_scale_projected_gravity_b"].as<float>();
     actor_joint_names = root_["actor_joint_names"].as<std::vector<std::string>>();
     env_joint_names = root_["env_joint_names"].as<std::vector<std::string>>();
-    FRC_INFO("actor_joint_names.size(): " << actor_joint_names.size());
-    
+
     // === 构建 actor2env 映射 ===
     actor2env.resize(env_joint_names.size());
     for (size_t i = 0; i < env_joint_names.size(); ++i) {

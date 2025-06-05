@@ -20,7 +20,7 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg)
     
   if (!cfg_->cmd_init.isZero()) {
       robotData.targetCMD = cfg_->cmd_init;
-      FRC_INFO("Initial target cmd: " << robotData.targetCMD.transpose()); 
+      FRC_INFO("[StateMachine.Const] Initial target cmd: " << robotData.targetCMD.transpose()); 
   }
 }
 

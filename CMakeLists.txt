@@ -55,5 +55,9 @@ set(COMMON_LIBS
 # target_link_libraries(deploy_raisim ${COMMON_LIBS})
 
 # MuJoCo 版本执行文件
-add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
-target_link_libraries(deploy_mujoco ${COMMON_LIBS})
+# add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
+# target_link_libraries(deploy_mujoco ${COMMON_LIBS})
+
+# G1真机部署
+add_executable(deploy_real exec/deploy_real.cpp ${SRC_FILES})
+target_link_libraries(deploy_real ${COMMON_LIBS})
