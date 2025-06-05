@@ -5,8 +5,8 @@
 
 RaisimManager::RaisimManager(
                 std::shared_ptr<const BaseRobotConfig> cfg,
-                jointCMD* jointCMDPtr,
-                robotStatus* robotStatusPtr)
+                std::shared_ptr<jointCMD> jointCMDPtr,
+                std::shared_ptr<robotStatus> robotStatusPtr)
     : cfg_(cfg),
       robotStatusPtr_(robotStatusPtr),
       jointCMDPtr_(jointCMDPtr),
@@ -120,7 +120,7 @@ void RaisimManager::run() {
 
     {
       std::lock_guard<std::mutex> actionLock(action_lock_);
-      memcpy(action.get(), jointCMDPtr_, sizeof(jointCMD));
+      memcpy(action.get(), jointCMDPtr_.get(), sizeof(jointCMD));
       memcpy(pTarget.data(), action->data.position, sizeof(float) * jointDim_);
       memcpy(vTarget.data(), action->data.velocity, sizeof(float) * jointDim_);
       memcpy(jointPGain.data(), action->data.kp, sizeof(float) * jointDim_);

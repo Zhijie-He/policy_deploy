@@ -14,8 +14,8 @@
 class G1Manager {
 public:
   G1Manager(std::shared_ptr<const BaseRobotConfig> cfg,
-                jointCMD* jointCMDPtr,
-                robotStatus* robotStatusPtr);
+                std::shared_ptr<jointCMD> jointCMDPtr,
+                std::shared_ptr<robotStatus> robotStatusPtr);
   ~G1Manager();
 
   void initWorld();
@@ -31,6 +31,8 @@ public:
 private:
   double lastx_ = 0, lasty_ = 0;
   std::shared_ptr<const BaseRobotConfig> cfg_;
+  std::shared_ptr<jointCMD> jointCMDPtr_;
+  std::shared_ptr<robotStatus> robotStatusPtr_;
 
   std::string robotName_;
   float control_dt_ = 2e-3;
@@ -41,9 +43,6 @@ private:
 
   int gcDim_ = 0, gvDim_ = 0;
   int jointDim_ = 0;
-
-  robotStatus* robotStatusPtr_ = nullptr;
-  jointCMD* jointCMDPtr_ = nullptr;
 
   JoystickData* joyPtr_ = nullptr;
   char* keyPtr_ = nullptr;

@@ -7,9 +7,9 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg)
     : cfg_(cfg)
 {
   // 1. 初始化底层设备数据结构
-  _robotStatus = new robotStatus();
-  _jointCMD = new jointCMD();
-  
+  _robotStatus = std::make_shared<robotStatus>();
+  _jointCMD = std::make_shared<jointCMD>();
+    
   // 2. 读取控制周期和关节数
   _policyDt = cfg_->getPolicyDt();
   _jointNum = cfg->num_actions;

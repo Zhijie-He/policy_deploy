@@ -10,8 +10,8 @@
 class RaisimManager {
 public:
   RaisimManager(std::shared_ptr<const BaseRobotConfig> cfg,
-                jointCMD* jointCMDPtr,
-                robotStatus* robotStatusPtr);
+                 std::shared_ptr<jointCMD> jointCMDPtr,
+                std::shared_ptr<robotStatus> robotStatusPtr);
   void initWorld();
   void loadRobotModel();
   void initState();
@@ -25,6 +25,8 @@ public:
 
 private:
   std::shared_ptr<const BaseRobotConfig> cfg_; 
+  std::shared_ptr<jointCMD> jointCMDPtr_;
+  std::shared_ptr<robotStatus> robotStatusPtr_;
 
   std::string robotName_;
   float control_dt_ = 2e-3;
@@ -36,9 +38,6 @@ private:
 
   int gcDim_ = 0, gvDim_ = 0;
   int jointDim_ = 0;
-
-  robotStatus* robotStatusPtr_ = nullptr;
-  jointCMD* jointCMDPtr_ = nullptr;
 
   JoystickData* joyPtr_ = nullptr;
   char* keyPtr_ = nullptr;

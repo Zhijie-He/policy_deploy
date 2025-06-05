@@ -14,8 +14,8 @@
 class MujocoManager {
 public:
   MujocoManager(std::shared_ptr<const BaseRobotConfig> cfg,
-                jointCMD* jointCMDPtr,
-                robotStatus* robotStatusPtr);
+                std::shared_ptr<jointCMD> jointCMDPtr,
+                std::shared_ptr<robotStatus> robotStatusPtr);
   ~MujocoManager();
 
   void initWorld();
@@ -42,8 +42,8 @@ private:
   int gcDim_ = 0, gvDim_ = 0;
   int jointDim_ = 0;
 
-  robotStatus* robotStatusPtr_ = nullptr;
-  jointCMD* jointCMDPtr_ = nullptr;
+  std::shared_ptr<jointCMD> jointCMDPtr_;
+  std::shared_ptr<robotStatus> robotStatusPtr_;
 
   JoystickData* joyPtr_ = nullptr;
   char* keyPtr_ = nullptr;

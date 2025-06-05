@@ -15,10 +15,11 @@ public:
     virtual void stop(); 
     
     void setInputPtr(char* key, JoystickData* joy) {_jsStates = joy; _keyState = key;}
-    robotStatus* getRobotStatusPtr() {return _robotStatus;}
-    jointCMD* getJointCMDPtr() {return _jointCMD;}
-    
-protected:
+
+    std::shared_ptr<robotStatus> getRobotStatusPtr() { return _robotStatus; }
+    std::shared_ptr<jointCMD> getJointCMDPtr() { return _jointCMD; }
+
+    protected:
     void parseRobotData();
     void updateCommands();
     void packJointAction();
@@ -32,8 +33,8 @@ protected:
     float _policyDt; // 表示策略（如神经网络、状态机）做决策的频率；
     float yawTarg = 0;
     
-    robotStatus* _robotStatus = nullptr;
-    jointCMD* _jointCMD = nullptr;
+    std::shared_ptr<robotStatus> _robotStatus;
+    std::shared_ptr<jointCMD> _jointCMD;
     
     CustomTypes::Action robotAction;
     CustomTypes::RobotData robotData;

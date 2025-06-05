@@ -4,8 +4,8 @@
 
 G1Sim2RealEnv::G1Sim2RealEnv(std::shared_ptr<const BaseRobotConfig> cfg, 
                             const std::string& net_interface,
-                            jointCMD* jointCMDPtr,
-                            robotStatus* robotStatusPtr)
+                            std::shared_ptr<jointCMD> jointCMDPtr,
+                            std::shared_ptr<robotStatus> robotStatusPtr)
     : cfg_(cfg),
       robotStatusPtr_(robotStatusPtr),
       jointCMDPtr_(jointCMDPtr),
