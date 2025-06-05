@@ -101,8 +101,15 @@ int main(int argc, char** argv) {
             net_interface,
             ctrl->getJointCMDPtr(),
             ctrl->getRobotStatusPtr());
-  sim->setUserInputPtr(listener->getKeyInputPtr(), nullptr);
+            
+  sim->setUserInputPtr(listener->getKeyInputPtr(), nullptr, listener);
   ctrl->setInputPtr(listener->getKeyInputPtr(), nullptr);
   
+  std::thread simuRobot_thread(&G1Sim2RealEnv::simulateRobot, sim);
+  
+  sim->zeroTorqueState();
+
+
+  simuRobot_thread.join();
   return 0;
 }

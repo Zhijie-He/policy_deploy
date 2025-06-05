@@ -33,10 +33,14 @@ public:
     
     virtual float getPolicyDt() const = 0;
 
+    // eman
+    std::string msg_type;
+    std::string lowcmd_topic;
+    std::string lowstate_topic;
     float obs_scale_projected_gravity_b;
     std::vector<std::string> actor_joint_names;
     std::vector<std::string> env_joint_names;
     std::vector<int> actor2env;
     std::vector<int> env2actor;
-    
+
 };

@@ -4,9 +4,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
-# 启用 AddressSanitizer 调试（可选）
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
-set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+# # 启用 AddressSanitizer 调试（可选）
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
+# set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 
 # 同时设置 libtorch 和 raisim 的路径
 set(CMAKE_PREFIX_PATH "$ENV{LIBTORCH_DIR};$ENV{RAISIM_DIR}")
@@ -21,6 +21,10 @@ pkg_check_modules(GLFW REQUIRED glfw3) # GLFW
 find_package(raisim CONFIG REQUIRED)
 message(STATUS "Found Raisim. " ${RAISIM_DIR})
 
+# 设置 Unitree SDK 根目录（请确认这个路径）
+set(UNITREE_SDK2_DIR "/home/alan/Desktop/deploy/unitree_sdk2")
+
+
 # 递归收集所有 .cpp 文件
 file(GLOB_RECURSE SRC_FILES
     ${CMAKE_SOURCE_DIR}/src/*.cpp
@@ -33,6 +37,11 @@ include_directories(
     ${RAISIM_DIR}
     ${MUJOCO_DIR}/include
     ${GLFW_INCLUDE_DIRS}
+
+    ${UNITREE_SDK2_DIR}/include
+    ${UNITREE_SDK2_DIR}/thirdparty/include
+    ${UNITREE_SDK2_DIR}/thirdparty/include/ddscxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/exec
 )
 
 # 设置库目录
@@ -40,6 +49,9 @@ link_directories(
     ${YAMLCPP_LIBRARY_DIRS}
     ${GLFW_LIBRARY_DIRS}
     ${MUJOCO_DIR}/lib 
+
+    ${UNITREE_SDK2_DIR}/lib/x86_64
+    ${UNITREE_SDK2_DIR}/thirdparty/lib/x86_64
 )
 
 set(COMMON_LIBS
@@ -48,6 +60,10 @@ set(COMMON_LIBS
     raisim::raisim
     ${GLFW_LIBRARIES}
     mujoco
+
+    unitree_sdk2
+    ddscxx
+    ddsc
 )
 
 # 添加 Raisim 可执行程序
@@ -55,9 +71,9 @@ set(COMMON_LIBS
 # target_link_libraries(deploy_raisim ${COMMON_LIBS})
 
 # MuJoCo 版本执行文件
-add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
-target_link_libraries(deploy_mujoco ${COMMON_LIBS})
+# add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
+# target_link_libraries(deploy_mujoco ${COMMON_LIBS})
 
 # G1真机部署
-# add_executable(deploy_real exec/deploy_real.cpp ${SRC_FILES})
-# target_link_libraries(deploy_real ${COMMON_LIBS})
+add_executable(deploy_real exec/deploy_real.cpp ${SRC_FILES})
+target_link_libraries(deploy_real ${COMMON_LIBS})
