@@ -29,7 +29,7 @@ cmd_init: [0.5, 0, 0]
 # custom
 robot_name: "g1"
 on_rack: false
-world_type: plain # only used for simulation
+world_type: multi-skill challenge # plain # only used for simulation
 urdf_path: "resources/robots/g1_description/g1_12dof_raisim_obj.urdf"
 homing_timesteps: 100
 homing:

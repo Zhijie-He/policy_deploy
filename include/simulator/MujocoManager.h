@@ -7,7 +7,6 @@
 #include <mutex>
 #include <Eigen/Core>
 #include <vector>
-
 #include "types/system_defined.h"
 #include "core/BaseRobotConfig.h"
 #include "types/joystickTypes.h"
@@ -20,7 +19,6 @@ public:
   ~MujocoManager();
 
   void initWorld();
-  void moveToDefaultPose();
   void initState();
   void launchServer();
   void renderLoop();
@@ -31,6 +29,7 @@ public:
   void setUserInputPtr(char* key, JoystickData* joy) { joyPtr_ = joy; keyPtr_ = key; }
 
 private:
+  double lastx_ = 0, lasty_ = 0;
   std::shared_ptr<const BaseRobotConfig> cfg_;
 
   std::string robotName_;

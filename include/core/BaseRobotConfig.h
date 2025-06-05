@@ -26,7 +26,10 @@ public:
 
     std::string policy_path;
     std::string xml_path;
+    std::string urdf_path;
     std::string robot_name;
+    std::string world_type;
+    std::string terrain_config_file;
     
     virtual float getPolicyDt() const = 0;
 

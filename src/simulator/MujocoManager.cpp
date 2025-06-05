@@ -20,7 +20,6 @@ MujocoManager::MujocoManager(std::shared_ptr<const BaseRobotConfig> cfg,
 {
   FRC_INFO("[MjcMgr.Const] Creating MuJoCo simulation for robot: " << robotName_);
   initWorld();
-  // moveToDefaultPose();
   initState();
   updateRobotState();
   launchServer();
@@ -45,68 +44,12 @@ void MujocoManager::initWorld() {
   FRC_INFO("[MjcMgr.initWorld] generalize Coordinate dimensions: " << gcDim_);
   FRC_INFO("[MjcMgr.initWorld] generalize Vel dimensions: " << gvDim_);
   FRC_INFO("[MjcMgr.initWorld] Joint Num: " << jointDim_);
-  // ✅ 输出导入后的 qpos
+
   FRC_INFO("[MjcMgr.initWorld] Initial qpos from XML:");
   std::ostringstream oss;
   for (int i = 0; i < gcDim_; ++i)
     oss << mj_data_->qpos[i] << " ";
   FRC_INFO(oss.str());
-}
-
-void MujocoManager::moveToDefaultPose() {
-  FRC_INFO("[MjcMgr.moveToDefaultPose] Setting default initial pose...");
-
-  // 默认 root 位置和姿态（单位四元数）
-  Eigen::Vector3d root_xyz(0.0, 0.0, 0.80);  // 站立高度
-  Eigen::Vector4d root_quat(1.0, 0.0, 0.0, 0.0);  // 无旋转：正立朝上
-
-  // 默认关节角度
-  const auto& default_angles = cfg_->default_angles;
-  assert(default_angles.size() == jointDim_);
-
-  {
-    std::lock_guard<std::mutex> lock(state_lock_);
-
-    // 🟡 打印修改前的 qpos 值
-    FRC_INFO("[MjcMgr.moveToDefaultPose] --- BEFORE SETTING ---");
-    FRC_INFO("qpos:");
-    std::ostringstream qpos_before;
-    for (int i = 0; i < gcDim_; ++i)
-      qpos_before << mj_data_->qpos[i] << " ";
-    FRC_INFO(qpos_before.str());
-
-    // 设置 qpos: root position (0–2), root quaternion (3–6), joint position (7+)
-    for (int i = 0; i < 3; ++i) mj_data_->qpos[i] = root_xyz[i];
-    for (int i = 0; i < 4; ++i) mj_data_->qpos[3 + i] = root_quat[i];
-    for (int i = 0; i < jointDim_; ++i) mj_data_->qpos[7 + i] = default_angles[i];
-
-    // 清零速度
-    for (int i = 0; i < gvDim_; ++i) mj_data_->qvel[i] = 0.0;
-
-    // 清零控制输入
-    for (int i = 0; i < jointDim_; ++i) mj_data_->ctrl[i] = 0.0;
-
-    // 应用新的状态（重要）
-    mj_forward(mj_model_, mj_data_);
-
-    // ✅ 可选：多步 mj_step 来稳定系统（比如站立机器人）
-    // for (int i = 0; i < 30; ++i) {
-    //   mj_step(mj_model_, mj_data_);
-    //   std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    // }
-
-    // 🟢 打印设置后的 qpos
-    FRC_INFO("[MjcMgr.moveToDefaultPose] --- AFTER SETTING ---");
-    std::ostringstream qpos_after;
-    for (int i = 0; i < gcDim_; ++i)
-      qpos_after << mj_data_->qpos[i] << " ";
-    FRC_INFO(qpos_after.str());
-
-    FRC_INFO("Root pos: " << root_xyz.transpose());
-    FRC_INFO("Root quat: " << root_quat.transpose());
-    FRC_INFO("Joint pos: " << default_angles.transpose());
-    FRC_INFO("[MjcMgr.moveToDefaultPose] Pose applied.");
-  }
 }
 
 void MujocoManager::initState() {
@@ -153,13 +96,61 @@ void MujocoManager::launchServer() {
   if (!window_) mju_error("Could not create GLFW window");
   glfwMakeContextCurrent(window_);
   glfwSwapInterval(1);
-
+  
+  // initialize visualization data structures
   mjv_defaultCamera(&cam_);
   mjv_defaultOption(&opt_);
   mjv_defaultScene(&scn_);
   mjr_defaultContext(&con_);
-  mjv_makeScene(mj_model_, &scn_, 1000);
+  
+  // create scene and context
+  mjv_makeScene(mj_model_, &scn_, 2000);
   mjr_makeContext(mj_model_, &con_, mjFONTSCALE_150);
+
+  // 给 GLFW 窗口设置 user pointer
+  glfwSetWindowUserPointer(window_, this);
+
+  // 鼠标拖动控制视角
+  glfwSetCursorPosCallback(window_, [](GLFWwindow* window, double xpos, double ypos) {
+    static bool first_move = true;
+    static double lastx = 0.0, lasty = 0.0;
+
+    auto* mgr = static_cast<MujocoManager*>(glfwGetWindowUserPointer(window));
+    if (!mgr) return;
+
+    if (first_move) {
+      lastx = xpos;
+      lasty = ypos;
+      first_move = false;
+    }
+
+    // 判断哪个按键被按下，决定动作类型
+    mjtMouse action = mjMOUSE_NONE;
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+      action = mjMOUSE_ROTATE_V;
+    else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
+      action = mjMOUSE_MOVE_V;
+    else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS)
+      action = mjMOUSE_ZOOM;
+
+    if (action != mjMOUSE_NONE) {
+      int width, height;
+      glfwGetWindowSize(window, &width, &height);
+      double dx = xpos - lastx;
+      double dy = ypos - lasty;
+      mjv_moveCamera(mgr->mj_model_, action, dx / height, dy / height, &mgr->scn_, &mgr->cam_);
+    }
+
+    lastx = xpos;
+    lasty = ypos;
+  });
+
+  // 鼠标滚轮缩放
+  glfwSetScrollCallback(window_, [](GLFWwindow* window, double xoffset, double yoffset) {
+    auto* mgr = static_cast<MujocoManager*>(glfwGetWindowUserPointer(window));
+    if (!mgr) return;
+    mjv_moveCamera(mgr->mj_model_, mjMOUSE_ZOOM, 0.0, -0.05 * yoffset, &mgr->scn_, &mgr->cam_);
+  });
 
   FRC_INFO("[MjcMgr.launchServer] GLFW Initialized");
   FRC_INFO("[MjcMgr.launchServer] GLFW Window: " << window_);

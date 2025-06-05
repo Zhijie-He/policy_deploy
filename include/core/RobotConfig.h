@@ -14,13 +14,10 @@ public:
 
     // ✅ 仅保留 custom 字段（属于该机器人独有）
     bool on_rack;
-    std::string world_type;
-    std::string urdf_path;
     int homing_timesteps;
     Eigen::VectorXf homingPos;
     Eigen::VectorXf homingKp;
     Eigen::VectorXf homingKd;
-    std::string terrain_config_file;
     
 private:
     YAML::Node root_;
