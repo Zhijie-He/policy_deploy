@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include "gamepad.hpp"
 
 // KeyMap 按键编号
 struct KeyMap {
@@ -27,7 +28,12 @@ class Listener {
   void stop() { isRunning_.store(false); }
   bool isRunning() const { return isRunning_.load(); }
   char* getKeyInputPtr() { return &key_input_; }
+  
   RemoteController remote;
+  
+  // unitree official
+  unitree::common::Gamepad gamepad_;
+  unitree::common::REMOTE_DATA_RX rx_;
 
  private:
   std::atomic<bool> isRunning_{true};

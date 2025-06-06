@@ -59,6 +59,7 @@ CustomTypes::Action EmanPolicyWrapper::getControlAction(const CustomTypes::Robot
     TORCH_CHECK(output.sizes() == torch::IntArrayRef({1, acDim}),
                 "Unexpected output shape from policy network");
     action = Eigen::Map<Eigen::VectorXf>(output.data_ptr<float>(), acDim);
+    
     // 4. clip 动作到合理范围 [-10, 10]
     for (int i = 0; i < action.size(); ++i) {
         if (action[i] > 10.0f) action[i] = 10.0f;

@@ -133,5 +133,15 @@ namespace CustomTypes {
     inline RobotData zeroData(int jointNum) {
       return RobotData(jointNum);
     }
+
+    struct MocapConfig{
+      std::string host;
+      int port;
+      int fps;
+    };
+
+    struct VlaConfig{
+      std::string path;
+    };
 };
 

@@ -21,9 +21,8 @@ pkg_check_modules(GLFW REQUIRED glfw3) # GLFW
 find_package(raisim CONFIG REQUIRED)
 message(STATUS "Found Raisim. " ${RAISIM_DIR})
 
-# 设置 Unitree SDK 根目录（请确认这个路径）
-set(UNITREE_SDK2_DIR "/home/alan/Desktop/deploy/unitree_sdk2")
-
+# 设置 Unitree SDK 根目录
+set(UNITREE_SDK2_DIR $ENV{UNITREE_SDK2_DIR})
 
 # 递归收集所有 .cpp 文件
 file(GLOB_RECURSE SRC_FILES
@@ -71,8 +70,8 @@ set(COMMON_LIBS
 # target_link_libraries(deploy_raisim ${COMMON_LIBS})
 
 # MuJoCo 版本执行文件
-# add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
-# target_link_libraries(deploy_mujoco ${COMMON_LIBS})
+add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
+target_link_libraries(deploy_mujoco ${COMMON_LIBS})
 
 # G1真机部署
 add_executable(deploy_real exec/deploy_real.cpp ${SRC_FILES})
