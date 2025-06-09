@@ -5,6 +5,7 @@
 #include <memory>
 #include <filesystem>
 #include <csignal>
+#include <mujoco/mujoco.h>
 #include "controller/NeuralController.h"
 #include "controller/PolicyWrapper.h"
 #include "controller/EmanPolicyWrapper.h"
@@ -70,6 +71,14 @@ int main(int argc, char** argv) {
     FRC_ERROR("Usage error: Please provide a config name, e.g., ./" << exec_name << " g1_unitree");
     return -1;
   }
+
+  // Mujoco版本检查
+  if (mjVERSION_HEADER != mj_version()) {
+    FRC_ERROR("MuJoCo header and library version mismatch!");
+    return -1;
+  }
+  FRC_INFO("MuJoCo Version: " << mj_version());
+
   signal(SIGINT, close_all_threads);
 
   std::string config_path = std::string(PROJECT_SOURCE_DIR) + "/config/" + argv[1] + ".yaml";
