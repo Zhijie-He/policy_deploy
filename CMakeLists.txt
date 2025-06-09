@@ -17,7 +17,7 @@ option(USE_UNITREE_SDK "Enable Unitree SDK support (only for Linux)" ${USE_UNITR
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
 # set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 
-set(CMAKE_PREFIX_PATH "$ENV{LIBTORCH_DIR};$ENV{RAISIM_DIR}") # 同时设置 libtorch 和 raisim 的路径
+set(CMAKE_PREFIX_PATH "$ENV{LIBTORCH_DIR}") # 设置 libtorch path 
 set(MUJOCO_DIR $ENV{MUJOCO_DIR})  # Set Mujoco path
 set(UNITREE_SDK2_DIR $ENV{UNITREE_SDK2_DIR}) # set Unitree SDK path
 
@@ -27,9 +27,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(YAMLCPP REQUIRED yaml-cpp)
 find_package(Eigen3 REQUIRED)
 pkg_check_modules(GLFW REQUIRED glfw3) # GLFW
-find_package(raisim CONFIG REQUIRED)
 
-message(STATUS "Found Raisim. " ${RAISIM_DIR})
 message(STATUS "System: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "USE_UNITREE_SDK: ${USE_UNITREE_SDK}")
 
@@ -48,7 +46,6 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${YAMLCPP_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
-    ${RAISIM_DIR}
     ${MUJOCO_DIR}/include
     ${GLFW_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/exec
@@ -65,7 +62,6 @@ link_directories(
 set(COMMON_LIBS
     ${TORCH_LIBRARIES}
     yaml-cpp
-    raisim::raisim
     ${GLFW_LIBRARIES}
     mujoco
 )
@@ -89,10 +85,6 @@ if (USE_UNITREE_SDK)
 endif()
 
 # ===== 添加可执行文件 =====
-
-# 添加 Raisim 可执行程序
-# add_executable(deploy_raisim exec/deploy_raisim.cpp ${SRC_FILES})
-# target_link_libraries(deploy_raisim ${COMMON_LIBS})
 
 # MuJoCo 版本执行文件
 add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
