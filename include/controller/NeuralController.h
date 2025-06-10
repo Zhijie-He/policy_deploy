@@ -23,4 +23,8 @@ protected:
 
     Eigen::VectorXf observation;
     Eigen::VectorXf action, actionPrev;
+    
+    int infer_count=0;
+    double infer_sum_us=0;
+    double infer_sum_sq_us=0;
 };

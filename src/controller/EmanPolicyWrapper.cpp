@@ -2,6 +2,7 @@
 #include <iostream>
 #include "utility/logger.h"
 #include "utility/timer.h"
+#include <chrono>
 
 EmanPolicyWrapper::EmanPolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg):
     NeuralController(cfg)  // 初始化基类
@@ -55,11 +56,25 @@ CustomTypes::Action EmanPolicyWrapper::getControlAction(const CustomTypes::Robot
     obTorch = torch::from_blob(observation.data(), {1, obDim}, torch::kFloat32).clone();
 
     // 3. 推理输出
-    auto output = module_.forward({obTorch}).toTensor();  // shape: [1, act_dim]
-    TORCH_CHECK(output.sizes() == torch::IntArrayRef({1, acDim}),
-                "Unexpected output shape from policy network");
-    action = Eigen::Map<Eigen::VectorXf>(output.data_ptr<float>(), acDim);
+    // auto output = module_.forward({obTorch}).toTensor();  // shape: [1, act_dim]
+    auto t_start = std::chrono::high_resolution_clock::now();
+    auto output = module_.forward({obTorch}).toTensor();
+    auto t_end = std::chrono::high_resolution_clock::now();
     
+    double infer_time_us = std::chrono::duration<double, std::micro>(t_end - t_start).count();
+    infer_sum_us += infer_time_us;
+    infer_sum_sq_us += infer_time_us * infer_time_us;
+    ++infer_count;
+
+    if (infer_count % 100 == 0) {
+        double avg = infer_sum_us / infer_count;
+        double stddev = std::sqrt(infer_sum_sq_us / infer_count - avg * avg);
+        std::cout << "[EmanPolicyWrapper.getControlAction] Inference AVG: " << avg << " us | STDDEV: " << stddev << " us\n";
+    }
+
+    TORCH_CHECK(output.sizes() == torch::IntArrayRef({1, acDim}), "Unexpected output shape from policy network");
+    action = Eigen::Map<Eigen::VectorXf>(output.data_ptr<float>(), acDim);
+
     // 4. clip 动作到合理范围 [-10, 10]
     for (int i = 0; i < action.size(); ++i) {
         if (action[i] > 10.0f) action[i] = 10.0f;
