@@ -81,17 +81,18 @@ int main(int argc, char** argv) {
 
   signal(SIGINT, close_all_threads);
 
-  std::string config_path = std::string(PROJECT_SOURCE_DIR) + "/config/" + argv[1] + ".yaml";
-  if (argv[1] == std::string("g1_unitree")) {
+  std::string config_name = argv[1];
+  std::string config_path = std::string(PROJECT_SOURCE_DIR) + "/config/" + config_name + ".yaml";
+  if (config_name == "g1_unitree") {
       cfg = std::make_shared<RobotConfig>(config_path);
-  } else if (argv[1] == std::string("g1_eman")) {
+  } else if (config_name == "g1_eman") {
       cfg = std::make_shared<EmanRobotConfig>(config_path);
   } else {
-      throw std::runtime_error("Unsupported robot config: " + std::string(argv[1]));
+      throw std::runtime_error("Unsupported robot config: " + std::string(config_name));
   }
 
   listener = std::make_shared<Listener>();
-  ctrl = std::make_shared<NeuralRunner>(cfg, argv[1]);
+  ctrl = std::make_shared<NeuralRunner>(cfg, config_name);
   sim = std::make_shared<MujocoManager>(
             cfg,
             ctrl->getJointCMDPtr(),

@@ -140,7 +140,8 @@ G1Sim2RealEnv::G1Sim2RealEnv(std::shared_ptr<const BaseRobotConfig> cfg,
     FRC_INFO("[G1Sim2RealEnv.Const] net_interface: " << net_interface);
 
     // initialize DDS communication
-    ChannelFactory::Instance()->Init(0); // net_interface.c_str());
+    // ChannelFactory::Instance()->Init(0, net_interface.c_str()); 
+    ChannelFactory::Instance()->Init(0);
 
     if(cfg_->msg_type == "hg"){
       // create publisher
@@ -197,6 +198,12 @@ void G1Sim2RealEnv::LowStateHandler(const void *message) {
   if (low_state_.crc() != Crc32Core((uint32_t *)&low_state_, (sizeof(LowState_) >> 2) - 1)) {
     FRC_ERROR("[G1Sim2RealEnv.LowStateHandler] CRC Error");
     return;
+  }
+
+  // 机器人类型模式更新
+  if (mode_machine_ != low_state_.mode_machine()) { // 检查当前程序记录的机器人类型（mode_machine_）是否与最新状态中的不一致
+    if (mode_machine_ == 0) FRC_INFO("[G1Sim2RealEnv.LowStateHandler] G1 type: " << unsigned(low_state_.mode_machine()))
+    mode_machine_ = low_state_.mode_machine(); // 因为类型是 uint8_t，用 unsigned(...) 是为了防止 char 类型被当作 ASCII 打印。
   }
 
   if (listenerPtr_) {
