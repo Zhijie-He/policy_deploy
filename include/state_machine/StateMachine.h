@@ -37,4 +37,8 @@ public:
 
     CustomTypes::Action robotAction;
     CustomTypes::RobotData robotData;
+
+    int run_count=0;
+    double run_sum_us=0;
+    double run_sum_sq_us=0;
 };

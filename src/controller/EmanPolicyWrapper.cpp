@@ -69,7 +69,7 @@ CustomTypes::Action EmanPolicyWrapper::getControlAction(const CustomTypes::Robot
     if (infer_count % 100 == 0) {
         double avg = infer_sum_us / infer_count;
         double stddev = std::sqrt(infer_sum_sq_us / infer_count - avg * avg);
-        std::cout << "[EmanPolicyWrapper.getControlAction] Inference AVG: " << avg << " us | STDDEV: " << stddev << " us\n";
+        // std::cout << "[EmanPolicyWrapper.getControlAction] Inference AVG: " << avg << " us | STDDEV: " << stddev << " us\n";
     }
 
     TORCH_CHECK(output.sizes() == torch::IntArrayRef({1, acDim}), "Unexpected output shape from policy network");

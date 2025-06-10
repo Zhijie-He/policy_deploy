@@ -3,6 +3,7 @@
 #include "utility/logger.h"
 #include "utility/orientation_tools.h"
 #include <thread>
+#include <chrono>
 
 StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg)
     : cfg_(cfg)
@@ -29,7 +30,22 @@ void StateMachine::run(){
   Timer _loopTimer(_policyDt); // 创建一个定时器，周期是 _policyDt 秒（比如 0.01s，表示 100Hz）
   // while(_loopTimer.getMs() < 100) _loopTimer.wait(); // 等待系统至少运行 100ms 再开始主循环，常用于启动缓冲/初始化等待。  这个的延迟好像会导致policy的大幅变化
   while(_isRunning){
+    
+    auto t_start = std::chrono::high_resolution_clock::now();
     step();
+    auto t_end = std::chrono::high_resolution_clock::now();
+    
+    double run_time_us = std::chrono::duration<double, std::micro>(t_end - t_start).count();
+    run_sum_us += run_time_us;
+    run_sum_sq_us += run_time_us * run_time_us;
+    ++run_count;
+
+    if (run_count % 100 == 0) {
+        double avg = run_sum_us / run_count;
+        double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
+        std::cout << "[StateMachine.run] Run AVG: " << avg << " us | STDDEV: " << stddev << " us\n";
+    }
+
     _loopTimer.wait(); 
   }
 }
@@ -62,7 +78,7 @@ void StateMachine::updateCommands(){
   Vec3f maxVelCmd{1.0, 0.3,0}; // 最大线速度限制（1.0 前进，0.3 横向，0 竖直）；
 
   /// keyboard input 2️⃣ 🔤 键盘输入控制逻辑
-  if (_keyState != nullptr && *_keyState != '\0') { // ✅ 有有效的键盘输入才继续处理。
+  if (_keyState != nullptr && *_keyState != '\0') { // 有有效的键盘输入才继续处理。
     //  构造键盘增量指令
     Vec3<float> deltaVelTarg{0, 0, 0};
     Vec3<float> deltaAngTarg{0, 0, 0};
