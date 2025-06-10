@@ -8,9 +8,6 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg)
     : cfg_(cfg)
 {
   // 1. 初始化底层设备数据结构
-  _robotStatus = std::make_shared<robotStatus>();
-  _jointCMD = std::make_shared<jointCMD>();
-
   _robotStatusBuffer = std::make_shared<DataBuffer<robotStatus>>();
   _jointCMDBuffer = std::make_shared<DataBuffer<jointCMD>>();
     
@@ -41,7 +38,7 @@ void StateMachine::parseRobotData() {
   assert(_robotStatusBuffer != nullptr);
   auto status_ptr = _robotStatusBuffer->GetData();
   while (!status_ptr) { // 这里存在有可能jointCMD还没有设定值 但是这里在读取 所以要等待
-    FRC_INFO("[StateMachine.parseRobotData] Waiting for _robotStatus data...");
+    FRC_INFO("[StateMachine.parseRobotData] Waiting for _robotStatusBuffer data...");
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
     status_ptr = _robotStatusBuffer->GetData();  // 重新尝试获取
   }
@@ -56,18 +53,6 @@ void StateMachine::parseRobotData() {
   robotData.baseVelocity = Eigen::Map<const Eigen::Vector3f>(status.data.velocity);
   robotData.baseOmega    = Eigen::Map<const Eigen::Vector3f>(status.data.velocity + 3);
   robotData.jointVelocity = Eigen::Map<const Eigen::VectorXf>(status.data.velocity + 6, _jointNum);
-
-
-  // assert(_robotStatus != nullptr);
-  // robotData.timestamp = _robotStatus->data.timestamp;
-
-  // robotData.basePosition = Eigen::Map<Eigen::Vector3f>(_robotStatus->data.position);
-  // robotData.baseQuat     = Eigen::Map<Eigen::Vector4f>(_robotStatus->data.position + 3);
-  // robotData.jointPosition = Eigen::Map<Eigen::VectorXf>(_robotStatus->data.position + 7, _jointNum);
-
-  // robotData.baseVelocity = Eigen::Map<Eigen::Vector3f>(_robotStatus->data.velocity);
-  // robotData.baseOmega    = Eigen::Map<Eigen::Vector3f>(_robotStatus->data.velocity + 3);
-  // robotData.jointVelocity = Eigen::Map<Eigen::VectorXf>(_robotStatus->data.velocity + 6, _jointNum);
 }
 
 void StateMachine::stop() { _isRunning = false; }
@@ -143,13 +128,6 @@ void StateMachine::updateCommands(){
 }
 
 void StateMachine::packJointAction(){
-  // assert(_jointCMD != nullptr);
-  // _jointCMD->data.timestamp = robotAction.timestamp;
-  // memcpy(_jointCMD->data.position, robotAction.motorPosition.data(), _jointNum * sizeof(float));
-  // memcpy(_jointCMD->data.velocity, robotAction.motorVelocity.data(), _jointNum * sizeof(float));
-  // memcpy(_jointCMD->data.kp, robotAction.kP.data(), _jointNum * sizeof(float));
-  // memcpy(_jointCMD->data.kd, robotAction.kD.data(), _jointNum * sizeof(float));
-
   assert(_jointCMDBuffer != nullptr);
   jointCMD cmd;
   cmd.data.timestamp = robotAction.timestamp;

@@ -6,51 +6,17 @@
 #include <filesystem>
 #include <csignal>
 #include "controller/NeuralController.h"
-#include "controller/PolicyWrapper.h"
-#include "controller/EmanPolicyWrapper.h"
-#include "state_machine/StateMachine.h"
-#include "core/BaseRobotConfig.h"
+#include "state_machine/NeuralRunner.h"
 #include "core/EmanRobotConfig.h"
 #include "core/RobotConfig.h"
 #include "hardware/listener.h"
 #include "real/G1Sim2RealEnv.h"  
 #include "utility/MathUtilities.h"
-#include "controller/ResetController.h"
 #include "types/CustomTypes.h"
 
 #define LOG_USE_COLOR 1
 #define LOG_USE_PREFIX 1
 #include "utility/logger.h"
-
-class NeuralRunner: public StateMachine {
-public:
-  explicit NeuralRunner(std::shared_ptr<const BaseRobotConfig> cfg, const std::string& robot_name) : StateMachine(cfg) {
-    FRC_INFO("[NeuralRunner.Const] NeuralRunner init");
-   
-    if (robot_name == "g1_unitree") {
-      _neuralCtrl = std::make_unique<PolicyWrapper>(cfg);
-    } else if (robot_name == "g1_eman") {
-      _neuralCtrl = std::make_unique<EmanPolicyWrapper>(cfg);
-    } else {
-      throw std::runtime_error("Unsupported robot: " + robot_name);
-    }
-  }
-
-  void step() override {
-    parseRobotData();
-    updateCommands();
-    robotAction = _neuralCtrl->getControlAction(robotData);
-    packJointAction();
-    if (*_keyState != '\0') *_keyState = '\0';
-  }
-
-  void stop() override {
-    _isRunning = false;
-  }
-
-private:
-  std::unique_ptr<NeuralController> _neuralCtrl;
-};
 
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;
 std::shared_ptr<Listener> listener = nullptr;
@@ -64,7 +30,6 @@ void close_all_threads(int signum) {
   if (ctrl != nullptr) ctrl->stop();
   std::exit(0);
 }
-
 
 int main(int argc, char** argv) {
   std::string exec_name = std::filesystem::path(argv[0]).filename().string();

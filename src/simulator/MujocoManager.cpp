@@ -50,6 +50,9 @@ void MujocoManager::initWorld() {
   for (int i = 0; i < gcDim_; ++i)
     oss << mj_data_->qpos[i] << " ";
   FRC_INFO("[MjcMgr.initWorld]: XML Pos " <<oss.str());
+
+  // for (int i = 0; i < jointDim_; ++i)
+  //   mj_data_->qpos[7 + i] = cfg_->default_angles[i];  // 必须确保 your_default_joint_pos.size() == jointDim_
 }
 
 void MujocoManager::initState() {
@@ -58,15 +61,11 @@ void MujocoManager::initState() {
   gv_.setZero(gvDim_);      //  当前 generalized velocity（广义速度）
 
   // ② 控制增益
-  // jointPGain = cfg_->kP;
-  // jointDGain = cfg_->kD;
   jointPGain.setZero(jointDim_); 
   jointDGain.setZero(jointDim_); 
 
   // ③ 动作目标
-  // pTarget = cfg_->default_angles;// desired position（用于位置控制）
-  // FRC_INFO("[MjcMgr.initState] default_angles: " << cfg_->default_angles.transpose());
-  pTarget = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, jointDim_).cast<float>();
+  pTarget.setZero(jointDim_); // desired position（用于位置控制）
   vTarget.setZero(jointDim_); // desired velocity（用于速度控制）
 
   // ④ 力矩命令
@@ -163,9 +162,8 @@ void MujocoManager::launchServer() {
 void MujocoManager::run() {
   Timer controlTimer(control_dt_);
   while (!glfwWindowShouldClose(window_) && running_) {
-    auto actionPtr = jointCMDBufferPtr_->GetData();  // 返回的是 std::shared_ptr<const jointCMD>
-    while (!actionPtr) { // 这里存在有可能jointCMD还没有设定值 但是这里在读取 所以要等待
-      // FRC_INFO("[MujocoManager.run] Waiting for jointCMD data...");
+    auto actionPtr = jointCMDBufferPtr_->GetData();
+    while (!actionPtr) { // 等待policy 传递action
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       actionPtr = jointCMDBufferPtr_->GetData();  // 重新尝试获取
     }

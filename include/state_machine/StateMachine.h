@@ -15,10 +15,6 @@ public:
     virtual void stop(); 
     
     void setInputPtr(char* key, JoystickData* joy) {_jsStates = joy; _keyState = key;}
-
-    std::shared_ptr<robotStatus> getRobotStatusPtr() { return _robotStatus; }
-    std::shared_ptr<jointCMD> getJointCMDPtr() { return _jointCMD; }
-    
     std::shared_ptr<DataBuffer<robotStatus>> getRobotStatusBufferPtr() const {return _robotStatusBuffer;}
     std::shared_ptr<DataBuffer<jointCMD>> getJointCMDBufferPtr() const {return _jointCMDBuffer;}
 
@@ -33,11 +29,8 @@ public:
 
     bool _isRunning = true;
     int _jointNum;
-    float _policyDt; // 表示策略（如神经网络、状态机）做决策的频率；
+    float _policyDt;
     float yawTarg = 0;
-    
-    std::shared_ptr<robotStatus> _robotStatus;
-    std::shared_ptr<jointCMD> _jointCMD;
 
     std::shared_ptr<DataBuffer<robotStatus>> _robotStatusBuffer;
     std::shared_ptr<DataBuffer<jointCMD>> _jointCMDBuffer;
