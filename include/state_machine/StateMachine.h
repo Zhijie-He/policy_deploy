@@ -5,7 +5,7 @@
 #include "types/joystickTypes.h"
 #include "types/system_defined.h"
 #include "types/CustomTypes.h"
-
+#include "utility/data_buffer.h"
 
 class StateMachine {
 public:
@@ -18,6 +18,9 @@ public:
 
     std::shared_ptr<robotStatus> getRobotStatusPtr() { return _robotStatus; }
     std::shared_ptr<jointCMD> getJointCMDPtr() { return _jointCMD; }
+    
+    std::shared_ptr<DataBuffer<robotStatus>> getRobotStatusBufferPtr() const {return _robotStatusBuffer;}
+    std::shared_ptr<DataBuffer<jointCMD>> getJointCMDBufferPtr() const {return _jointCMDBuffer;}
 
     protected:
     void parseRobotData();
@@ -35,7 +38,10 @@ public:
     
     std::shared_ptr<robotStatus> _robotStatus;
     std::shared_ptr<jointCMD> _jointCMD;
-    
+
+    std::shared_ptr<DataBuffer<robotStatus>> _robotStatusBuffer;
+    std::shared_ptr<DataBuffer<jointCMD>> _jointCMDBuffer;
+
     CustomTypes::Action robotAction;
     CustomTypes::RobotData robotData;
 };

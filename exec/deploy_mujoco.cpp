@@ -95,8 +95,8 @@ int main(int argc, char** argv) {
   ctrl = std::make_shared<NeuralRunner>(cfg, config_name);
   sim = std::make_shared<MujocoManager>(
             cfg,
-            ctrl->getJointCMDPtr(),
-            ctrl->getRobotStatusPtr());
+            ctrl->getJointCMDBufferPtr(),
+            ctrl->getRobotStatusBufferPtr());
 
   sim->setUserInputPtr(listener->getKeyInputPtr(), nullptr);
   ctrl->setInputPtr(listener->getKeyInputPtr(), nullptr);

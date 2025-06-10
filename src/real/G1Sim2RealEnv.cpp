@@ -202,7 +202,7 @@ void G1Sim2RealEnv::LowStateHandler(const void *message) {
 
   // 机器人类型模式更新
   if (mode_machine_ != low_state_.mode_machine()) { // 检查当前程序记录的机器人类型（mode_machine_）是否与最新状态中的不一致
-    if (mode_machine_ == 0) FRC_INFO("[G1Sim2RealEnv.LowStateHandler] G1 type: " << unsigned(low_state_.mode_machine()))
+    if (mode_machine_ == 0) FRC_INFO("[G1Sim2RealEnv.LowStateHandler] G1 type: " << unsigned(low_state_.mode_machine()));
     mode_machine_ = low_state_.mode_machine(); // 因为类型是 uint8_t，用 unsigned(...) 是为了防止 char 类型被当作 ASCII 打印。
   }
 

@@ -9,11 +9,11 @@
 #include <thread>
 
 MujocoManager::MujocoManager(std::shared_ptr<const BaseRobotConfig> cfg,
-                            std::shared_ptr<jointCMD> jointCMDPtr,
-                            std::shared_ptr<robotStatus> robotStatusPtr)
+                            std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
+                            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr)
     : cfg_(cfg),
-      robotStatusPtr_(robotStatusPtr),
-      jointCMDPtr_(jointCMDPtr),
+      robotStatusBufferPtr_(robotStatusBufferPtr),
+      jointCMDBufferPtr_(jointCMDBufferPtr),
       robotName_(cfg->robot_name),
       control_dt_(cfg->getPolicyDt()),
       simulation_dt_(cfg->simulation_dt)
@@ -84,10 +84,15 @@ void MujocoManager::updateRobotState() {
     timestamp = mj_data_->time;
   }
 
-  if (robotStatusPtr_) {
-    std::memcpy(robotStatusPtr_->data.position, positionVec.data(), gcDim_ * sizeof(float));
-    std::memcpy(robotStatusPtr_->data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
-    robotStatusPtr_->data.timestamp = timestamp;
+  if (robotStatusBufferPtr_) {
+    // ✅ 构造结构体
+    robotStatus status;
+    std::memcpy(status.data.position, positionVec.data(), gcDim_ * sizeof(float));
+    std::memcpy(status.data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
+    status.data.timestamp = timestamp;
+
+    // ✅ 写入 DataBuffer（自动加锁）
+    robotStatusBufferPtr_->SetData(status);
   }
 }
 
@@ -160,16 +165,20 @@ void MujocoManager::launchServer() {
 void MujocoManager::run() {
   Timer controlTimer(control_dt_);
   while (!glfwWindowShouldClose(window_) && running_) {
-    auto action = std::make_shared<jointCMD>();
-
-    {
-      std::lock_guard<std::mutex> actionLock(action_lock_);
-      memcpy(action.get(), jointCMDPtr_.get(), sizeof(jointCMD));
-      memcpy(pTarget.data(), action->data.position, sizeof(float) * jointDim_);
-      memcpy(vTarget.data(), action->data.velocity, sizeof(float) * jointDim_);
-      memcpy(jointPGain.data(), action->data.kp, sizeof(float) * jointDim_);
-      memcpy(jointDGain.data(), action->data.kd, sizeof(float) * jointDim_);
+    // // 从 DataBuffer 中读取一个快照（只读，不需要加锁）
+    auto actionPtr = jointCMDBufferPtr_->GetData();  // 返回的是 std::shared_ptr<const jointCMD>
+    while (!actionPtr) { // 这里存在有可能jointCMD还没有设定值 但是这里在读取 所以要等待
+      FRC_INFO("[MujocoManager.run] Waiting for jointCMD data...");
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      actionPtr = jointCMDBufferPtr_->GetData();  // 重新尝试获取
     }
+
+    // 直接解引用使用数据（推荐写法）
+    const auto& cmd = *actionPtr;
+    memcpy(pTarget.data(), cmd.data.position, sizeof(float) * jointDim_);
+    memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
+    memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
+    memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
 
     if (isStatesReady) updateRobotState();
     controlTimer.wait();

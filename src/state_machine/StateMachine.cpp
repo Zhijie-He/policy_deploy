@@ -9,6 +9,9 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg)
   // 1. 初始化底层设备数据结构
   _robotStatus = std::make_shared<robotStatus>();
   _jointCMD = std::make_shared<jointCMD>();
+
+  _robotStatusBuffer = std::make_shared<DataBuffer<robotStatus>>();
+  _jointCMDBuffer = std::make_shared<DataBuffer<jointCMD>>();
     
   // 2. 读取控制周期和关节数
   _policyDt = cfg_->getPolicyDt();
@@ -34,17 +37,32 @@ void StateMachine::run(){
 }
 
 void StateMachine::parseRobotData() {
-  assert(_robotStatus != nullptr);
+  
+  assert(_robotStatusBuffer != nullptr);
+  // 从 DataBuffer 中获取快照
+  auto status_ptr = _robotStatusBuffer->GetData();
+  const auto& status = *status_ptr;  // 解引用拿结构体  ✅✅ 推荐：零拷贝 + 明确只读引用
+  robotData.timestamp = status.data.timestamp;
 
-  robotData.timestamp = _robotStatus->data.timestamp;
+  robotData.basePosition = Eigen::Map<const Eigen::Vector3f>(status.data.position);
+  robotData.baseQuat     = Eigen::Map<const Eigen::Vector4f>(status.data.position + 3);
+  robotData.jointPosition = Eigen::Map<const Eigen::VectorXf>(status.data.position + 7, _jointNum);
 
-  robotData.basePosition = Eigen::Map<Eigen::Vector3f>(_robotStatus->data.position);
-  robotData.baseQuat     = Eigen::Map<Eigen::Vector4f>(_robotStatus->data.position + 3);
-  robotData.jointPosition = Eigen::Map<Eigen::VectorXf>(_robotStatus->data.position + 7, _jointNum);
+  robotData.baseVelocity = Eigen::Map<const Eigen::Vector3f>(status.data.velocity);
+  robotData.baseOmega    = Eigen::Map<const Eigen::Vector3f>(status.data.velocity + 3);
+  robotData.jointVelocity = Eigen::Map<const Eigen::VectorXf>(status.data.velocity + 6, _jointNum);
 
-  robotData.baseVelocity = Eigen::Map<Eigen::Vector3f>(_robotStatus->data.velocity);
-  robotData.baseOmega    = Eigen::Map<Eigen::Vector3f>(_robotStatus->data.velocity + 3);
-  robotData.jointVelocity = Eigen::Map<Eigen::VectorXf>(_robotStatus->data.velocity + 6, _jointNum);
+
+  // assert(_robotStatus != nullptr);
+  // robotData.timestamp = _robotStatus->data.timestamp;
+
+  // robotData.basePosition = Eigen::Map<Eigen::Vector3f>(_robotStatus->data.position);
+  // robotData.baseQuat     = Eigen::Map<Eigen::Vector4f>(_robotStatus->data.position + 3);
+  // robotData.jointPosition = Eigen::Map<Eigen::VectorXf>(_robotStatus->data.position + 7, _jointNum);
+
+  // robotData.baseVelocity = Eigen::Map<Eigen::Vector3f>(_robotStatus->data.velocity);
+  // robotData.baseOmega    = Eigen::Map<Eigen::Vector3f>(_robotStatus->data.velocity + 3);
+  // robotData.jointVelocity = Eigen::Map<Eigen::VectorXf>(_robotStatus->data.velocity + 6, _jointNum);
 }
 
 
@@ -122,10 +140,26 @@ void StateMachine::updateCommands(){
 }
 
 void StateMachine::packJointAction(){
-  assert(_jointCMD != nullptr);
-  _jointCMD->data.timestamp = robotAction.timestamp;
-  memcpy(_jointCMD->data.position, robotAction.motorPosition.data(), _jointNum * sizeof(float));
-  memcpy(_jointCMD->data.velocity, robotAction.motorVelocity.data(), _jointNum * sizeof(float));
-  memcpy(_jointCMD->data.kp, robotAction.kP.data(), _jointNum * sizeof(float));
-  memcpy(_jointCMD->data.kd, robotAction.kD.data(), _jointNum * sizeof(float));
+  // assert(_jointCMD != nullptr);
+  // _jointCMD->data.timestamp = robotAction.timestamp;
+  // memcpy(_jointCMD->data.position, robotAction.motorPosition.data(), _jointNum * sizeof(float));
+  // memcpy(_jointCMD->data.velocity, robotAction.motorVelocity.data(), _jointNum * sizeof(float));
+  // memcpy(_jointCMD->data.kp, robotAction.kP.data(), _jointNum * sizeof(float));
+  // memcpy(_jointCMD->data.kd, robotAction.kD.data(), _jointNum * sizeof(float));
+
+  assert(_jointCMDBuffer != nullptr);
+  jointCMD cmd;
+  cmd.data.timestamp = robotAction.timestamp;
+  memcpy(cmd.data.position, robotAction.motorPosition.data(), _jointNum * sizeof(float));
+  memcpy(cmd.data.velocity, robotAction.motorVelocity.data(), _jointNum * sizeof(float));
+  memcpy(cmd.data.kp, robotAction.kP.data(), _jointNum * sizeof(float));
+  memcpy(cmd.data.kd, robotAction.kD.data(), _jointNum * sizeof(float));
+  // FRC_INFO("[SetData] timestamp = " << cmd.data.timestamp << ", pos[0] = " << cmd.data.position[0]);
+  _jointCMDBuffer->SetData(cmd);
+  auto actionPtr = _jointCMDBuffer->GetData();
+  if (!actionPtr) return;
+  const auto& cmd2 = *actionPtr;
+  Eigen::Map<const Eigen::VectorXf> posVec(cmd2.data.position, _jointNum);
+  // FRC_INFO("[getData] timestamp = " << cmd2.data.timestamp << ", pos = " << posVec.transpose());
+
 }

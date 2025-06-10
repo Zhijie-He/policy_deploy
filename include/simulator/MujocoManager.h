@@ -10,12 +10,14 @@
 #include "types/system_defined.h"
 #include "core/BaseRobotConfig.h"
 #include "types/joystickTypes.h"
-
+#include "utility/data_buffer.h"
+ 
 class MujocoManager {
 public:
   MujocoManager(std::shared_ptr<const BaseRobotConfig> cfg,
-                std::shared_ptr<jointCMD> jointCMDPtr,
-                std::shared_ptr<robotStatus> robotStatusPtr);
+                std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
+                std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);
+
   ~MujocoManager();
 
   void initWorld();
@@ -42,8 +44,8 @@ private:
   int gcDim_ = 0, gvDim_ = 0;
   int jointDim_ = 0;
 
-  std::shared_ptr<jointCMD> jointCMDPtr_;
-  std::shared_ptr<robotStatus> robotStatusPtr_;
+  std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr_;
+  std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr_;
 
   JoystickData* joyPtr_ = nullptr;
   char* keyPtr_ = nullptr;
