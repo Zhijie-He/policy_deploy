@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
 
   sim->setUserInputPtr(listener->getKeyInputPtr(), nullptr);
   ctrl->setInputPtr(listener->getKeyInputPtr(), nullptr);
-
+    
   std::thread keyboard_thread(&Listener::listenKeyboard, listener);
   std::thread ctrl_thread(&StateMachine::run, ctrl);
   std::thread comm_thread(&MujocoManager::run, sim);
@@ -108,7 +108,6 @@ int main(int argc, char** argv) {
 
   sim->renderLoop();
 
-  // 关闭线程（在 sim.run() 退出后执行）
   ctrl->stop();
   listener->stop();
   ctrl_thread.join();

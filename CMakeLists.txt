@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.14)
 project(policy_depoly)
+## Set compiler to use c++ 17 features
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
 # only use unitree sdk in linux system

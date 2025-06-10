@@ -11,7 +11,7 @@
 #include "core/BaseRobotConfig.h"
 #include "types/joystickTypes.h"
 #include "utility/data_buffer.h"
- 
+
 class MujocoManager {
 public:
   MujocoManager(std::shared_ptr<const BaseRobotConfig> cfg,
@@ -57,6 +57,7 @@ private:
   Eigen::VectorXf pTarget, vTarget;
   Eigen::VectorXf tauCmd;
   Eigen::VectorXf jointPGain, jointDGain;
+  std::atomic<bool> isFirstActionReceived = false;
 
   // MuJoCo core members
   mjModel* mj_model_ = nullptr;

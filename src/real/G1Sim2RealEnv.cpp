@@ -73,12 +73,12 @@ uint32_t Crc32Core(uint32_t *ptr, uint32_t len) {
 
 G1Sim2RealEnv::G1Sim2RealEnv(std::shared_ptr<const BaseRobotConfig> cfg, 
                             const std::string& net_interface,
-                            std::shared_ptr<jointCMD> jointCMDPtr,
-                            std::shared_ptr<robotStatus> robotStatusPtr)
+                            std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
+                            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr)
     : cfg_(cfg),
       net_interface_(net_interface),
-      robotStatusPtr_(robotStatusPtr),
-      jointCMDPtr_(jointCMDPtr),
+      jointCMDBufferPtr_(jointCMDBufferPtr),
+      robotStatusBufferPtr_(robotStatusBufferPtr),
       control_dt_(cfg->getPolicyDt()),
       mode_pr_(Mode::PR),
       mode_machine_(0)
@@ -117,8 +117,8 @@ G1Sim2RealEnv::G1Sim2RealEnv(std::shared_ptr<const BaseRobotConfig> cfg,
 
 G1Sim2RealEnv::G1Sim2RealEnv(std::shared_ptr<const BaseRobotConfig> cfg,
                 const std::string& net_interface,
-                std::shared_ptr<jointCMD> jointCMDPtr,
-                std::shared_ptr<robotStatus> robotStatusPtr,
+                std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
+                std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr,
                 const std::string& mode,
                 const std::string& track,
                 const std::vector<std::string>& track_list,
@@ -126,8 +126,8 @@ G1Sim2RealEnv::G1Sim2RealEnv(std::shared_ptr<const BaseRobotConfig> cfg,
                 std::shared_ptr<CustomTypes::VlaConfig> vla_cfg)
     : cfg_(cfg),
       net_interface_(net_interface),
-      robotStatusPtr_(robotStatusPtr),
-      jointCMDPtr_(jointCMDPtr),
+      jointCMDBufferPtr_(jointCMDBufferPtr),
+      robotStatusBufferPtr_(robotStatusBufferPtr),
       control_dt_(cfg->getPolicyDt()),
       mode_pr_(Mode::PR),
       mode_machine_(0),
@@ -207,14 +207,6 @@ void G1Sim2RealEnv::LowStateHandler(const void *message) {
   }
 
   if (listenerPtr_) {
-    // TODO
-    // listenerPtr_->remote.set(low_state.wireless_remote().data());
-    // FRC_INFO("[Remote] Axis: " << listenerPtr_->remote.button[KeyMap::start]);
-    // FRC_INFO("[G1Sim2RealEnv.LowStateHandler] lx: " << listenerPtr_->remote.lx
-    //       << " rx: " << listenerPtr_->remote.rx
-    //       << " ry: " << listenerPtr_->remote.ry
-    //       << " ly: " << listenerPtr_->remote.ly);
-    
     // update gamepad
     memcpy(listenerPtr_->rx_.buff, &low_state_.wireless_remote()[0], 40);
     listenerPtr_->gamepad_.update(listenerPtr_->rx_.RF_RX);
@@ -279,10 +271,12 @@ void G1Sim2RealEnv::updateRobotState() {
   }
 
   // === 更新 robotStatus 共享结构 ===
-  if (robotStatusPtr_) {
-    std::memcpy(robotStatusPtr_->data.position, positionVec.data(), gcDim_ * sizeof(float));
-    std::memcpy(robotStatusPtr_->data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
-    robotStatusPtr_->data.timestamp = timestamp;
+  if (robotStatusBufferPtr_) {
+    robotStatus status;
+    memcpy(status.data.position, positionVec.data(), gcDim_ * sizeof(float));
+    memcpy(status.data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
+    status.data.timestamp = timestamp;
+    robotStatusBufferPtr_->SetData(status);
   }
 }
 
@@ -413,19 +407,20 @@ void G1Sim2RealEnv::run() {
   while (running_) {
     counter_++;
 
+    auto actionPtr = jointCMDBufferPtr_->GetData();  // 返回的是 std::shared_ptr<const jointCMD>
+    while (!actionPtr) { 
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      actionPtr = jointCMDBufferPtr_->GetData();  // 重新尝试获取
+    }
+
     auto action = std::make_shared<jointCMD>();
     {
       std::lock_guard<std::mutex> actionLock(action_lock_);
-
-      // if ((counter_ % 30 == 0) && (track_ == "cmd")) {
-      //   FRC_INFO("[G1Sim2RealEnv.run] KeyBoard Controller status: " << RobotData->TargetCMD);
-      // }
-
-      std::memcpy(action.get(), jointCMDPtr_.get(), sizeof(jointCMD));
-      std::memcpy(pTarget.data(), action->data.position, sizeof(float) * jointDim_);
-      std::memcpy(vTarget.data(), action->data.velocity, sizeof(float) * jointDim_);
-      std::memcpy(jointPGain.data(), action->data.kp, sizeof(float) * jointDim_);
-      std::memcpy(jointDGain.data(), action->data.kd, sizeof(float) * jointDim_);
+      const auto& cmd = *actionPtr;
+      memcpy(pTarget.data(), cmd.data.position, sizeof(float) * jointDim_);
+      memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
+      memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
+      memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
 
       for (int i = 0; i < jointDim_; ++i) {
         low_cmd_.motor_cmd()[i].q()   = pTarget[i];

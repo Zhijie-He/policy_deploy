@@ -45,7 +45,6 @@ void MujocoManager::initWorld() {
   FRC_INFO("[MjcMgr.initWorld] generalize Coordinate dimensions: " << gcDim_);
   FRC_INFO("[MjcMgr.initWorld] generalize Vel dimensions: " << gvDim_);
   FRC_INFO("[MjcMgr.initWorld] Joint Num: " << jointDim_);
-
   FRC_INFO("[MjcMgr.initWorld] Initial qpos from XML:");
   std::ostringstream oss;
   for (int i = 0; i < gcDim_; ++i)
@@ -59,12 +58,15 @@ void MujocoManager::initState() {
   gv_.setZero(gvDim_);      //  当前 generalized velocity（广义速度）
 
   // ② 控制增益
-  jointPGain = cfg_->kP;
-  jointDGain = cfg_->kD;
+  // jointPGain = cfg_->kP;
+  // jointDGain = cfg_->kD;
+  jointPGain.setZero(jointDim_); 
+  jointDGain.setZero(jointDim_); 
 
   // ③ 动作目标
-  pTarget = cfg_->default_angles;// desired position（用于位置控制）
-  FRC_INFO("[MjcMgr.initState] default_angles: " << cfg_->default_angles.transpose());
+  // pTarget = cfg_->default_angles;// desired position（用于位置控制）
+  // FRC_INFO("[MjcMgr.initState] default_angles: " << cfg_->default_angles.transpose());
+  pTarget = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, jointDim_).cast<float>();
   vTarget.setZero(jointDim_); // desired velocity（用于速度控制）
 
   // ④ 力矩命令
@@ -74,7 +76,6 @@ void MujocoManager::initState() {
 void MujocoManager::updateRobotState() {
   Eigen::VectorXf positionVec, velocityVec;
   float timestamp;
-
   {
     std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动上锁，作用域结束自动释放
     gc_ = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos, gcDim_);
@@ -85,13 +86,10 @@ void MujocoManager::updateRobotState() {
   }
 
   if (robotStatusBufferPtr_) {
-    // ✅ 构造结构体
     robotStatus status;
-    std::memcpy(status.data.position, positionVec.data(), gcDim_ * sizeof(float));
-    std::memcpy(status.data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
+    memcpy(status.data.position, positionVec.data(), gcDim_ * sizeof(float));
+    memcpy(status.data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
     status.data.timestamp = timestamp;
-
-    // ✅ 写入 DataBuffer（自动加锁）
     robotStatusBufferPtr_->SetData(status);
   }
 }
@@ -165,21 +163,23 @@ void MujocoManager::launchServer() {
 void MujocoManager::run() {
   Timer controlTimer(control_dt_);
   while (!glfwWindowShouldClose(window_) && running_) {
-    // // 从 DataBuffer 中读取一个快照（只读，不需要加锁）
     auto actionPtr = jointCMDBufferPtr_->GetData();  // 返回的是 std::shared_ptr<const jointCMD>
     while (!actionPtr) { // 这里存在有可能jointCMD还没有设定值 但是这里在读取 所以要等待
-      FRC_INFO("[MujocoManager.run] Waiting for jointCMD data...");
+      // FRC_INFO("[MujocoManager.run] Waiting for jointCMD data...");
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       actionPtr = jointCMDBufferPtr_->GetData();  // 重新尝试获取
     }
-
-    // 直接解引用使用数据（推荐写法）
-    const auto& cmd = *actionPtr;
-    memcpy(pTarget.data(), cmd.data.position, sizeof(float) * jointDim_);
-    memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
-    memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
-    memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
-
+    
+    {
+      std::lock_guard<std::mutex> actionLock(action_lock_);  // 自动锁定 action
+      const auto& cmd = *actionPtr; // 直接解引用使用数据（推荐写法）
+      memcpy(pTarget.data(), cmd.data.position, sizeof(float) * jointDim_);
+      memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
+      memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
+      memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
+      isFirstActionReceived = true;
+    }
+    
     if (isStatesReady) updateRobotState();
     controlTimer.wait();
   }
@@ -187,6 +187,13 @@ void MujocoManager::run() {
 
 void MujocoManager::integrate() {
   Timer worldTimer(control_dt_);
+  
+  // 等待 jointCMD 初始化完毕（首次策略输出）
+  while (!isFirstActionReceived.load()) {
+    FRC_INFO("[MujocoManager.integrate] Waiting for first jointCMD data...");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+
   while (!glfwWindowShouldClose(window_) && running_) {
     for (int i = 0; i < int(control_dt_ / simulation_dt_); i++) {
       {   // or mjcb_control 简化结构

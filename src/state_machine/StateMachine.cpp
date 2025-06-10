@@ -2,6 +2,7 @@
 #include "utility/timer.h"
 #include "utility/logger.h"
 #include "utility/orientation_tools.h"
+#include <thread>
 
 StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg)
     : cfg_(cfg)
@@ -37,11 +38,15 @@ void StateMachine::run(){
 }
 
 void StateMachine::parseRobotData() {
-  
   assert(_robotStatusBuffer != nullptr);
-  // 从 DataBuffer 中获取快照
   auto status_ptr = _robotStatusBuffer->GetData();
-  const auto& status = *status_ptr;  // 解引用拿结构体  ✅✅ 推荐：零拷贝 + 明确只读引用
+  while (!status_ptr) { // 这里存在有可能jointCMD还没有设定值 但是这里在读取 所以要等待
+    FRC_INFO("[StateMachine.parseRobotData] Waiting for _robotStatus data...");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    status_ptr = _robotStatusBuffer->GetData();  // 重新尝试获取
+  }
+
+  const auto& status = *status_ptr;  // 解引用拿结构体  推荐：零拷贝 + 明确只读引用
   robotData.timestamp = status.data.timestamp;
 
   robotData.basePosition = Eigen::Map<const Eigen::Vector3f>(status.data.position);
@@ -65,9 +70,7 @@ void StateMachine::parseRobotData() {
   // robotData.jointVelocity = Eigen::Map<Eigen::VectorXf>(_robotStatus->data.velocity + 6, _jointNum);
 }
 
-
 void StateMachine::stop() { _isRunning = false; }
-
 
 void StateMachine::updateCommands(){
   float deltaYaw = 0; // deltaYaw 表示当前目标朝向与机器人当前朝向的差值
@@ -154,12 +157,5 @@ void StateMachine::packJointAction(){
   memcpy(cmd.data.velocity, robotAction.motorVelocity.data(), _jointNum * sizeof(float));
   memcpy(cmd.data.kp, robotAction.kP.data(), _jointNum * sizeof(float));
   memcpy(cmd.data.kd, robotAction.kD.data(), _jointNum * sizeof(float));
-  // FRC_INFO("[SetData] timestamp = " << cmd.data.timestamp << ", pos[0] = " << cmd.data.position[0]);
   _jointCMDBuffer->SetData(cmd);
-  auto actionPtr = _jointCMDBuffer->GetData();
-  if (!actionPtr) return;
-  const auto& cmd2 = *actionPtr;
-  Eigen::Map<const Eigen::VectorXf> posVec(cmd2.data.position, _jointNum);
-  // FRC_INFO("[getData] timestamp = " << cmd2.data.timestamp << ", pos = " << posVec.transpose());
-
 }

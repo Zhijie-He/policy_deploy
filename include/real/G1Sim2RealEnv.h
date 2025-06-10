@@ -5,7 +5,7 @@
 #include <memory>
 #include "hardware/listener.h"
 #include "types/CustomTypes.h"
-
+#include "utility/data_buffer.h"
 // unitree
 // DDS
 #include <unitree/robot/channel/channel_publisher.hpp>
@@ -29,13 +29,13 @@ class G1Sim2RealEnv {
 public:
   G1Sim2RealEnv(std::shared_ptr<const BaseRobotConfig> cfg, 
                 const std::string& net_interface,
-                std::shared_ptr<jointCMD> jointCMDPtr,
-                std::shared_ptr<robotStatus> robotStatusPtr);
+                std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
+                std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);
 
   G1Sim2RealEnv(std::shared_ptr<const BaseRobotConfig> cfg,
                 const std::string& net_interface,
-                std::shared_ptr<jointCMD> jointCMDPtr,
-                std::shared_ptr<robotStatus> robotStatusPtr,
+                std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
+                std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr,
                 const std::string& mode,
                 const std::string& track,
                 const std::vector<std::string>& track_list,
@@ -59,8 +59,8 @@ private:
   // 对应构造参数的成员变量
   std::shared_ptr<const BaseRobotConfig> cfg_;
   std::string net_interface_;
-  std::shared_ptr<jointCMD> jointCMDPtr_;
-  std::shared_ptr<robotStatus> robotStatusPtr_;
+  std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr_;
+  std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr_;
   std::string mode_;
   std::string track_;
   std::vector<std::string> track_list_;

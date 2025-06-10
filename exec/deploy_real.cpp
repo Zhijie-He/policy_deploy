@@ -113,8 +113,8 @@ int main(int argc, char** argv) {
   sim = std::make_shared<G1Sim2RealEnv>(
             cfg,
             net_interface,
-            ctrl->getJointCMDPtr(),
-            ctrl->getRobotStatusPtr(),
+            ctrl->getJointCMDBufferPtr(),
+            ctrl->getRobotStatusBufferPtr(),
             mode,
             track,
             track_list,
