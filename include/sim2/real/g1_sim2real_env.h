@@ -46,7 +46,6 @@ public:
   void zeroTorqueState() override;
   void moveToDefaultPos() override;
   void defaultPosState() override;
-  void simulateRobot() override;
   void run() override;
 
 private:

@@ -120,10 +120,6 @@ namespace CustomTypes {
       Eigen::VectorXf jointVelocity;
 
       Eigen::Vector3f targetCMD = Eigen::Vector3f::Zero();
-
-      Eigen::VectorXf joint_pos;
-      Eigen::VectorXf joint_vel;
-      Eigen::VectorXf joint_torques;
       
       float timestamp = 0;
       float phaseValue = 0.0f;

@@ -1,4 +1,6 @@
-
+#include <vector>
+#include <algorithm>
+#include <sstream>
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 #include <memory>
@@ -36,7 +38,8 @@ std::shared_ptr<BaseRobotConfig> loadConfig(const std::string& config_name) {
   else if (config_name == "g1_eman")
     return std::make_shared<EmanRobotConfig>(config_path);
   else
-    throw std::runtime_error("Unsupported robot config: " + config_name);
+    // throw std::runtime_error("Unsupported robot config: " + config_name);
+    return std::make_shared<UnitreeRobotConfig>(config_path);
 }
 
 int main(int argc, char** argv) {
@@ -61,13 +64,20 @@ int main(int argc, char** argv) {
   }
 
   // 配置合法性检查
-  if (config_name != "g1_unitree" && config_name != "g1_eman") {
-    FRC_ERROR("Invalid config name: " << config_name);
-    FRC_ERROR("Available config names: g1_unitree | g1_eman");
-    return -1;
+  const std::vector<std::string> valid_configs = {"g1_unitree", "g1_eman", "h1", "h1_2"};
+  if (std::find(valid_configs.begin(), valid_configs.end(), config_name) == valid_configs.end()) {
+      std::ostringstream oss;
+      oss << "Available config names: ";
+      for (size_t i = 0; i < valid_configs.size(); ++i) {
+          oss << valid_configs[i];
+          if (i != valid_configs.size() - 1) oss << " | ";
+      }
+      FRC_ERROR("Invalid config name: " << config_name);
+      FRC_ERROR(oss.str());
+      return -1;
   }
 
-  // sim2real 限制：必须带 net 参数
+  // sim2real 限制：必须带 net 参数.
   if (mode == "sim2real" && net.empty()) {
     FRC_ERROR("Missing <net> argument for mode 'sim2real'.");
     FRC_ERROR("Usage: " << exec_name << " sim2real g1_eman net");
@@ -75,8 +85,8 @@ int main(int argc, char** argv) {
   }
 
   // sim2real 限制：只支持 g1_eman，不支持 g1_unitree
-  if (mode == "sim2real" && config_name == "g1_unitree") {
-    FRC_ERROR("Mode 'sim2real' is not supported with config 'g1_unitree'.");
+  if (mode == "sim2real" && config_name != "g1_eman") {
+    FRC_ERROR("Mode 'sim2real' is not supported with config " << config_name);
     FRC_ERROR("Only 'g1_eman' is supported in sim2real mode.");
     return -1;
   }
@@ -131,11 +141,6 @@ int main(int argc, char** argv) {
   std::thread keyboard_thread([&]() { listener->listenKeyboard(); }); // start listener
   std::thread ctrl_thread([&]() { ctrl->run(); }); // start policy
   
-  std::thread simuRobot_thread;
-  if(mode=="sim2real"){
-    simuRobot_thread = std::thread([&]() { env->simulateRobot(); }); // simulate G1 robotstatus
-  }
-
   // Enter the zero torque state, press the start key to continue executing
   if(mode=="sim2real") {
     env->zeroTorqueState();
@@ -164,7 +169,6 @@ int main(int argc, char** argv) {
     integrate_thread.join();
   }else if(mode=="sim2real"){
     env->run();
-    simuRobot_thread.join();
   }
   return 0;
 }

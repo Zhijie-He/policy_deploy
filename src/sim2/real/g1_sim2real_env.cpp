@@ -113,14 +113,14 @@ G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
       throw std::invalid_argument("Invalid msg_type: " + cfg_->msg_type);
     }
     
+    initState();
+    
     // wait for the subscriber to receive data
-    // waitForLowState();
+    waitForLowState();
 
     // Initialize the command msg
     init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);
     // print_lowcmd(low_cmd_);
-
-    initState();
 }
 
 void G1Sim2RealEnv::initState() {
@@ -234,6 +234,7 @@ void G1Sim2RealEnv::updateRobotState() {
 }
 
 void G1Sim2RealEnv::waitForLowState() {
+    FRC_INFO("[G1Sim2RealEnv.waitForLowState] Waiting to connect to the robot.");
     while (low_state_.tick() == 0) {
         std::this_thread::sleep_for(std::chrono::duration<double>(control_dt_));
     }
@@ -320,37 +321,6 @@ void G1Sim2RealEnv::defaultPosState() {
     }
     sendCmd(low_cmd_);
     defaultPosStateTimer.wait();
-  }
-}
-
-void G1Sim2RealEnv::simulateRobot() {
-  auto state_pub = std::make_unique<ChannelPublisher<LowState_>>(cfg_->lowstate_topic);
-  state_pub->InitChannel();
-
-  // 构造并发布消息
-  LowState_ fake_state;
-
-  // IMU 数据
-  fake_state.imu_state().rpy()[0] = 0.1;
-  fake_state.imu_state().rpy()[1] = 0.2;
-  fake_state.imu_state().rpy()[2] = 0.3;
-
-  fake_state.imu_state().quaternion()[0] = 0.1;
-  fake_state.imu_state().quaternion()[1] = 0.2;
-  fake_state.imu_state().quaternion()[2] = 0.3;
-  fake_state.imu_state().quaternion()[3] = 0.4;
-
-  // 正确构造 wireless_remote（你项目使用 bitmap + float 格式）
-  auto& remote = fake_state.wireless_remote();
-
-  // 计算 CRC
-  fake_state.crc() = Crc32Core((uint32_t *)&fake_state, (sizeof(fake_state) >> 2) - 1);
-  
-  Timer simulateRobotTimer(1);
-  while (true) {
-    state_pub->Write(fake_state);
-    FRC_INFO("[G1Sim2RealEnv.simulateRobot] Simulate fake state!");
-    simulateRobotTimer.wait();
   }
 }
 

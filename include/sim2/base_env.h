@@ -26,9 +26,7 @@ public:
   virtual void zeroTorqueState() {}
   virtual void moveToDefaultPos() {}
   virtual void defaultPosState() {}
-
-  virtual void simulateRobot() {}
-
+  
 protected:
   std::shared_ptr<const BaseRobotConfig> cfg_;
   std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr_;
