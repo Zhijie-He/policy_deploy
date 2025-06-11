@@ -7,14 +7,14 @@
 #include "utility/logger.h"
 
 void Listener::listenKeyboard() {
-  FRC_INFO("[Manager.kbd] Press 'z' to exit after saving run-time data.");
+  FRC_INFO("[Listener.kbd] Press 'z' to exit after saving run-time data.");
   while (isRunning()) {
     if (kbhit()) {
       auto c = getchar();
       if (c < 'Z' && c > 'A') c = c - 'A' + 'a';
       if (c != 10) {
         key_input_ = c;
-        FRC_INFO("[Manager.kbd] Pressed Button: " << c << ", " << key_input_);
+        FRC_INFO("[Listener.kbd] Pressed Button: " << c << ", " << key_input_);
       }
       switch (c) {
         case 'z':
@@ -29,7 +29,7 @@ void Listener::listenKeyboard() {
       usleep(10000);
     }
   }
-  FRC_INFO("[Manager.kbd] Keyboard listening thread terminated.");
+  FRC_INFO("[Listener.kbd] Keyboard listening thread terminated.");
 }
 
 // 解析 unitree wireless_remote 数据（40字节）

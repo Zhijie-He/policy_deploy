@@ -90,8 +90,11 @@ endif()
 # ===== 添加可执行文件 =====
 
 # MuJoCo 版本执行文件
-add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
-target_link_libraries(deploy_mujoco ${COMMON_LIBS})
+# add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
+# target_link_libraries(deploy_mujoco ${COMMON_LIBS})
+
+add_executable(g1 exec/g1.cpp ${SRC_FILES})
+target_link_libraries(g1 ${COMMON_LIBS})
 
 # 真机部署（仅在启用Unitree SDK时编译）
 if (USE_UNITREE_SDK)

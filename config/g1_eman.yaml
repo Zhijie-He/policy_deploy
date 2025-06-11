@@ -72,7 +72,7 @@ robot_name: g1_eman
 num_obs: 96
 simulation_dt: 0.00125
 control_decimation: 16
-cmd_init: [0.3, 0, 0]
+cmd_init: [0, 0, 0]
 policy_path: "resources/policies/g1/actor.pt"
 xml_path: "resources/robots/g1/scene_29dof.xml"
 
