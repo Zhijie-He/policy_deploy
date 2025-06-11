@@ -1,14 +1,14 @@
-// ========== include/core/RobotConfig.h ==========
+// ========== include/config/UnitreeRobotConfig.h ==========
 #pragma once
 
 #include <yaml-cpp/yaml.h>
 #include <Eigen/Dense>
 #include <string>
-#include "core/BaseRobotConfig.h"
+#include "config/BaseRobotConfig.h"
 
-class RobotConfig : public BaseRobotConfig {
+class UnitreeRobotConfig : public BaseRobotConfig {
 public:
-    explicit RobotConfig(const std::string& yaml_path);
+    explicit UnitreeRobotConfig(const std::string& yaml_path);
     const YAML::Node& raw() const;
     float getPolicyDt() const override;
 

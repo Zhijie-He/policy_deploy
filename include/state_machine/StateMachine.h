@@ -1,24 +1,25 @@
 #pragma once
 
 #include <memory>
-#include "core/BaseRobotConfig.h" 
+#include "config/BaseRobotConfig.h" 
 #include "types/joystickTypes.h"
 #include "types/system_defined.h"
 #include "types/CustomTypes.h"
 #include "utility/data_buffer.h"
+#include "controller/NeuralController.h"
 
 class StateMachine {
 public:
-    explicit StateMachine(std::shared_ptr<const BaseRobotConfig> cfg);
+    explicit StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, const std::string& config_name);
     void run();
-    virtual void step() {}
+    virtual void step();
     virtual void stop(); 
     
     void setInputPtr(char* key, JoystickData* joy) {_jsStates = joy; _keyState = key;}
     std::shared_ptr<DataBuffer<robotStatus>> getRobotStatusBufferPtr() const {return _robotStatusBuffer;}
     std::shared_ptr<DataBuffer<jointCMD>> getJointCMDBufferPtr() const {return _jointCMDBuffer;}
 
-    protected:
+protected:
     void parseRobotData();
     void updateCommands();
     void packJointAction();
@@ -41,4 +42,5 @@ public:
     int run_count=0;
     double run_sum_us=0;
     double run_sum_sq_us=0;
+    std::unique_ptr<NeuralController> _neuralCtrl;
 };

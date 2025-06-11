@@ -1,4 +1,4 @@
-// ===== include/core/BaseRobotConfig.h =====
+// ===== include/config/BaseRobotConfig.h =====
 #pragma once
 
 #include <Eigen/Dense>
@@ -18,6 +18,7 @@ public:
     Eigen::VectorXf default_angles;
     Eigen::Vector3f cmd_init;
     Eigen::Vector3f cmd_scale;
+    Eigen::Vector3f max_cmd;
 
     float ang_vel_scale;
     float dof_pos_scale;

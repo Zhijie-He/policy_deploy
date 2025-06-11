@@ -37,9 +37,9 @@ message(STATUS "USE_UNITREE_SDK: ${USE_UNITREE_SDK}")
 # 递归收集所有 .cpp 文件
 file(GLOB_RECURSE ALL_SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp)
 
-# 排除 real 文件夹下的文件（例如 src/real）
+# 排除 sim2 文件夹下的文件（例如 src/sim2
 if (NOT USE_UNITREE_SDK)
-    list(FILTER ALL_SRC_FILES EXCLUDE REGEX ".*/real/.*")
+    list(FILTER ALL_SRC_FILES EXCLUDE REGEX ".*/sim2/.*")
 endif()
 
 set(SRC_FILES ${ALL_SRC_FILES})
@@ -90,14 +90,11 @@ endif()
 # ===== 添加可执行文件 =====
 
 # MuJoCo 版本执行文件
-# add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
-# target_link_libraries(deploy_mujoco ${COMMON_LIBS})
-
-add_executable(g1 exec/g1.cpp ${SRC_FILES})
-target_link_libraries(g1 ${COMMON_LIBS})
+add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
+target_link_libraries(deploy_mujoco ${COMMON_LIBS})
 
 # 真机部署（仅在启用Unitree SDK时编译）
 if (USE_UNITREE_SDK)
-    add_executable(deploy_real exec/deploy_real.cpp ${SRC_FILES})
-    target_link_libraries(deploy_real ${COMMON_LIBS})
+    add_executable(g1 exec/g1.cpp ${SRC_FILES})
+    target_link_libraries(g1 ${COMMON_LIBS})
 endif()

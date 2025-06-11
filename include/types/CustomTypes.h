@@ -114,13 +114,17 @@ namespace CustomTypes {
       Eigen::Vector3f basePosition = Eigen::Vector3f::Zero();
       Eigen::Vector4f baseQuat = Eigen::Vector4f::Zero();
       Eigen::VectorXf jointPosition;
-      
+
       Eigen::Vector3f baseVelocity = Eigen::Vector3f::Zero();
       Eigen::Vector3f baseOmega = Eigen::Vector3f::Zero();
       Eigen::VectorXf jointVelocity;
 
       Eigen::Vector3f targetCMD = Eigen::Vector3f::Zero();
 
+      Eigen::VectorXf joint_pos;
+      Eigen::VectorXf joint_vel;
+      Eigen::VectorXf joint_torques;
+      
       float timestamp = 0;
       float phaseValue = 0.0f;
 

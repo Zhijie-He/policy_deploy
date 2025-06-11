@@ -1,7 +1,7 @@
-// ========== src/core/RobotConfig.cpp ==========
-#include "core/RobotConfig.h"
+// ========== src/config/UnitreeRobotConfig.cpp ==========
+#include "config/UnitreeRobotConfig.h"
 
-RobotConfig::RobotConfig(const std::string& yaml_path)
+UnitreeRobotConfig::UnitreeRobotConfig(const std::string& yaml_path)
     : root_(YAML::LoadFile(yaml_path))  // 初始化 YAML 配置节点
 {
     // ========== 基础参数 ==========
@@ -23,9 +23,11 @@ RobotConfig::RobotConfig(const std::string& yaml_path)
     // ========== 命令缩放与初始值 ==========
     const auto& cmd_scale_vec = root_["cmd_scale"].as<std::vector<float>>();
     const auto& cmd_init_vec  = root_["cmd_init"].as<std::vector<float>>();
+    const auto& max_cmd_vec  = root_["max_cmd"].as<std::vector<float>>();
     cmd_scale = Eigen::Map<const Eigen::Vector3f>(cmd_scale_vec.data());
     cmd_init  = Eigen::Map<const Eigen::Vector3f>(cmd_init_vec.data());
-
+    max_cmd  = Eigen::Map<const Eigen::Vector3f>(max_cmd_vec.data());
+    
     ang_vel_scale = root_["ang_vel_scale"].as<float>();
     dof_pos_scale = root_["dof_pos_scale"].as<float>();
     dof_vel_scale = root_["dof_vel_scale"].as<float>();
@@ -55,10 +57,10 @@ RobotConfig::RobotConfig(const std::string& yaml_path)
     terrain_config_file    = project_source_dir + "/" + root_["terrain_config_file"].as<std::string>();
 }
 
-const YAML::Node& RobotConfig::raw() const {
+const YAML::Node& UnitreeRobotConfig::raw() const {
     return root_;
 }
 
-float RobotConfig::getPolicyDt() const {
+float UnitreeRobotConfig::getPolicyDt() const {
     return simulation_dt * control_decimation;
 }

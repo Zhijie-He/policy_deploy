@@ -8,7 +8,7 @@
 #include <Eigen/Core>
 #include <vector>
 #include "types/system_defined.h"
-#include "core/BaseRobotConfig.h"
+#include "config/BaseRobotConfig.h"
 #include "types/joystickTypes.h"
 #include "utility/data_buffer.h"
 

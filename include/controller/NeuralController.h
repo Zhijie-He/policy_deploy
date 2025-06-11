@@ -1,5 +1,5 @@
 #pragma once
-#include "core/BaseRobotConfig.h" 
+#include "config/BaseRobotConfig.h" 
 #include "types/CustomTypes.h"
 #include "types/cpp_types.h"
 #include <torch/script.h>

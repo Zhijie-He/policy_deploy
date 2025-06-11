@@ -1,16 +1,16 @@
-#include "controller/PolicyWrapper.h"
+#include "controller/UnitreePolicyWrapper.h"
 #include <iostream>
 #include "utility/logger.h"
 #include "utility/timer.h"
 #include <chrono>
 
-PolicyWrapper::PolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg):
+UnitreePolicyWrapper::UnitreePolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg):
     NeuralController(cfg)  // 初始化基类
 {   
     action.setZero(acDim);
     actionPrev.setZero(acDim);
     observation.setZero(obDim);
-    FRC_INFO("[PolicyWrapper] Constructor Finished.");
+    FRC_INFO("[UnitreePolicyWrapper] Constructor Finished.");
 }
 
 Eigen::Vector3f get_gravity_orientation(const Eigen::Vector4f& q) {
@@ -23,7 +23,7 @@ Eigen::Vector3f get_gravity_orientation(const Eigen::Vector4f& q) {
     return g;
 }
 
-void PolicyWrapper::updateObservation(const CustomTypes::RobotData &robotData) {
+void UnitreePolicyWrapper::updateObservation(const CustomTypes::RobotData &robotData) {
     float period = 0.8f;
     float t_sec = robotData.timestamp; 
     float phase =  std::fmod(t_sec, period) / period;
@@ -48,13 +48,13 @@ void PolicyWrapper::updateObservation(const CustomTypes::RobotData &robotData) {
     observation.segment(9 + 3 * acDim, 2) << sin_phase, cos_phase;
 }
 
-CustomTypes::Action PolicyWrapper::getControlAction(const CustomTypes::RobotData &robotData) {
+CustomTypes::Action UnitreePolicyWrapper::getControlAction(const CustomTypes::RobotData &robotData) {
     // 1. 更新观测
     updateObservation(robotData);
 
-    // FRC_INFO("[PolicyWrapper] observation = " << observation.transpose());
+    // FRC_INFO("[UnitreePolicyWrapper] observation = " << observation.transpose());
     if (!observation.allFinite()) {
-        FRC_ERROR("[PolicyWrapper] Observation contains nan or inf! Abort.");
+        FRC_ERROR("[UnitreePolicyWrapper] Observation contains nan or inf! Abort.");
         std::exit(1);
     }
 
@@ -74,7 +74,7 @@ CustomTypes::Action PolicyWrapper::getControlAction(const CustomTypes::RobotData
     if (infer_count % 100 == 0) {
         double avg = infer_sum_us / infer_count;
         double stddev = std::sqrt(infer_sum_sq_us / infer_count - avg * avg);
-        std::cout << "[PolicyWrapper.getControlAction] Inference AVG: " << avg << " us | STDDEV: " << stddev << " us\n";
+        // std::cout << "[UnitreePolicyWrapper.getControlAction] Inference AVG: " << avg << " us | STDDEV: " << stddev << " us\n";
     }
 
     TORCH_CHECK(output.sizes() == torch::IntArrayRef({1, acDim}), "Unexpected output shape from policy network");

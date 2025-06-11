@@ -1,5 +1,5 @@
-// ========== src/core/EmanRobotConfig.cpp ==========
-#include "core/EmanRobotConfig.h"
+// ========== src/config/EmanRobotConfig.cpp ==========
+#include "config/EmanRobotConfig.h"
 #include "utility/logger.h"
 
 EmanRobotConfig::EmanRobotConfig(const std::string& yaml_path)
@@ -24,9 +24,11 @@ EmanRobotConfig::EmanRobotConfig(const std::string& yaml_path)
     // ========== 命令缩放与初始值 ==========
     const auto& cmd_scale_vec = root_["obs_scale_cmd"].as<std::vector<float>>();
     const auto& cmd_init_vec  = root_["cmd_init"].as<std::vector<float>>();
+    const auto& max_cmd_vec  = root_["max_cmd"].as<std::vector<float>>();
     cmd_scale = Eigen::Map<const Eigen::Vector3f>(cmd_scale_vec.data());
     cmd_init  = Eigen::Map<const Eigen::Vector3f>(cmd_init_vec.data());
-
+    max_cmd  = Eigen::Map<const Eigen::Vector3f>(max_cmd_vec.data());
+    
     ang_vel_scale = root_["obs_scale_root_ang_vel_b"].as<float>();
     dof_pos_scale = root_["obs_scale_joint_pos"].as<float>();
     dof_vel_scale = root_["obs_scale_joint_vel"].as<float>();

@@ -26,13 +26,13 @@ Eigen::Vector3f quat_rotate_inverse_on_gravity(const Eigen::Vector4f& q) {
     return a - b + c;
 }
 
-void EmanPolicyWrapper::updateObservation(const CustomTypes::RobotData &robotData) {
-    Eigen::Vector3f projected_gravity_b = quat_rotate_inverse_on_gravity(robotData.baseQuat * cfg_->obs_scale_projected_gravity_b);
-    Eigen::Vector3f root_ang_vel_b = robotData.baseOmega * cfg_->ang_vel_scale;
-    Eigen::VectorXf joint_pos = (robotData.jointPosition - cfg_->default_angles) * cfg_->dof_pos_scale;
-    Eigen::VectorXf joint_vel = robotData.jointVelocity * cfg_->dof_vel_scale;
+void EmanPolicyWrapper::updateObservation(const CustomTypes::RobotData &raw_obs) {
+    Eigen::Vector3f projected_gravity_b = quat_rotate_inverse_on_gravity(raw_obs.baseQuat * cfg_->obs_scale_projected_gravity_b);
+    Eigen::Vector3f root_ang_vel_b = raw_obs.baseOmega * cfg_->ang_vel_scale;
+    Eigen::VectorXf joint_pos = (raw_obs.jointPosition - cfg_->default_angles) * cfg_->dof_pos_scale;
+    Eigen::VectorXf joint_vel = raw_obs.jointVelocity * cfg_->dof_vel_scale;
     Eigen::VectorXf last_action = actionPrev * cfg_->action_scale;
-    Eigen::Vector3f cmd = robotData.targetCMD.cwiseProduct(cfg_->cmd_scale);
+    Eigen::Vector3f cmd = raw_obs.targetCMD.cwiseProduct(cfg_->cmd_scale);
 
     observation.segment(0, 3)                  = projected_gravity_b;
     observation.segment(3, 3)                  = root_ang_vel_b;
@@ -46,7 +46,7 @@ CustomTypes::Action EmanPolicyWrapper::getControlAction(const CustomTypes::Robot
     // 1. 更新观测
     updateObservation(robotData);
 
-    // FRC_INFO("[PolicyWrapper] observation = " << observation.transpose());
+    // FRC_INFO("[EmanPolicyWrapper] observation = " << observation.transpose());
     if (!observation.allFinite()) {
         FRC_ERROR("[EmanPolicyWrapper] Observation contains nan or inf! Abort.");
         std::exit(1);
@@ -80,14 +80,14 @@ CustomTypes::Action EmanPolicyWrapper::getControlAction(const CustomTypes::Robot
         if (action[i] > 10.0f) action[i] = 10.0f;
         if (action[i] < -10.0f) action[i] = -10.0f;
     }
-
+    // std::cout << "[EmanPolicyWrapper.getControlAction] robotData: " << robotData.jointPosition.transpose()  << std::endl;
+    // std::cout << "[EmanPolicyWrapper.getControlAction] action: " << action.transpose()  << std::endl;
+    
     // 5. 构造控制命令
     CustomTypes::Action robotAction = CustomTypes::zeroAction(acDim);
     robotAction.timestamp = robotData.timestamp;
-
     // 应用动作映射（比如 env 控制的只有某些 motor）
     robotAction.motorPosition = action(cfg_->actor2env) * cfg_->action_scale + cfg_->default_angles;
-
     robotAction.motorVelocity.setZero();
     robotAction.motorTorque.setZero();
     robotAction.kP = _kP;

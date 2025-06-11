@@ -2,10 +2,12 @@
 #include "utility/timer.h"
 #include "utility/logger.h"
 #include "utility/orientation_tools.h"
+#include "controller/UnitreePolicyWrapper.h"
+#include "controller/EmanPolicyWrapper.h"
 #include <thread>
 #include <chrono>
 
-StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg)
+StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, const std::string& config_name)
     : cfg_(cfg)
 {
   // 1. 初始化底层设备数据结构
@@ -23,6 +25,14 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg)
   if (!cfg_->cmd_init.isZero()) {
       robotData.targetCMD = cfg_->cmd_init;
       FRC_INFO("[StateMachine.Const] Initial target cmd: " << robotData.targetCMD.transpose()); 
+  }
+
+  if (config_name == "g1_unitree") {
+    _neuralCtrl = std::make_unique<UnitreePolicyWrapper>(cfg);
+  } else if (config_name == "g1_eman") {
+    _neuralCtrl = std::make_unique<EmanPolicyWrapper>(cfg);
+  } else {
+    throw std::runtime_error("Unsupported robot: " + config_name);
   }
 }
 
@@ -43,6 +53,7 @@ void StateMachine::run(){
     if (run_count % 100 == 0) {
         double avg = run_sum_us / run_count;
         double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
+        FRC_INFO("[StateMachine.run] Run AVG: " << avg << " us | STDDEV: " << stddev << " us");
         std::cout << "[StateMachine.run] Run AVG: " << avg << " us | STDDEV: " << stddev << " us\n";
          // 重置
         run_sum_us = 0;
@@ -54,12 +65,20 @@ void StateMachine::run(){
   }
 }
 
+void StateMachine::step(){
+  parseRobotData();
+  updateCommands();
+  robotAction = _neuralCtrl->getControlAction(robotData);
+  packJointAction();
+  if (*_keyState != '\0') *_keyState = '\0';
+}
+
 void StateMachine::parseRobotData() {
   assert(_robotStatusBuffer != nullptr);
   auto status_ptr = _robotStatusBuffer->GetData();
   while (!status_ptr) { // 这里存在有可能jointCMD还没有设定值 但是这里在读取 所以要等待
-    FRC_INFO("[StateMachine.parseRobotData] Waiting for _robotStatusBuffer data...");
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    FRC_INFO("[StateMachine.parseRobotData] Waiting for robotStatusBuffer...");
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     status_ptr = _robotStatusBuffer->GetData();  // 重新尝试获取
   }
 
@@ -79,7 +98,8 @@ void StateMachine::stop() { _isRunning = false; }
 
 void StateMachine::updateCommands(){
   float deltaYaw = 0; // deltaYaw 表示当前目标朝向与机器人当前朝向的差值
-  Vec3f maxVelCmd{1.0, 0.3, 1.0}; // 最大线速度限制（1.0 前进，0.3 横向，0 竖直）；
+  // Vec3f maxVelCmd{1.0, 0.3, 1.0}; // 最大线速度限制（1.0 前进，0.3 横向，0 竖直）；
+  Vec3f maxVelCmd = cfg_->max_cmd;
   constexpr float maxYaw = 1.0f;
   
   // 键盘输入控制逻辑
@@ -88,34 +108,34 @@ void StateMachine::updateCommands(){
     Vec3<float> deltaVelTarg{0, 0, 0};
     Vec3<float> deltaAngTarg{0, 0, 0};
 
-    constexpr float kStep = 0.1f;
-    constexpr float kYawStep = 0.1f;
+    constexpr float kStep = 0.05f;
+    constexpr float kYawStep = 0.05f;
     constexpr float kThresh = 1e-2f;
 
     // 对每个按键设置线速度/角速度的增量。
     if (*_keyState == 'w') {
       deltaVelTarg << kStep, 0, 0;
-      FRC_INFO("[StateMachine.updateCommands] Pressed 'w' → Forward +0.1");
+      FRC_INFO("[StateMachine.updateCommands] Pressed 'w' → Forward +" << kStep);
     }
     else if (*_keyState == 's') {
       deltaVelTarg << -kStep, 0, 0;
-      FRC_INFO("[StateMachine.updateCommands] Pressed 's' → Backward -0.1");
+      FRC_INFO("[StateMachine.updateCommands] Pressed 's' → Backward -"  << kStep);
     }
     else if (*_keyState == 'a') {
       deltaVelTarg << 0, kStep, 0;
-      FRC_INFO("[StateMachine.updateCommands] Pressed 'a' → Left +0.1");
+      FRC_INFO("[StateMachine.updateCommands] Pressed 'a' → Left +"  << kStep);
     }
     else if (*_keyState == 'd') {
       deltaVelTarg << 0, -kStep, 0;
-      FRC_INFO("[StateMachine.updateCommands] Pressed 'd' → Right -0.1");
+      FRC_INFO("[StateMachine.updateCommands] Pressed 'd' → Right -"  << kStep);
     }
     else if (*_keyState == 'q') {
       deltaAngTarg << 0, 0, kYawStep;
-      FRC_INFO("[StateMachine.updateCommands] Pressed 'q' → Turn left +0.1 rad");
+      FRC_INFO("[StateMachine.updateCommands] Pressed 'q' → Turn left +" << kYawStep << "rad");
     }
     else if (*_keyState == 'e') {
       deltaAngTarg << 0, 0, -kYawStep;
-      FRC_INFO("[StateMachine.updateCommands] Pressed 'e' → Turn right -0.1 rad");
+      FRC_INFO("[StateMachine.updateCommands] Pressed 'e' → Turn right -" << kYawStep << "rad");
     }
 
     // 线速度增量
@@ -150,3 +170,4 @@ void StateMachine::packJointAction(){
   memcpy(cmd.data.kd, robotAction.kD.data(), _jointNum * sizeof(float));
   _jointCMDBuffer->SetData(cmd);
 }
+

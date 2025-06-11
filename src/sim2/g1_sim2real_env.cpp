@@ -1,5 +1,5 @@
 // G1Sim2RealEnv.cpp
-#include "real/G1Sim2RealEnv.h"
+#include "sim2/g1_sim2real_env.h"
 #include "utility/logger.h"
 #include <thread>
 #include "utility/timer.h"
@@ -71,64 +71,17 @@ uint32_t Crc32Core(uint32_t *ptr, uint32_t len) {
   return CRC32;
 };
 
-G1Sim2RealEnv::G1Sim2RealEnv(std::shared_ptr<const BaseRobotConfig> cfg, 
-                            const std::string& net_interface,
-                            std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-                            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr)
-    : cfg_(cfg),
+G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
+            std::shared_ptr<const BaseRobotConfig> cfg,
+            const std::string& mode,
+            const std::string& track,
+            const std::vector<std::string>& track_list,
+            std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,  
+            std::shared_ptr<CustomTypes::VlaConfig> vla_cfg,
+            std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
+            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr)
+    : BaseEnv(cfg, jointCMDBufferPtr, robotStatusBufferPtr),
       net_interface_(net_interface),
-      jointCMDBufferPtr_(jointCMDBufferPtr),
-      robotStatusBufferPtr_(robotStatusBufferPtr),
-      control_dt_(cfg->getPolicyDt()),
-      mode_pr_(Mode::PR),
-      mode_machine_(0)
-{   
-    FRC_INFO("[G1Sim2RealEnv.Const] net_interface: " << net_interface);
-
-    // initialize DDS communication
-    ChannelFactory::Instance()->Init(0); // net_interface.c_str());
-
-    if(cfg_->msg_type == "hg"){
-      // create publisher
-      lowcmd_publisher_ = std::make_unique<ChannelPublisher<LowCmd_>>(cfg_->lowcmd_topic);
-      lowcmd_publisher_->InitChannel();
-      
-      // create subscriber
-      lowstate_subscriber_ = std::make_unique<ChannelSubscriber<LowState_>>(cfg_->lowstate_topic);
-      lowstate_subscriber_->InitChannel(
-        [this](const void *message) {
-          this->LowStateHandler(message);
-        }, 10
-      );
-    } else {
-      FRC_ERROR("[G1Sim2RealEnv] Invalid msg_type" << cfg_->msg_type);
-      throw std::invalid_argument("Invalid msg_type: " + cfg_->msg_type);
-    }
-    
-    // wait for the subscriber to receive data
-    // waitForLowState();
-
-    // Initialize the command msg
-    init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);
-    // print_lowcmd(low_cmd_);
-
-    initState();
-}
-
-G1Sim2RealEnv::G1Sim2RealEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-                const std::string& net_interface,
-                std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-                std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr,
-                const std::string& mode,
-                const std::string& track,
-                const std::vector<std::string>& track_list,
-                std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,  
-                std::shared_ptr<CustomTypes::VlaConfig> vla_cfg)
-    : cfg_(cfg),
-      net_interface_(net_interface),
-      jointCMDBufferPtr_(jointCMDBufferPtr),
-      robotStatusBufferPtr_(robotStatusBufferPtr),
-      control_dt_(cfg->getPolicyDt()),
       mode_pr_(Mode::PR),
       mode_machine_(0),
       mode_(mode),

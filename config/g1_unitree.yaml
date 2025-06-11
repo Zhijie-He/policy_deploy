@@ -25,6 +25,7 @@ num_actions: 12
 num_obs: 47
 
 cmd_init: [0.5, 0, 0]
+max_cmd: [0.8, 0.5, 1.57]
 
 # custom
 robot_name: "g1"

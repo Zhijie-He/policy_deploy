@@ -7,9 +7,9 @@
 #include <csignal>
 #include <mujoco/mujoco.h>
 #include "controller/NeuralController.h"
-#include "state_machine/NeuralRunner.h"
-#include "core/EmanRobotConfig.h"
-#include "core/RobotConfig.h"
+#include "state_machine/StateMachine.h"
+#include "config/EmanRobotConfig.h"
+#include "config/UnitreeRobotConfig.h"
 #include "hardware/listener.h"
 #include "simulator/MujocoManager.h"  
 #include "utility/MathUtilities.h"
@@ -20,7 +20,7 @@
 
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;
 std::shared_ptr<Listener> listener = nullptr;
-std::shared_ptr<NeuralRunner> ctrl = nullptr;
+std::shared_ptr<StateMachine> ctrl = nullptr;
 std::shared_ptr<MujocoManager> sim = nullptr; 
 
 void close_all_threads(int signum) {
@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
   std::string config_name = argv[1];
   std::string config_path = std::string(PROJECT_SOURCE_DIR) + "/config/" + config_name + ".yaml";
   if (config_name == "g1_unitree") {
-      cfg = std::make_shared<RobotConfig>(config_path);
+      cfg = std::make_shared<UnitreeRobotConfig>(config_path);
   } else if (config_name == "g1_eman") {
       cfg = std::make_shared<EmanRobotConfig>(config_path);
   } else {
@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
   }
 
   listener = std::make_shared<Listener>();
-  ctrl = std::make_shared<NeuralRunner>(cfg, config_name);
+  ctrl = std::make_shared<StateMachine>(cfg, config_name);
   sim = std::make_shared<MujocoManager>(
             cfg,
             ctrl->getJointCMDBufferPtr(),

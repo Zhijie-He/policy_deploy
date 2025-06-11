@@ -1,9 +1,9 @@
-// ========== include/core/EmanRobotConfig.h ==========
+// ========== include/config/EmanRobotConfig.h ==========
 #pragma once
 #include <yaml-cpp/yaml.h>
 #include <Eigen/Dense>
 #include <string>
-#include "core/BaseRobotConfig.h"
+#include "config/BaseRobotConfig.h"
 
 class EmanRobotConfig : public BaseRobotConfig {
 public:
