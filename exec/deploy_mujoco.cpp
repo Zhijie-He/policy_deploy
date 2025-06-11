@@ -36,7 +36,8 @@ std::shared_ptr<BaseRobotConfig> loadConfig(const std::string& config_name) {
   else if (config_name == "g1_eman")
     return std::make_shared<EmanRobotConfig>(config_path);
   else
-    throw std::runtime_error("Unsupported robot config: " + config_name);
+    // throw std::runtime_error("Unsupported robot config: " + config_name);
+    return std::make_shared<UnitreeRobotConfig>(config_path);
 }
 
 int main(int argc, char** argv) {

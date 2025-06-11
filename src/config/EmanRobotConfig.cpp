@@ -10,7 +10,8 @@ EmanRobotConfig::EmanRobotConfig(const std::string& yaml_path)
     num_obs = root_["num_obs"].as<int>();
     simulation_dt = root_["simulation_dt"].as<float>();
     control_decimation = root_["control_decimation"].as<int>();
-
+    policy_dt = simulation_dt *  control_decimation;
+    
     // ========== 控制增益 ==========
     const auto& kps = root_["kps"].as<std::vector<float>>();
     const auto& kds = root_["kds"].as<std::vector<float>>();
@@ -41,7 +42,9 @@ EmanRobotConfig::EmanRobotConfig(const std::string& yaml_path)
 
     // ========== 自定义参数 ==========
     robot_name = root_["robot_name"].as<std::string>();
+    
     msg_type = root_["msg_type"].as<std::string>();
+    imu_type = root_["imu_type"].as<std::string>();
     lowcmd_topic = root_["lowcmd_topic"].as<std::string>();
     lowstate_topic = root_["lowstate_topic"].as<std::string>();
     obs_scale_projected_gravity_b = root_["obs_scale_projected_gravity_b"].as<float>();

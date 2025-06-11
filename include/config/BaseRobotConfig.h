@@ -7,10 +7,10 @@
 class BaseRobotConfig {
 public:
     virtual ~BaseRobotConfig() = default;
-
     int num_actions;
     int num_obs;
     float simulation_dt;
+    float policy_dt;
     int control_decimation;
 
     Eigen::VectorXf kP;
@@ -27,15 +27,12 @@ public:
 
     std::string policy_path;
     std::string xml_path;
-    std::string urdf_path;
     std::string robot_name;
-    std::string world_type;
-    std::string terrain_config_file;
-    
     virtual float getPolicyDt() const = 0;
 
     // eman
     std::string msg_type;
+    std::string imu_type;
     std::string lowcmd_topic;
     std::string lowstate_topic;
     float obs_scale_projected_gravity_b;

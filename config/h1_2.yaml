@@ -1,5 +1,5 @@
-policy_path: "resources/policies/g1/motion.pt"
-xml_path: "resources/robots/g1_description/scene.xml"
+policy_path: "resources/policies/h1_2/motion.pt"
+xml_path: "resources/robots/h1_2/scene.xml"
 # Total simulation time
 simulation_duration: 60.0
 # Simulation time step
@@ -7,11 +7,11 @@ simulation_dt: 0.002
 # Controller update frequency (meets the requirement of simulation_dt * controll_decimation=0.02; 50Hz)
 control_decimation: 10
 
-kps: [100, 100, 100, 150, 40, 40, 100, 100, 100, 150, 40, 40]
-kds: [2, 2, 2, 4, 2, 2, 2, 2, 2, 4, 2, 2]
+kps: [200, 200, 200, 300, 40, 40, 200, 200, 200, 300, 40, 40]
+kds: [2.5, 2.5, 2.5, 4, 2, 2,  2.5, 2.5, 2.5, 4, 2, 2]
 
-default_angles: [-0.1,  0.0,  0.0,  0.3, -0.2, 0.0, 
-                  -0.1,  0.0,  0.0,  0.3, -0.2, 0.0]
+default_angles: [0, -0.16, 0.0, 0.36, -0.2, 0.0, 
+                 0, -0.16, 0.0, 0.36, -0.2, 0.0]
 
 ang_vel_scale: 0.25
 dof_pos_scale: 1.0
@@ -23,4 +23,4 @@ num_obs: 47
 
 cmd_init: [0.5, 0, 0]
 max_cmd: [0.8, 0.5, 1.57]
-robot_name: g1_unitree
+robot_name: h1_2

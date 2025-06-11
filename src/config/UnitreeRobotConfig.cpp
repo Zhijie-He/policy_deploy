@@ -9,7 +9,8 @@ UnitreeRobotConfig::UnitreeRobotConfig(const std::string& yaml_path)
     num_obs = root_["num_obs"].as<int>();
     simulation_dt = root_["simulation_dt"].as<float>();
     control_decimation = root_["control_decimation"].as<int>();
-
+    policy_dt = simulation_dt *  control_decimation;
+    
     // ========== 控制增益 ==========
     const auto& kps = root_["kps"].as<std::vector<float>>();
     const auto& kds = root_["kds"].as<std::vector<float>>();
@@ -40,21 +41,6 @@ UnitreeRobotConfig::UnitreeRobotConfig(const std::string& yaml_path)
 
     // ========== 自定义参数 ==========
     robot_name = root_["robot_name"].as<std::string>();
-    on_rack = root_["on_rack"] ? root_["on_rack"].as<bool>() : false;
-    world_type = root_["world_type"].as<std::string>();
-    urdf_path =  project_source_dir + "/" + root_["urdf_path"].as<std::string>();
-    homing_timesteps = root_["homing_timesteps"].as<int>();
-
-    // ========== Homing 参数（可选）==========
-    if (root_["homing"]) {
-        const auto& pos = root_["homing"]["pos"].as<std::vector<float>>();
-        const auto& kp  = root_["homing"]["kp"].as<std::vector<float>>();
-        const auto& kd  = root_["homing"]["kd"].as<std::vector<float>>();
-        homingPos = Eigen::Map<const Eigen::VectorXf>(pos.data(), pos.size());
-        homingKp  = Eigen::Map<const Eigen::VectorXf>(kp.data(), kp.size());
-        homingKd  = Eigen::Map<const Eigen::VectorXf>(kd.data(), kd.size());
-    }
-    terrain_config_file    = project_source_dir + "/" + root_["terrain_config_file"].as<std::string>();
 }
 
 const YAML::Node& UnitreeRobotConfig::raw() const {

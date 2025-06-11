@@ -32,7 +32,8 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, const std
   } else if (config_name == "g1_eman") {
     _neuralCtrl = std::make_unique<EmanPolicyWrapper>(cfg);
   } else {
-    throw std::runtime_error("Unsupported robot: " + config_name);
+    _neuralCtrl = std::make_unique<UnitreePolicyWrapper>(cfg);
+    // throw std::runtime_error("Unsupported robot: " + config_name);
   }
 }
 

@@ -130,6 +130,7 @@ int main(int argc, char** argv) {
     
   std::thread keyboard_thread([&]() { listener->listenKeyboard(); }); // start listener
   std::thread ctrl_thread([&]() { ctrl->run(); }); // start policy
+  
   std::thread simuRobot_thread;
   if(mode=="sim2real"){
     simuRobot_thread = std::thread([&]() { env->simulateRobot(); }); // simulate G1 robotstatus
