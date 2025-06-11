@@ -1,5 +1,5 @@
 // G1Sim2RealEnv.cpp
-#include "sim2/g1_sim2real_env.h"
+#include "sim2/real/g1_sim2real_env.h"
 #include "utility/logger.h"
 #include <thread>
 #include "utility/timer.h"

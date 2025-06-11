@@ -1,4 +1,4 @@
-// ===== include/sim2/g1_sim2mujoco_env.h =====
+// ===== include/sim2/simulator/g1_sim2mujoco_env.h =====
 #pragma once
 
 #include <yaml-cpp/yaml.h>

@@ -1,5 +1,5 @@
 // G1Sim2MujocoEnv.cpp
-#include "sim2/g1_sim2mujoco_env.h"
+#include "sim2/simulator/g1_sim2mujoco_env.h"
 #include "utility/logger.h"
 #include "utility/timer.h"
 #include "utility/orientation_tools.h"

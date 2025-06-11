@@ -1,18 +1,16 @@
 #include <yaml-cpp/yaml.h>
-#include <torch/torch.h>
 #include <iostream>
 #include <cmath>
 #include <memory>
 #include <filesystem>
 #include <csignal>
-#include <mujoco/mujoco.h>
 #include "controller/NeuralController.h"
 #include "state_machine/StateMachine.h"
 #include "config/EmanRobotConfig.h"
 #include "config/UnitreeRobotConfig.h"
 #include "hardware/listener.h"
-#include "simulator/MujocoManager.h"  
 #include "utility/MathUtilities.h"
+#include "sim2/simulator/g1_sim2mujoco_env.h"
 
 #define LOG_USE_COLOR 1
 #define LOG_USE_PREFIX 1
@@ -21,14 +19,24 @@
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;
 std::shared_ptr<Listener> listener = nullptr;
 std::shared_ptr<StateMachine> ctrl = nullptr;
-std::shared_ptr<MujocoManager> sim = nullptr; 
+std::shared_ptr<G1Sim2MujocoEnv> env = nullptr; 
 
 void close_all_threads(int signum) {
   FRC_INFO("Interrupted with SIGINT: " << signum << "\n");
-  if (sim != nullptr) sim->stop();
+  if (env != nullptr) env->stop();
   if (listener != nullptr) listener->stop();
   if (ctrl != nullptr) ctrl->stop();
   std::exit(0);
+}
+
+std::shared_ptr<BaseRobotConfig> loadConfig(const std::string& config_name) {
+  const std::string config_path = std::string(PROJECT_SOURCE_DIR) + "/config/" + config_name + ".yaml";
+  if (config_name == "g1_unitree")
+    return std::make_shared<UnitreeRobotConfig>(config_path);
+  else if (config_name == "g1_eman")
+    return std::make_shared<EmanRobotConfig>(config_path);
+  else
+    throw std::runtime_error("Unsupported robot config: " + config_name);
 }
 
 int main(int argc, char** argv) {
@@ -38,41 +46,29 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  // Mujoco版本检查
-  if (mjVERSION_HEADER != mj_version()) {
-    FRC_ERROR("MuJoCo header and library version mismatch!");
-    return -1;
-  }
-  FRC_INFO("MuJoCo Version: " << mj_version());
-
   signal(SIGINT, close_all_threads);
 
-  std::string config_name = argv[1];
-  std::string config_path = std::string(PROJECT_SOURCE_DIR) + "/config/" + config_name + ".yaml";
-  if (config_name == "g1_unitree") {
-      cfg = std::make_shared<UnitreeRobotConfig>(config_path);
-  } else if (config_name == "g1_eman") {
-      cfg = std::make_shared<EmanRobotConfig>(config_path);
-  } else {
-      throw std::runtime_error("Unsupported robot config: " + std::string(config_name));
-  }
-
+  std::string config_name = argv[1]; 
+  cfg = loadConfig(config_name);
   listener = std::make_shared<Listener>();
   ctrl = std::make_shared<StateMachine>(cfg, config_name);
-  sim = std::make_shared<MujocoManager>(
-            cfg,
-            ctrl->getJointCMDBufferPtr(),
-            ctrl->getRobotStatusBufferPtr());
-
-  sim->setUserInputPtr(listener->getKeyInputPtr(), nullptr);
+  env = std::make_shared<G1Sim2MujocoEnv>(cfg,
+                                          ctrl->getJointCMDBufferPtr(),
+                                          ctrl->getRobotStatusBufferPtr());
+ 
+  env->setUserInputPtr(listener, listener->getKeyInputPtr(), nullptr);
   ctrl->setInputPtr(listener->getKeyInputPtr(), nullptr);
     
   std::thread keyboard_thread(&Listener::listenKeyboard, listener);
   std::thread ctrl_thread(&StateMachine::run, ctrl);
-  std::thread comm_thread(&MujocoManager::run, sim);
-  std::thread integrate_thread(&MujocoManager::integrate, sim);
 
-  sim->renderLoop();
+  // Move to the default position
+  env->moveToDefaultPos();
+
+  std::thread comm_thread(&G1Sim2MujocoEnv::run, env);
+  std::thread integrate_thread(&G1Sim2MujocoEnv::integrate, env);
+
+  env->renderLoop();
 
   ctrl->stop();
   listener->stop();

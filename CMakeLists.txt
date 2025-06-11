@@ -37,9 +37,9 @@ message(STATUS "USE_UNITREE_SDK: ${USE_UNITREE_SDK}")
 # 递归收集所有 .cpp 文件
 file(GLOB_RECURSE ALL_SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp)
 
-# 排除 sim2 文件夹下的文件（例如 src/sim2
+# 排除 sim2/real 文件夹下的文件
 if (NOT USE_UNITREE_SDK)
-    list(FILTER ALL_SRC_FILES EXCLUDE REGEX ".*/sim2/.*")
+    list(FILTER ALL_SRC_FILES EXCLUDE REGEX ".*/real/.*")
 endif()
 
 set(SRC_FILES ${ALL_SRC_FILES})

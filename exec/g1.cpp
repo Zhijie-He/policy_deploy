@@ -8,8 +8,8 @@
 #include "config/EmanRobotConfig.h"
 #include "config/UnitreeRobotConfig.h"
 #include "hardware/listener.h"
-#include "sim2/g1_sim2mujoco_env.h"
-#include "sim2/g1_sim2real_env.h"
+#include "sim2/real/g1_sim2real_env.h"
+#include "sim2/simulator/g1_sim2mujoco_env.h"
 #include "types/CustomTypes.h"
 
 #define LOG_USE_COLOR 1
