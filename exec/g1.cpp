@@ -48,7 +48,8 @@ public:
                                                     mocap_cfg,
                                                     vla_cfg,
                                                     ctrl_->getJointCMDBufferPtr(),
-                                                    ctrl_->getRobotStatusBufferPtr());
+                                                    ctrl_->getRobotStatusBufferPtr(),
+                                                    ctrl_);
         } else {
           FRC_ERROR("Unsupported mode: " << mode << " and config: " << config_name);
           throw std::runtime_error("Unsupported mode and config!");
@@ -195,7 +196,8 @@ int main(int argc, char** argv) {
     controller->default_pos_state();
 
     controller->run();
-
+    close_all_threads(404);
+    
   } catch (const std::exception& e) {
       FRC_ERROR("Failed to construct G1Controller: " << e.what());
       return -1;

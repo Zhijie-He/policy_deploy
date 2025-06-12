@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
 
 
   uint64_t tick_counter = 0;
-  Timer simulateRobotTimer(0.1); // 每秒 1 次
+  Timer simulateRobotTimer(1); // 每秒 1 次
 
   while (!stop_flag) {
       fake_state.tick() = tick_counter++;

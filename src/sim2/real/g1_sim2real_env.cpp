@@ -261,7 +261,7 @@ void G1Sim2RealEnv::updateRobotState() {
     positionVec = gc_.cast<float>();
     velocityVec = gv_.cast<float>();
     timestamp = low_state_.tick();  // 如果你用 mj_data_ 模拟器，也可 mj_data_->time
-    FRC_INFO("[G1Sim2RealEnv.updateRobotState] gc_ dim = " << gc_.size() << ", values = " << gc_.transpose());
+    // FRC_INFO("[G1Sim2RealEnv.updateRobotState] gc_ dim = " << gc_.size() << ", values = " << gc_.transpose());
     // FRC_INFO("[G1Sim2RealEnv.updateRobotState] gv_ dim = " << gv_.size() << ", values = " << gv_.transpose());
     // FRC_INFO("[G1Sim2RealEnv.updateRobotState] timestamp/low_state_.tick() = " << timestamp);
   }
@@ -367,8 +367,9 @@ void G1Sim2RealEnv::run() {
 
     if(state_machine_) state_machine_->step();
     
-    auto actionPtr = jointCMDBufferPtr_->GetData();  // 返回的是 std::shared_ptr<const jointCMD>
+    auto actionPtr = jointCMDBufferPtr_->GetData();  
     while (!actionPtr) { 
+      FRC_INFO("[G1Sim2RealEnv.run] Waiting For actions!");
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       actionPtr = jointCMDBufferPtr_->GetData();  // 重新尝试获取
     }
@@ -390,12 +391,13 @@ void G1Sim2RealEnv::run() {
         low_cmd_.motor_cmd()[i].tau() = 0.0f;
       }
     }
-    sendCmd(low_cmd_);
-
+    // stop button
     if (listenerPtr_ && listenerPtr_->gamepad_.select.pressed == 1) {
+      FRC_INFO("[G1Sim2RealEnv.run] Stop!");
       running_ = false;
     }
 
+    sendCmd(low_cmd_);
     controlTimer.wait();
   }
 }
