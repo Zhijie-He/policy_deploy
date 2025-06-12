@@ -18,28 +18,111 @@
 #define LOG_USE_PREFIX 1
 #include "utility/logger.h"
 
+std::shared_ptr<BaseRobotConfig> loadConfig(const std::string& config_name) {
+  const std::string config_path = std::string(PROJECT_SOURCE_DIR) + "/config/" + config_name + ".yaml";
+  if (config_name == "g1_eman")
+    return std::make_shared<EmanRobotConfig>(config_path);
+  else
+    return std::make_shared<UnitreeRobotConfig>(config_path);
+}
+
+class G1Controller {
+public:
+  G1Controller(const std::string& net,
+               std::shared_ptr<BaseRobotConfig> cfg,
+               const std::string& config_name,
+               const std::string& mode,
+               const std::string& track,
+               const std::vector<std::string>& track_list,
+               std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,
+               std::shared_ptr<CustomTypes::VlaConfig> vla_cfg)
+      : cfg_(cfg), mode_(mode), track_(track), track_list_(track_list) {
+        
+        listener_ = std::make_shared<Listener>();
+        ctrl_ = std::make_shared<StateMachine>(cfg, config_name);
+
+        if (mode == "sim2mujoco") {
+          hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg,
+                                                      ctrl_->getJointCMDBufferPtr(),
+                                                      ctrl_->getRobotStatusBufferPtr());
+        } else if(mode == "sim2real" && config_name == "g1_eman") {
+          hu_env_ = std::make_shared<G1Sim2RealEnv>(net,
+                                                    cfg,
+                                                    mode,
+                                                    track,
+                                                    track_list,
+                                                    mocap_cfg,
+                                                    vla_cfg,
+                                                    ctrl_->getJointCMDBufferPtr(),
+                                                    ctrl_->getRobotStatusBufferPtr());
+        } else {
+          FRC_ERROR("Unsupported mode: " << mode << " and config: " << config_name);
+          throw std::runtime_error("Unsupported mode and config!");
+        }
+        
+        hu_env_->setUserInputPtr(listener_, listener_->getKeyInputPtr(), nullptr);
+        ctrl_->setInputPtr(listener_->getKeyInputPtr(), nullptr);
+
+        threads_.emplace_back([&]() { listener_->listenKeyboard(); }); // start listener
+        threads_.emplace_back([&]() { ctrl_->run(); });                // start policy
+      }
+
+  void zero_torque_state(){
+    if(mode_=="sim2real") hu_env_->zeroTorqueState();
+  }
+
+  void move_to_default_pose(){
+    hu_env_->moveToDefaultPos();
+  }
+
+  void default_pos_state(){
+    if(mode_=="sim2real") hu_env_->defaultPosState();
+  }
+
+  void start_threads(){
+    if(mode_ != "sim2mujoco") return;
+    threads_.emplace_back([&]() { hu_env_->integrate(); }); 
+    threads_.emplace_back([&]() { hu_env_->run(); });      
+  }
+
+  void run(){
+    if(mode_ == "sim2mujoco"){
+      start_threads();
+      hu_env_->renderLoop();
+    }else if(mode_=="sim2real"){
+      hu_env_->run();
+    }
+  }
+
+  ~G1Controller(){
+    if(ctrl_) ctrl_->stop();
+    if(listener_) listener_->stop();
+    if(hu_env_) hu_env_->stop();
+
+    for(auto& t : threads_){
+      if(t.joinable()) t.join();
+    }
+  }
+
+  std::shared_ptr<Listener> listener_;
+  std::shared_ptr<StateMachine> ctrl_;
+  std::shared_ptr<BaseEnv> hu_env_;
+
+private:
+  std::shared_ptr<BaseRobotConfig> cfg_;
+  std::string mode_;
+  std::string track_;
+  std::vector<std::string> track_list_;
+  std::vector<std::thread> threads_;
+};
+
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;
-std::shared_ptr<Listener> listener = nullptr;
-std::shared_ptr<StateMachine> ctrl = nullptr;
-std::shared_ptr<BaseEnv> env = nullptr; 
+std::unique_ptr<G1Controller> controller = nullptr;
 
 void close_all_threads(int signum) {
   FRC_INFO("Interrupted with SIGINT: " << signum << "\n");
-  if (env != nullptr) env->stop();
-  if (listener != nullptr) listener->stop();
-  if (ctrl != nullptr) ctrl->stop();
+  controller.reset();
   std::exit(0);
-}
-
-std::shared_ptr<BaseRobotConfig> loadConfig(const std::string& config_name) {
-  const std::string config_path = std::string(PROJECT_SOURCE_DIR) + "/config/" + config_name + ".yaml";
-  if (config_name == "g1_unitree")
-    return std::make_shared<UnitreeRobotConfig>(config_path);
-  else if (config_name == "g1_eman")
-    return std::make_shared<EmanRobotConfig>(config_path);
-  else
-    // throw std::runtime_error("Unsupported robot config: " + config_name);
-    return std::make_shared<UnitreeRobotConfig>(config_path);
 }
 
 int main(int argc, char** argv) {
@@ -94,8 +177,6 @@ int main(int argc, char** argv) {
   signal(SIGINT, close_all_threads);
 
   cfg = loadConfig(config_name);
-  listener = std::make_shared<Listener>();
-  ctrl = std::make_shared<StateMachine>(cfg, config_name);
 
   // mode: sim2mujoco, sim2real
   // track: cmd, fpos, mocap, vla
@@ -109,66 +190,23 @@ int main(int argc, char** argv) {
 
   // std::vector<std::string> track_list = {"cmd", "vla"};
   // auto vla_cfg = std::make_shared<CustomTypes::VlaConfig>("example_data.pkl");
-  
-  if (mode == "sim2mujoco") {
-    env = std::make_shared<G1Sim2MujocoEnv>(net,
-                                            cfg,
-                                            mode,
-                                            track,
-                                            track_list,
-                                            mocap_cfg,
-                                            vla_cfg,
-                                            ctrl->getJointCMDBufferPtr(),
-                                            ctrl->getRobotStatusBufferPtr());
-  } else if(mode == "sim2real" && config_name == "g1_eman") {
-    env = std::make_shared<G1Sim2RealEnv>(net,
-                                          cfg,
-                                          mode,
-                                          track,
-                                          track_list,
-                                          mocap_cfg,
-                                          vla_cfg,
-                                          ctrl->getJointCMDBufferPtr(),
-                                          ctrl->getRobotStatusBufferPtr());
-  } else {
-    FRC_ERROR("Unsupported mode: " << mode << " and config: " << config_name);
-    return -1;
+
+  try {
+    controller = std::make_unique<G1Controller>(net, cfg, config_name, mode, track, track_list, mocap_cfg, vla_cfg);
+
+    // Enter the zero torque state, press the start key to continue executing
+    controller->zero_torque_state();
+    // Move to the default position
+    controller->move_to_default_pose();
+    // Enter the default position state, press the A key to continue executing
+    controller->default_pos_state();
+
+    controller->run();
+
+  } catch (const std::exception& e) {
+      FRC_ERROR("Failed to construct G1Controller: " << e.what());
+      return -1;
   }
 
-  env->setUserInputPtr(listener, listener->getKeyInputPtr(), nullptr);
-  ctrl->setInputPtr(listener->getKeyInputPtr(), nullptr);
-    
-  std::thread keyboard_thread([&]() { listener->listenKeyboard(); }); // start listener
-  std::thread ctrl_thread([&]() { ctrl->run(); }); // start policy
-  
-  // Enter the zero torque state, press the start key to continue executing
-  if(mode=="sim2real") {
-    env->zeroTorqueState();
-  }
-  
-  // Move to the default position
-  env->moveToDefaultPos();
-  
-  // Enter the default position state, press the A key to continue executing
-  if(mode=="sim2real") {
-    env->defaultPosState();
-  }
-
-  if(mode == "sim2mujoco"){
-    std::thread integrate_thread([&]() { env->integrate(); });
-    std::thread comm_thread([&]() { env->run(); });
-
-    env->renderLoop();
-
-    ctrl->stop();
-    listener->stop();
-
-    ctrl_thread.join();
-    keyboard_thread.join();
-    comm_thread.join();
-    integrate_thread.join();
-  }else if(mode=="sim2real"){
-    env->run();
-  }
   return 0;
 }

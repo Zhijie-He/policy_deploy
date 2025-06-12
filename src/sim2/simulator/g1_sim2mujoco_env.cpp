@@ -191,7 +191,7 @@ void G1Sim2MujocoEnv::updateRobotState() {
 
 void G1Sim2MujocoEnv::run() {
   Timer controlTimer(control_dt_);
-  while (running_) {
+  while (!glfwWindowShouldClose(window_) && running_) {
     auto actionPtr = jointCMDBufferPtr_->GetData();
     while (!actionPtr) { // 等待policy 传递action
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -222,7 +222,7 @@ void G1Sim2MujocoEnv::integrate() {
   //   std::this_thread::sleep_for(std::chrono::milliseconds(1));
   // }
 
-  while (running_) {
+  while (!glfwWindowShouldClose(window_) && running_) {
     for (int i = 0; i < int(control_dt_ / simulation_dt_); i++) {
       {   // or mjcb_control 简化结构
         std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动锁定 state
