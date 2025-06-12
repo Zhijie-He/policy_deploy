@@ -102,27 +102,6 @@ void G1Sim2MujocoEnv::initState() {
   tauCmd.setZero(jointDim_); //	最终输出的控制力矩（全体）
 }
 
-void G1Sim2MujocoEnv::updateRobotState() {
-  Eigen::VectorXf positionVec, velocityVec;
-  float timestamp;
-  {
-    std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动上锁，作用域结束自动释放
-    gc_ = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos, gcDim_);
-    gv_ = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel, gvDim_);
-    positionVec = gc_.cast<float>();
-    velocityVec = gv_.cast<float>();
-    timestamp = mj_data_->time;
-  }
-
-  if (robotStatusBufferPtr_) {
-    robotStatus status;
-    memcpy(status.data.position, positionVec.data(), gcDim_ * sizeof(float));
-    memcpy(status.data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
-    status.data.timestamp = timestamp;
-    robotStatusBufferPtr_->SetData(status);
-  }
-}
-
 void G1Sim2MujocoEnv::launchServer() {
   if (!glfwInit()) mju_error("Could not initialize GLFW");
   window_ = glfwCreateWindow(1200, 900, "MuJoCo Simulation", NULL, NULL);
@@ -189,9 +168,30 @@ void G1Sim2MujocoEnv::launchServer() {
   FRC_INFO("[G1Sim2MujocoEnv.launchServer] GLFW Window: " << window_);
 }
 
+void G1Sim2MujocoEnv::updateRobotState() {
+  Eigen::VectorXf positionVec, velocityVec;
+  float timestamp;
+  {
+    std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动上锁，作用域结束自动释放
+    gc_ = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos, gcDim_);
+    gv_ = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel, gvDim_);
+    positionVec = gc_.cast<float>();
+    velocityVec = gv_.cast<float>();
+    timestamp = mj_data_->time;
+  }
+
+  if (robotStatusBufferPtr_) {
+    robotStatus status;
+    memcpy(status.data.position, positionVec.data(), gcDim_ * sizeof(float));
+    memcpy(status.data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
+    status.data.timestamp = timestamp;
+    robotStatusBufferPtr_->SetData(status);
+  }
+}
+
 void G1Sim2MujocoEnv::run() {
   Timer controlTimer(control_dt_);
-  while (!glfwWindowShouldClose(window_) && running_) {
+  while (running_) {
     auto actionPtr = jointCMDBufferPtr_->GetData();
     while (!actionPtr) { // 等待policy 传递action
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -222,7 +222,7 @@ void G1Sim2MujocoEnv::integrate() {
   //   std::this_thread::sleep_for(std::chrono::milliseconds(1));
   // }
 
-  while (!glfwWindowShouldClose(window_) && running_) {
+  while (running_) {
     for (int i = 0; i < int(control_dt_ / simulation_dt_); i++) {
       {   // or mjcb_control 简化结构
         std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动锁定 state
@@ -269,16 +269,6 @@ void G1Sim2MujocoEnv::renderLoop() {
   }
 }
 
-G1Sim2MujocoEnv::~G1Sim2MujocoEnv() {
-  if (mj_data_) mj_deleteData(mj_data_);
-  if (mj_model_) mj_deleteModel(mj_model_);
-  mjv_freeScene(&scn_);
-  mjr_freeContext(&con_);
-  if (window_) glfwDestroyWindow(window_);
-  glfwTerminate();
-}
-
-
 void G1Sim2MujocoEnv::moveToDefaultPos() {
   FRC_INFO("[G1Sim2MujocoEnv.moveToDefaultPos] Moving to default position...");
   // 设定初始 root 位姿
@@ -320,4 +310,16 @@ void G1Sim2MujocoEnv::moveToDefaultPos() {
   FRC_INFO("[G1Sim2MujocoEnv.moveToDefaultPos] Default pose initialized.");
 }
 
+void G1Sim2MujocoEnv::stop(){
+  running_ = false;
+}
+
+G1Sim2MujocoEnv::~G1Sim2MujocoEnv() {
+  if (mj_data_) mj_deleteData(mj_data_);
+  if (mj_model_) mj_deleteModel(mj_model_);
+  mjv_freeScene(&scn_);
+  mjr_freeContext(&con_);
+  if (window_) glfwDestroyWindow(window_);
+  glfwTerminate();
+}
 

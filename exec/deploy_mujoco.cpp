@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
   env->setUserInputPtr(listener, listener->getKeyInputPtr(), nullptr);
   ctrl->setInputPtr(listener->getKeyInputPtr(), nullptr);
     
-  std::thread keyboard_thread(&Listener::listenKeyboard, listener);
+  std::thread keyboard_thread(&Listener::listenKeyboard, listener); // 监听键盘
   std::thread ctrl_thread(&StateMachine::run, ctrl);
 
   // Move to the default position

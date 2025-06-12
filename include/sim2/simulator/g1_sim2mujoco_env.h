@@ -37,7 +37,7 @@ public:
   void run() override;
   void integrate() override;
   void updateRobotState();
-  void stop() override{ running_ = false; glfwSetWindowShouldClose(window_, GLFW_TRUE); }
+  void stop() override;
   void moveToDefaultPos() override;
 
 private:
