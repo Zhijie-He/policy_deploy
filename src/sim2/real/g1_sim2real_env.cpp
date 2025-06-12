@@ -391,6 +391,11 @@ void G1Sim2RealEnv::run() {
       }
     }
     sendCmd(low_cmd_);
+
+    if (listenerPtr_ && listenerPtr_->gamepad_.select.pressed == 1) {
+      running_ = false;
+    }
+
     controlTimer.wait();
   }
 }
