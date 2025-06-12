@@ -13,18 +13,11 @@
 #include "sim2/real/g1_sim2real_env.h"
 #include "sim2/simulator/g1_sim2mujoco_env.h"
 #include "types/CustomTypes.h"
+#include "utility/tools.h"
 
 #define LOG_USE_COLOR 1
 #define LOG_USE_PREFIX 1
 #include "utility/logger.h"
-
-std::shared_ptr<BaseRobotConfig> loadConfig(const std::string& config_name) {
-  const std::string config_path = std::string(PROJECT_SOURCE_DIR) + "/config/" + config_name + ".yaml";
-  if (config_name == "g1_eman")
-    return std::make_shared<EmanRobotConfig>(config_path);
-  else
-    return std::make_shared<UnitreeRobotConfig>(config_path);
-}
 
 class G1Controller {
 public:
@@ -44,7 +37,8 @@ public:
         if (mode == "sim2mujoco") {
           hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg,
                                                       ctrl_->getJointCMDBufferPtr(),
-                                                      ctrl_->getRobotStatusBufferPtr());
+                                                      ctrl_->getRobotStatusBufferPtr(),
+                                                      ctrl_);
         } else if(mode == "sim2real" && config_name == "g1_eman") {
           hu_env_ = std::make_shared<G1Sim2RealEnv>(net,
                                                     cfg,
@@ -64,7 +58,7 @@ public:
         ctrl_->setInputPtr(listener_->getKeyInputPtr(), nullptr);
 
         threads_.emplace_back([&]() { listener_->listenKeyboard(); }); // start listener
-        threads_.emplace_back([&]() { ctrl_->run(); });                // start policy
+        // threads_.emplace_back([&]() { ctrl_->run(); });                // start policy
       }
 
   void zero_torque_state(){
@@ -104,12 +98,12 @@ public:
     }
   }
 
-  std::shared_ptr<Listener> listener_;
-  std::shared_ptr<StateMachine> ctrl_;
-  std::shared_ptr<BaseEnv> hu_env_;
+  std::shared_ptr<Listener> listener_ = nullptr;
+  std::shared_ptr<StateMachine> ctrl_ = nullptr;
+  std::shared_ptr<BaseEnv> hu_env_ = nullptr;
 
 private:
-  std::shared_ptr<BaseRobotConfig> cfg_;
+  std::shared_ptr<BaseRobotConfig> cfg_ = nullptr;
   std::string mode_;
   std::string track_;
   std::vector<std::string> track_list_;
@@ -176,8 +170,7 @@ int main(int argc, char** argv) {
 
   signal(SIGINT, close_all_threads);
 
-  cfg = loadConfig(config_name);
-
+  cfg = tools::loadConfig(config_name);
   // mode: sim2mujoco, sim2real
   // track: cmd, fpos, mocap, vla
   std::string track = "cmd";

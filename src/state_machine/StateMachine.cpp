@@ -23,17 +23,14 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, const std
   robotData = CustomTypes::zeroData(_jointNum);
     
   if (!cfg_->cmd_init.isZero()) {
-      robotData.targetCMD = cfg_->cmd_init;
-      FRC_INFO("[StateMachine.Const] Initial target cmd: " << robotData.targetCMD.transpose()); 
+    robotData.targetCMD = cfg_->cmd_init;
+    FRC_INFO("[StateMachine.Const] Initial target cmd: " << robotData.targetCMD.transpose()); 
   }
 
-  if (config_name == "g1_unitree") {
-    _neuralCtrl = std::make_unique<UnitreePolicyWrapper>(cfg);
-  } else if (config_name == "g1_eman") {
-    _neuralCtrl = std::make_unique<EmanPolicyWrapper>(cfg);
+  if (config_name == "g1_eman") {
+    _neuralCtrl = std::make_unique<EmanPolicyWrapper>(cfg); 
   } else {
     _neuralCtrl = std::make_unique<UnitreePolicyWrapper>(cfg);
-    // throw std::runtime_error("Unsupported robot: " + config_name);
   }
 }
 

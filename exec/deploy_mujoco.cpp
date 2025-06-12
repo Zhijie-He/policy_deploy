@@ -11,7 +11,7 @@
 #include "hardware/listener.h"
 #include "utility/MathUtilities.h"
 #include "sim2/simulator/g1_sim2mujoco_env.h"
-
+#include "utility/tools.h"
 #define LOG_USE_COLOR 1
 #define LOG_USE_PREFIX 1
 #include "utility/logger.h"
@@ -29,16 +29,6 @@ void close_all_threads(int signum) {
   std::exit(0);
 }
 
-std::shared_ptr<BaseRobotConfig> loadConfig(const std::string& config_name) {
-  const std::string config_path = std::string(PROJECT_SOURCE_DIR) + "/config/" + config_name + ".yaml";
-  if (config_name == "g1_unitree")
-    return std::make_shared<UnitreeRobotConfig>(config_path);
-  else if (config_name == "g1_eman")
-    return std::make_shared<EmanRobotConfig>(config_path);
-  else
-    // throw std::runtime_error("Unsupported robot config: " + config_name);
-    return std::make_shared<UnitreeRobotConfig>(config_path);
-}
 
 int main(int argc, char** argv) {
   std::string exec_name = std::filesystem::path(argv[0]).filename().string();
@@ -50,7 +40,7 @@ int main(int argc, char** argv) {
   signal(SIGINT, close_all_threads);
 
   std::string config_name = argv[1]; 
-  cfg = loadConfig(config_name);
+  cfg = tools::loadConfig(config_name);
   listener = std::make_shared<Listener>();
   ctrl = std::make_shared<StateMachine>(cfg, config_name);
   env = std::make_shared<G1Sim2MujocoEnv>(cfg,

@@ -3,6 +3,7 @@
 #include "utility/logger.h"
 #include <thread>
 #include "utility/timer.h"
+#include "utility/real/unitree_tools.h"
 
 void print_lowcmd(const LowCmd_& cmd) {
     std::cout << "=== LowCmd_ ===" << std::endl;
@@ -49,27 +50,60 @@ void create_zero_cmd(LowCmd_& cmd) {
   }
 }
 
-uint32_t Crc32Core(uint32_t *ptr, uint32_t len) {
-  uint32_t xbit = 0;
-  uint32_t data = 0;
-  uint32_t CRC32 = 0xFFFFFFFF;
-  const uint32_t dwPolynomial = 0x04c11db7;
-  for (uint32_t i = 0; i < len; i++) {
-    xbit = 1 << 31;
-    data = ptr[i];
-    for (uint32_t bits = 0; bits < 32; bits++) {
-      if (CRC32 & 0x80000000) {
-        CRC32 <<= 1;
-        CRC32 ^= dwPolynomial;
-      } else
-        CRC32 <<= 1;
-      if (data & xbit) CRC32 ^= dwPolynomial;
+G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
+            std::shared_ptr<const BaseRobotConfig> cfg,
+            const std::string& mode,
+            const std::string& track,
+            const std::vector<std::string>& track_list,
+            std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,  
+            std::shared_ptr<CustomTypes::VlaConfig> vla_cfg,
+            std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
+            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr,
+            std::shared_ptr<StateMachine> state_machine)
+    : BaseEnv(cfg, jointCMDBufferPtr, robotStatusBufferPtr),
+      net_interface_(net_interface),
+      mode_pr_(Mode::PR),
+      mode_machine_(0),
+      mode_(mode),
+      track_(track),
+      track_list_(track_list),
+      mocap_cfg_(mocap_cfg),
+      vla_cfg_(vla_cfg),
+      state_machine_(state_machine)
+{   
+    FRC_INFO("[G1Sim2RealEnv.Const] net_interface: " << net_interface);
 
-      xbit >>= 1;
+    // initialize DDS communication
+    // ChannelFactory::Instance()->Init(0, net_interface.c_str()); 
+    ChannelFactory::Instance()->Init(0);
+
+    if(cfg_->msg_type == "hg"){
+      // create publisher
+      lowcmd_publisher_ = std::make_unique<ChannelPublisher<LowCmd_>>(cfg_->lowcmd_topic);
+      lowcmd_publisher_->InitChannel();
+      
+      // create subscriber
+      lowstate_subscriber_ = std::make_unique<ChannelSubscriber<LowState_>>(cfg_->lowstate_topic);
+      lowstate_subscriber_->InitChannel(
+        [this](const void *message) {
+          this->LowStateHandler(message);
+        }, 10
+      );
+    } else {
+      FRC_ERROR("[G1Sim2RealEnv] Invalid msg_type" << cfg_->msg_type);
+      throw std::invalid_argument("Invalid msg_type: " + cfg_->msg_type);
     }
-  }
-  return CRC32;
-};
+    
+    initState();
+    
+    // wait for the subscriber to receive data
+    waitForLowState();
+
+    // Initialize the command msg
+    init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);
+
+    // print_lowcmd(low_cmd_);
+}
 
 G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
             std::shared_ptr<const BaseRobotConfig> cfg,
@@ -120,6 +154,7 @@ G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
 
     // Initialize the command msg
     init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);
+
     // print_lowcmd(low_cmd_);
 }
 
@@ -146,9 +181,17 @@ void G1Sim2RealEnv::initState() {
   tauCmd.setZero(jointDim_); //	最终输出的控制力矩（全体）
 }
 
+void G1Sim2RealEnv::waitForLowState() {
+    FRC_INFO("[G1Sim2RealEnv.waitForLowState] Waiting to connect to the robot.");
+    while (low_state_.tick() == 0) {
+        std::this_thread::sleep_for(std::chrono::duration<double>(control_dt_));
+    }
+    FRC_INFO("[G1Sim2RealEnv.waitForLowState] Successfully connected to the robot.");
+}
+
 void G1Sim2RealEnv::LowStateHandler(const void *message) {
   low_state_ = *(const LowState_ *)message;
-  if (low_state_.crc() != Crc32Core((uint32_t *)&low_state_, (sizeof(LowState_) >> 2) - 1)) {
+  if (low_state_.crc() != unitree_tools::Crc32Core((uint32_t *)&low_state_, (sizeof(LowState_) >> 2) - 1)) {
     FRC_ERROR("[G1Sim2RealEnv.LowStateHandler] CRC Error");
     return;
   }
@@ -163,7 +206,7 @@ void G1Sim2RealEnv::LowStateHandler(const void *message) {
     // update gamepad
     memcpy(listenerPtr_->rx_.buff, &low_state_.wireless_remote()[0], 40);
     listenerPtr_->gamepad_.update(listenerPtr_->rx_.RF_RX);
-    FRC_INFO("[G1Sim2RealEnv.LowStateHandler] Gamepad: lx=" << listenerPtr_->gamepad_.lx
+    FRC_INFO("[G1Sim2RealEnv.LowStateHandler] tick: "<<low_state_.tick()<<" Gamepad: lx=" << listenerPtr_->gamepad_.lx
             << " ly=" << listenerPtr_->gamepad_.ly
             << " rx=" << listenerPtr_->gamepad_.rx
             << " ry=" << listenerPtr_->gamepad_.ry
@@ -233,16 +276,8 @@ void G1Sim2RealEnv::updateRobotState() {
   }
 }
 
-void G1Sim2RealEnv::waitForLowState() {
-    FRC_INFO("[G1Sim2RealEnv.waitForLowState] Waiting to connect to the robot.");
-    while (low_state_.tick() == 0) {
-        std::this_thread::sleep_for(std::chrono::duration<double>(control_dt_));
-    }
-    FRC_INFO("[G1Sim2RealEnv.waitForLowState] Successfully connected to the robot.");
-}
-
 void G1Sim2RealEnv::sendCmd(LowCmd_& cmd) {
-  cmd.crc() = Crc32Core((uint32_t *)&cmd, (sizeof(cmd) >> 2) - 1);  // 计算 CRC 校验
+  cmd.crc() = unitree_tools::Crc32Core((uint32_t *)&cmd, (sizeof(cmd) >> 2) - 1);  // 计算 CRC 校验
   lowcmd_publisher_->Write(cmd);          // DDS 发布指令
 }
 
@@ -330,6 +365,8 @@ void G1Sim2RealEnv::run() {
   while (running_) {
     counter_++;
 
+    if(state_machine_) state_machine_->step();
+    
     auto actionPtr = jointCMDBufferPtr_->GetData();  // 返回的是 std::shared_ptr<const jointCMD>
     while (!actionPtr) { 
       std::this_thread::sleep_for(std::chrono::milliseconds(1));

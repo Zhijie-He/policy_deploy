@@ -1,6 +1,7 @@
 #include <memory>
 #include <csignal>
 #include "utility/timer.h"
+#include "utility/real/unitree_tools.h"
 // unitree
 // DDS
 #include <unitree/robot/channel/channel_publisher.hpp>
@@ -18,28 +19,6 @@ using namespace unitree_hg::msg::dds_;
 #define LOG_USE_COLOR 1
 #define LOG_USE_PREFIX 1
 #include "utility/logger.h"
-
-uint32_t Crc32Core2(uint32_t *ptr, uint32_t len) {
-  uint32_t xbit = 0;
-  uint32_t data = 0;
-  uint32_t CRC32 = 0xFFFFFFFF;
-  const uint32_t dwPolynomial = 0x04c11db7;
-  for (uint32_t i = 0; i < len; i++) {
-    xbit = 1 << 31;
-    data = ptr[i];
-    for (uint32_t bits = 0; bits < 32; bits++) {
-      if (CRC32 & 0x80000000) {
-        CRC32 <<= 1;
-        CRC32 ^= dwPolynomial;
-      } else
-        CRC32 <<= 1;
-      if (data & xbit) CRC32 ^= dwPolynomial;
-
-      xbit >>= 1;
-    }
-  }
-  return CRC32;
-};
 
 bool stop_flag = false;
 
@@ -75,12 +54,12 @@ int main(int argc, char** argv) {
 
 
   uint64_t tick_counter = 0;
-  Timer simulateRobotTimer(1); // 每秒 1 次
+  Timer simulateRobotTimer(0.1); // 每秒 1 次
 
   while (!stop_flag) {
       fake_state.tick() = tick_counter++;
       // CRC 校验
-      fake_state.crc() = Crc32Core2((uint32_t*)&fake_state, (sizeof(LowState_) >> 2) - 1);
+      fake_state.crc() = unitree_tools::Crc32Core((uint32_t*)&fake_state, (sizeof(LowState_) >> 2) - 1);
 
       state_pub->Write(fake_state);
       FRC_INFO("[simulate_robot] Publishing fake LowState_ with tick " << tick_counter);

@@ -11,9 +11,15 @@
 #include "types/system_defined.h"
 #include "sim2/base_env.h"
 #include "types/CustomTypes.h"
+#include "state_machine/StateMachine.h"
 
 class G1Sim2MujocoEnv : public BaseEnv {
 public:
+  G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
+                std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
+                std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr,
+                std::shared_ptr<StateMachine> state_machine);
+
   G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
                 std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
                 std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);
@@ -41,6 +47,7 @@ public:
   void moveToDefaultPos() override;
 
 private:
+  std::shared_ptr<StateMachine> state_machine_ = nullptr;
   double lastx_ = 0, lasty_ = 0;
   std::string robotName_;
   float simulation_dt_ = 5e-4;

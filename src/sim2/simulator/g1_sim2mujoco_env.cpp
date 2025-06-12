@@ -3,10 +3,36 @@
 #include "utility/logger.h"
 #include "utility/timer.h"
 #include "utility/orientation_tools.h"
-#include "utility/pd_control.h"
+#include "utility/tools.h"
 #include <cstring>
 #include <cmath>
 #include <thread>
+
+G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
+                            std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
+                            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr,
+                            std::shared_ptr<StateMachine> state_machine)
+    : BaseEnv(cfg, jointCMDBufferPtr, robotStatusBufferPtr),
+      robotName_(cfg->robot_name),
+      simulation_dt_(cfg->simulation_dt),
+      state_machine_(state_machine)
+      // effort_limit
+{
+  // Mujoco版本检查
+  if (mjVERSION_HEADER != mj_version()) {
+    FRC_ERROR("[G1Sim2MujocoEnv.Const] MuJoCo header and library version mismatch!");
+    throw std::runtime_error("MuJoCo header and library version mismatch!");
+  }
+  FRC_INFO("[G1Sim2MujocoEnv.Const] MuJoCo Version: " << mj_version());
+
+  FRC_INFO("[G1Sim2MujocoEnv.Const] Creating MuJoCo simulation for robot: " << robotName_);
+  initWorld();
+  initState();
+  // updateRobotState();
+  launchServer();
+  FRC_INFO("[G1Sim2MujocoEnv.Const] Ready.");
+}
+
 
 G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
                             std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
@@ -192,6 +218,8 @@ void G1Sim2MujocoEnv::updateRobotState() {
 void G1Sim2MujocoEnv::run() {
   Timer controlTimer(control_dt_);
   while (!glfwWindowShouldClose(window_) && running_) {
+    if(state_machine_) state_machine_->step();
+    
     auto actionPtr = jointCMDBufferPtr_->GetData();
     while (!actionPtr) { // 等待policy 传递action
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -233,7 +261,7 @@ void G1Sim2MujocoEnv::integrate() {
         std::lock_guard<std::mutex> actionLock(action_lock_);  // 自动锁定 action
         Eigen::VectorXf q = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, jointDim_).cast<float>();
         Eigen::VectorXf dq = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel + 6, jointDim_).cast<float>();
-        tauCmd = pd_control(pTarget, q, jointPGain, vTarget, dq, jointDGain);
+        tauCmd = tools::pd_control(pTarget, q, jointPGain, vTarget, dq, jointDGain);
         // for (int i = 0; i < tauCmd.size(); ++i) {
         //   tauCmd[i] = std::min(std::max(tauCmd[i], -100.0f), 100.0f);
         // }

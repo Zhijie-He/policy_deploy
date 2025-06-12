@@ -4,6 +4,7 @@
 #include <memory>
 #include "types/CustomTypes.h"
 #include "sim2/base_env.h"
+#include "state_machine/StateMachine.h"
 
 // unitree
 // DDS
@@ -34,7 +35,18 @@ public:
             std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,  
             std::shared_ptr<CustomTypes::VlaConfig> vla_cfg,
             std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);   
+            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr,
+            std::shared_ptr<StateMachine> state_machine);   
+
+  G1Sim2RealEnv(const std::string& net_interface,
+          std::shared_ptr<const BaseRobotConfig> cfg,
+          const std::string& mode,
+          const std::string& track,
+          const std::vector<std::string>& track_list,
+          std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,  
+          std::shared_ptr<CustomTypes::VlaConfig> vla_cfg,
+          std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
+          std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);   
 
   void stop() override { running_ = false;}
   void LowStateHandler(const void *message);
@@ -49,6 +61,7 @@ public:
   void run() override;
 
 private:
+  std::shared_ptr<StateMachine> state_machine_ = nullptr;
   // 对应构造参数的成员变量
   std::string net_interface_;
   std::string mode_;

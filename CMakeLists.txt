@@ -17,8 +17,8 @@ endif()
 option(USE_UNITREE_SDK "Enable Unitree SDK support (only for Linux)" ${USE_UNITREE_SDK_DEFAULT})
 
 # 启用 AddressSanitizer 调试（可选）
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
-set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
+# set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 
 set(CMAKE_PREFIX_PATH "$ENV{LIBTORCH_DIR}") # 设置 libtorch path 
 set(MUJOCO_DIR $ENV{MUJOCO_DIR})  # Set Mujoco path
@@ -90,8 +90,8 @@ endif()
 # ===== 添加可执行文件 =====
 
 # MuJoCo 版本执行文件
-# add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
-# target_link_libraries(deploy_mujoco ${COMMON_LIBS})
+add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
+target_link_libraries(deploy_mujoco ${COMMON_LIBS})
 
 # 真机部署（仅在启用Unitree SDK时编译）
 if (USE_UNITREE_SDK)
@@ -100,4 +100,7 @@ if (USE_UNITREE_SDK)
 
     add_executable(simulate_robot exec/simulate_robot.cpp ${SRC_FILES})
     target_link_libraries(simulate_robot ${COMMON_LIBS})
+
+    add_executable(check_G1Robot_input exec/check_G1Robot_input.cpp ${SRC_FILES})
+    target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
 endif()
