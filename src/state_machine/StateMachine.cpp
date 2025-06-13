@@ -1,7 +1,7 @@
 #include "state_machine/StateMachine.h"
 #include "utility/timer.h"
+#include "utility/tools.h"
 #include "utility/logger.h"
-#include "utility/orientation_tools.h"
 #include "controller/UnitreePolicyWrapper.h"
 #include "controller/EmanPolicyWrapper.h"
 #include <thread>
@@ -26,12 +26,9 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, const std
     robotData.targetCMD = cfg_->cmd_init;
     FRC_INFO("[StateMachine.Const] Initial target cmd: " << robotData.targetCMD.transpose()); 
   }
-
-  if (config_name == "g1_eman") {
-    _neuralCtrl = std::make_unique<EmanPolicyWrapper>(cfg); 
-  } else {
-    _neuralCtrl = std::make_unique<UnitreePolicyWrapper>(cfg);
-  }
+  
+  // 4. get control policy
+  _neuralCtrl = tools::loadPolicyWrapper(config_name, cfg);
 }
 
 void StateMachine::run(){
@@ -64,18 +61,18 @@ void StateMachine::run(){
 }
 
 void StateMachine::step(){
-  parseRobotData();
+  getRawObs();
   updateCommands();
   robotAction = _neuralCtrl->getControlAction(robotData);
   packJointAction();
   if (*_keyState != '\0') *_keyState = '\0';
 }
 
-void StateMachine::parseRobotData() {
+void StateMachine::getRawObs() {
   assert(_robotStatusBuffer != nullptr);
   auto status_ptr = _robotStatusBuffer->GetData();
   while (!status_ptr) { // 这里存在有可能jointCMD还没有设定值 但是这里在读取 所以要等待
-    FRC_INFO("[StateMachine.parseRobotData] Waiting for robotStatusBuffer...");
+    FRC_INFO("[StateMachine.getRawObs] Waiting for robotStatusBuffer...");
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     status_ptr = _robotStatusBuffer->GetData();  // 重新尝试获取
   }
@@ -83,13 +80,15 @@ void StateMachine::parseRobotData() {
   const auto& status = *status_ptr;  // 解引用拿结构体  推荐：零拷贝 + 明确只读引用
   robotData.timestamp = status.data.timestamp;
 
-  robotData.basePosition = Eigen::Map<const Eigen::Vector3f>(status.data.position);
-  robotData.baseQuat     = Eigen::Map<const Eigen::Vector4f>(status.data.position + 3);
-  robotData.jointPosition = Eigen::Map<const Eigen::VectorXf>(status.data.position + 7, _jointNum);
+  robotData.root_xyz = Eigen::Map<const Eigen::Vector3f>(status.data.position);
+  robotData.root_rot     = Eigen::Map<const Eigen::Vector4f>(status.data.position + 3);
+  robotData.joint_pos = Eigen::Map<const Eigen::VectorXf>(status.data.position + 7, _jointNum);
 
-  robotData.baseVelocity = Eigen::Map<const Eigen::Vector3f>(status.data.velocity);
-  robotData.baseOmega    = Eigen::Map<const Eigen::Vector3f>(status.data.velocity + 3);
-  robotData.jointVelocity = Eigen::Map<const Eigen::VectorXf>(status.data.velocity + 6, _jointNum);
+  robotData.root_vel = Eigen::Map<const Eigen::Vector3f>(status.data.velocity);
+  robotData.root_ang_vel    = Eigen::Map<const Eigen::Vector3f>(status.data.velocity + 3);
+  robotData.joint_vel = Eigen::Map<const Eigen::VectorXf>(status.data.velocity + 6, _jointNum);
+
+  robotData.joint_torques = Eigen::Map<const Eigen::VectorXf>(status.data.jointTorques, _jointNum);
 }
 
 void StateMachine::stop() { _isRunning = false; }

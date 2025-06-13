@@ -16,6 +16,7 @@ public:
     Eigen::VectorXf kP;
     Eigen::VectorXf kD;
     Eigen::VectorXf default_angles;
+    Eigen::VectorXf effort_limit;
     Eigen::Vector3f cmd_init;
     Eigen::Vector3f cmd_scale;
     Eigen::Vector3f max_cmd;

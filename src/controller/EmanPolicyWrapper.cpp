@@ -27,10 +27,10 @@ Eigen::Vector3f quat_rotate_inverse_on_gravity(const Eigen::Vector4f& q) {
 }
 
 void EmanPolicyWrapper::updateObservation(const CustomTypes::RobotData &raw_obs) {
-    Eigen::Vector3f projected_gravity_b = quat_rotate_inverse_on_gravity(raw_obs.baseQuat * cfg_->obs_scale_projected_gravity_b);
-    Eigen::Vector3f root_ang_vel_b = raw_obs.baseOmega * cfg_->ang_vel_scale;
-    Eigen::VectorXf joint_pos = (raw_obs.jointPosition - cfg_->default_angles) * cfg_->dof_pos_scale;
-    Eigen::VectorXf joint_vel = raw_obs.jointVelocity * cfg_->dof_vel_scale;
+    Eigen::Vector3f projected_gravity_b = quat_rotate_inverse_on_gravity(raw_obs.root_rot * cfg_->obs_scale_projected_gravity_b);
+    Eigen::Vector3f root_ang_vel_b = raw_obs.root_ang_vel * cfg_->ang_vel_scale;
+    Eigen::VectorXf joint_pos = (raw_obs.joint_pos - cfg_->default_angles) * cfg_->dof_pos_scale;
+    Eigen::VectorXf joint_vel = raw_obs.joint_vel * cfg_->dof_vel_scale;
     Eigen::VectorXf last_action = actionPrev * cfg_->action_scale;
     Eigen::Vector3f cmd = raw_obs.targetCMD.cwiseProduct(cfg_->cmd_scale);
 

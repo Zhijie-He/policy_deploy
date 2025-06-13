@@ -103,11 +103,12 @@ typedef union humanData
 {
   struct
   {
-    float position[SLAVE_NUMBER]; // 各关节位置
-    float velocity[SLAVE_NUMBER]; // 各关节速度
+    float position[SLAVE_NUMBER]; 
+    float velocity[SLAVE_NUMBER]; 
+    float jointTorques[SLAVE_NUMBER];
     float timestamp;
   } data;
-  float buffer[2][SLAVE_NUMBER];  // 批量访问
+  float buffer[3][SLAVE_NUMBER];  // 批量访问
 } robotStatus;
 
 

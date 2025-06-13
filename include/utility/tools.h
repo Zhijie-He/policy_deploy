@@ -5,15 +5,21 @@
 #include <memory>
 #include "config/EmanRobotConfig.h"
 #include "config/UnitreeRobotConfig.h"
+#include "controller/EmanPolicyWrapper.h"
+#include "controller/UnitreePolicyWrapper.h"
+#include <mujoco/mujoco.h>
+#include "utility/logger.h"
 
 namespace tools {
     std::shared_ptr<BaseRobotConfig> loadConfig(const std::string& config_name);
+    std::unique_ptr<NeuralController> loadPolicyWrapper(const std::string& config_name, std::shared_ptr<const BaseRobotConfig> cfg);
     Eigen::VectorXf pd_control(const Eigen::VectorXf& target_q,
                                   const Eigen::VectorXf& q,
                                   const Eigen::VectorXf& kp,
                                   const Eigen::VectorXf& target_dq,
                                   const Eigen::VectorXf& dq,
                                   const Eigen::VectorXf& kd);
+    void checkMujucoVersion();
 }
 
 

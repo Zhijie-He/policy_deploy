@@ -23,18 +23,18 @@ Eigen::Vector3f get_gravity_orientation(const Eigen::Vector4f& q) {
     return g;
 }
 
-void UnitreePolicyWrapper::updateObservation(const CustomTypes::RobotData &robotData) {
+void UnitreePolicyWrapper::updateObservation(const CustomTypes::RobotData &raw_obs) {
     float period = 0.8f;
-    float t_sec = robotData.timestamp; 
+    float t_sec = raw_obs.timestamp; 
     float phase =  std::fmod(t_sec, period) / period;
     float sin_phase = std::sin(2 * M_PI * phase);
     float cos_phase = std::cos(2 * M_PI * phase);
 
-    Eigen::Vector3f omega = robotData.baseOmega * cfg_->ang_vel_scale;
-    Eigen::Vector3f gravity_orientation = get_gravity_orientation(robotData.baseQuat);
-    Eigen::Vector3f cmd_scaled = robotData.targetCMD.cwiseProduct(cfg_->cmd_scale);
-    Eigen::VectorXf qj = (robotData.jointPosition - cfg_->default_angles) * cfg_->dof_pos_scale;
-    Eigen::VectorXf dqj = robotData.jointVelocity * cfg_->dof_vel_scale;
+    Eigen::Vector3f omega = raw_obs.root_ang_vel * cfg_->ang_vel_scale;
+    Eigen::Vector3f gravity_orientation = get_gravity_orientation(raw_obs.root_rot);
+    Eigen::Vector3f cmd_scaled = raw_obs.targetCMD.cwiseProduct(cfg_->cmd_scale);
+    Eigen::VectorXf qj = (raw_obs.joint_pos - cfg_->default_angles) * cfg_->dof_pos_scale;
+    Eigen::VectorXf dqj = raw_obs.joint_vel * cfg_->dof_vel_scale;
 
     // // ---- 构造 observation ----
     observation.segment(0, 3) = omega;

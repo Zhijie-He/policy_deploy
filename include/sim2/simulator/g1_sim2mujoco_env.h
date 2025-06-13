@@ -10,29 +10,16 @@
 #include <vector>
 #include "types/system_defined.h"
 #include "sim2/base_env.h"
-#include "types/CustomTypes.h"
 #include "state_machine/StateMachine.h"
 
 class G1Sim2MujocoEnv : public BaseEnv {
 public:
   G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-                std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-                std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr,
                 std::shared_ptr<StateMachine> state_machine);
 
   G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
                 std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
                 std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);
-
-  G1Sim2MujocoEnv(const std::string& net_interface,
-            std::shared_ptr<const BaseRobotConfig> cfg,
-            const std::string& mode,
-            const std::string& track,
-            const std::vector<std::string>& track_list,
-            std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,  
-            std::shared_ptr<CustomTypes::VlaConfig> vla_cfg,
-            std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);   
 
   ~G1Sim2MujocoEnv();
 

@@ -5,6 +5,7 @@
 #include "types/joystickTypes.h"
 #include "utility/data_buffer.h"
 #include "hardware/listener.h"
+#include "types/CustomTypes.h"
 
 class BaseEnv {
 public:
@@ -40,10 +41,16 @@ protected:
   JoystickData* joyPtr_ = nullptr;
 
   int gcDim_, gvDim_, jointDim_;
-  Eigen::VectorXd gc_, gv_;
+  Eigen::VectorXd gc_, gv_, joint_torques_;
   Eigen::VectorXf pTarget, vTarget;
   Eigen::VectorXf jointPGain, jointDGain;
 
   std::mutex state_lock_;
   std::mutex action_lock_;
+
+  std::string mode_;
+  std::string track_;
+  std::vector<std::string> track_list_;
+  std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg_;
+  std::shared_ptr<CustomTypes::VlaConfig> vla_cfg_;
 };

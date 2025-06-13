@@ -1,8 +1,7 @@
 // ===== include/sim2/real/g1_sim2real_env.h =====
 #pragma once
-#include "types/system_defined.h"
 #include <memory>
-#include "types/CustomTypes.h"
+#include "types/system_defined.h"
 #include "sim2/base_env.h"
 #include "state_machine/StateMachine.h"
 
@@ -29,22 +28,10 @@ class G1Sim2RealEnv : public BaseEnv {
 public:
   G1Sim2RealEnv(const std::string& net_interface,
             std::shared_ptr<const BaseRobotConfig> cfg,
-            const std::string& mode,
-            const std::string& track,
-            const std::vector<std::string>& track_list,
-            std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,  
-            std::shared_ptr<CustomTypes::VlaConfig> vla_cfg,
-            std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr,
             std::shared_ptr<StateMachine> state_machine);   
 
   G1Sim2RealEnv(const std::string& net_interface,
           std::shared_ptr<const BaseRobotConfig> cfg,
-          const std::string& mode,
-          const std::string& track,
-          const std::vector<std::string>& track_list,
-          std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,  
-          std::shared_ptr<CustomTypes::VlaConfig> vla_cfg,
           std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
           std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);   
 
@@ -64,13 +51,6 @@ private:
   std::shared_ptr<StateMachine> state_machine_ = nullptr;
   // 对应构造参数的成员变量
   std::string net_interface_;
-  std::string mode_;
-  std::string track_;
-  std::vector<std::string> track_list_;
-  std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg_;
-  std::shared_ptr<CustomTypes::VlaConfig> vla_cfg_;
-
-  Eigen::VectorXf tauCmd;
   int counter_ = 0;
 
   // unitree sdk
@@ -78,9 +58,11 @@ private:
   Mode mode_pr_;
   LowCmd_ low_cmd_;
   LowState_ low_state_;
+  
   // publisher
   std::unique_ptr<ChannelPublisher<LowCmd_>> lowcmd_publisher_;
   // subscriber
   std::unique_ptr<ChannelSubscriber<LowState_>> lowstate_subscriber_;
+
   unitree::common::ThreadPtr command_writer_ptr_, control_thread_ptr_;
 };

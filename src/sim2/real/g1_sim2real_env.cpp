@@ -27,7 +27,7 @@ void init_cmd_hg(LowCmd_& cmd, uint8_t mode_machine, Mode mode_pr) {
   cmd.mode_machine() = mode_machine;
   cmd.mode_pr() = static_cast<uint8_t>(mode_pr);
   
-  // here should follow num actions
+  // here should use num actions
   size_t size = cmd.motor_cmd().size();
   for (size_t i = 0; i < size; ++i) {
       cmd.motor_cmd()[i].mode() = 1;
@@ -52,23 +52,11 @@ void create_zero_cmd(LowCmd_& cmd) {
 
 G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
             std::shared_ptr<const BaseRobotConfig> cfg,
-            const std::string& mode,
-            const std::string& track,
-            const std::vector<std::string>& track_list,
-            std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,  
-            std::shared_ptr<CustomTypes::VlaConfig> vla_cfg,
-            std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr,
             std::shared_ptr<StateMachine> state_machine)
-    : BaseEnv(cfg, jointCMDBufferPtr, robotStatusBufferPtr),
+    : BaseEnv(cfg, state_machine->getJointCMDBufferPtr(), state_machine->getRobotStatusBufferPtr()),
       net_interface_(net_interface),
       mode_pr_(Mode::PR),
       mode_machine_(0),
-      mode_(mode),
-      track_(track),
-      track_list_(track_list),
-      mocap_cfg_(mocap_cfg),
-      vla_cfg_(vla_cfg),
       state_machine_(state_machine)
 {   
     FRC_INFO("[G1Sim2RealEnv.Const] net_interface: " << net_interface);
@@ -90,7 +78,7 @@ G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
         }, 10
       );
     } else {
-      FRC_ERROR("[G1Sim2RealEnv] Invalid msg_type" << cfg_->msg_type);
+      FRC_ERROR("[G1Sim2RealEnv.Const] Invalid msg_type: " << cfg_->msg_type);
       throw std::invalid_argument("Invalid msg_type: " + cfg_->msg_type);
     }
     
@@ -107,22 +95,12 @@ G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
 
 G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
             std::shared_ptr<const BaseRobotConfig> cfg,
-            const std::string& mode,
-            const std::string& track,
-            const std::vector<std::string>& track_list,
-            std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,  
-            std::shared_ptr<CustomTypes::VlaConfig> vla_cfg,
             std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
             std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr)
     : BaseEnv(cfg, jointCMDBufferPtr, robotStatusBufferPtr),
       net_interface_(net_interface),
       mode_pr_(Mode::PR),
-      mode_machine_(0),
-      mode_(mode),
-      track_(track),
-      track_list_(track_list),
-      mocap_cfg_(mocap_cfg),
-      vla_cfg_(vla_cfg)
+      mode_machine_(0)
 {   
     FRC_INFO("[G1Sim2RealEnv.Const] net_interface: " << net_interface);
 
@@ -143,7 +121,7 @@ G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
         }, 10
       );
     } else {
-      FRC_ERROR("[G1Sim2RealEnv] Invalid msg_type" << cfg_->msg_type);
+      FRC_ERROR("[G1Sim2RealEnv.Const] Invalid msg_type" << cfg_->msg_type);
       throw std::invalid_argument("Invalid msg_type: " + cfg_->msg_type);
     }
     
@@ -172,13 +150,10 @@ void G1Sim2RealEnv::initState() {
   jointDGain = cfg_->kD;
 
   // ③ 动作目标
-  pTarget.setZero(jointDim_);
+  // pTarget.setZero(jointDim_);
   pTarget = cfg_->default_angles;// desired position（用于位置控制）
   FRC_INFO("[G1Sim2RealEnv.initState] default_angles: " << cfg_->default_angles.transpose());
   vTarget.setZero(jointDim_); // desired velocity（用于速度控制）
-
-  // ④ 力矩命令
-  tauCmd.setZero(jointDim_); //	最终输出的控制力矩（全体）
 }
 
 void G1Sim2RealEnv::waitForLowState() {
@@ -201,9 +176,9 @@ void G1Sim2RealEnv::LowStateHandler(const void *message) {
     if (mode_machine_ == 0) FRC_INFO("[G1Sim2RealEnv.LowStateHandler] G1 type: " << unsigned(low_state_.mode_machine()));
     mode_machine_ = low_state_.mode_machine(); // 因为类型是 uint8_t，用 unsigned(...) 是为了防止 char 类型被当作 ASCII 打印。
   }
-
+  
+  // update gamepad
   if (listenerPtr_) {
-    // update gamepad
     memcpy(listenerPtr_->rx_.buff, &low_state_.wireless_remote()[0], 40);
     listenerPtr_->gamepad_.update(listenerPtr_->rx_.RF_RX);
     FRC_INFO("[G1Sim2RealEnv.LowStateHandler] tick: "<<low_state_.tick()<<" Gamepad: lx=" << listenerPtr_->gamepad_.lx
@@ -229,9 +204,10 @@ void G1Sim2RealEnv::updateRobotState() {
     std::lock_guard<std::mutex> stateLock(state_lock_);
 
     // === 获取广义坐标 (generalized coordinates) ===
-    Eigen::Vector3d basePos = Eigen::Vector3d::Zero();  // 暂设为 0
-    Eigen::Vector4d baseQuat;  // 四元数
-    baseQuat << low_state_.imu_state().quaternion()[0],
+    Eigen::Vector3d rootPos = Eigen::Vector3d::Zero();  // 设为 0
+    Eigen::Vector4d rootQuat;  // 四元数
+    // imu_state quaternion: w, x, y, z
+    rootQuat << low_state_.imu_state().quaternion()[0],
                 low_state_.imu_state().quaternion()[1],
                 low_state_.imu_state().quaternion()[2],
                 low_state_.imu_state().quaternion()[3];
@@ -241,12 +217,10 @@ void G1Sim2RealEnv::updateRobotState() {
       jointPos[i] = low_state_.motor_state()[i].q();
     }
 
-    gc_ << basePos, baseQuat, jointPos;
-
     // === 获取速度项 ===
-    Eigen::Vector3d baseVelocity = Eigen::Vector3d::Zero();  // 暂设为 0
-    Eigen::Vector3d baseOmega;
-    baseOmega << low_state_.imu_state().gyroscope()[0],
+    Eigen::Vector3d rootVel = Eigen::Vector3d::Zero();  // 暂设为 0
+    Eigen::Vector3d rootAngVel;
+    rootAngVel << low_state_.imu_state().gyroscope()[0],
                  low_state_.imu_state().gyroscope()[1],
                  low_state_.imu_state().gyroscope()[2];
 
@@ -254,13 +228,24 @@ void G1Sim2RealEnv::updateRobotState() {
     for (int i = 0; i < jointDim_; ++i) {
       jointVel[i] = low_state_.motor_state()[i].dq();
     }
+    
+    if(cfg_->imu_type == "torso"){
+      // h1 and h1_2 imu is on the torso
+      // imu data needs to be transformed to the pelvis frame
+      FRC_INFO("[G1Sim2RealEnv.updateRobotState] TODO: torso IMU type");
+      throw std::runtime_error("torso IMU type is not supported!");
+      // waist_yaw = low_state_.motor_state()[cfg_->arm_waist_joint2motor_idx[0]].q();
+      // waist_yaw_omega = low_state_.motor_state()[cfg_->arm_waist_joint2motor_idx[0]].dq();
+      // rootQuat, rootAngVel = transform_imu_data(waist_yaw, waist_yaw_omega, rootQuat, rootAngVel);
+    }
 
-    gv_ << baseVelocity, baseOmega, jointVel;
-
+    gc_ << rootPos, rootQuat, jointPos;
+    gv_ << rootVel, rootAngVel, jointVel;
+    
     // === 转换为 float 用于 status 共享 ===
     positionVec = gc_.cast<float>();
     velocityVec = gv_.cast<float>();
-    timestamp = low_state_.tick();  // 如果你用 mj_data_ 模拟器，也可 mj_data_->time
+    timestamp = low_state_.tick();  // use tick() as timestamp
     // FRC_INFO("[G1Sim2RealEnv.updateRobotState] gc_ dim = " << gc_.size() << ", values = " << gc_.transpose());
     // FRC_INFO("[G1Sim2RealEnv.updateRobotState] gv_ dim = " << gv_.size() << ", values = " << gv_.transpose());
     // FRC_INFO("[G1Sim2RealEnv.updateRobotState] timestamp/low_state_.tick() = " << timestamp);
@@ -271,6 +256,7 @@ void G1Sim2RealEnv::updateRobotState() {
     robotStatus status;
     memcpy(status.data.position, positionVec.data(), gcDim_ * sizeof(float));
     memcpy(status.data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
+    // status.data.jointTorques if needed
     status.data.timestamp = timestamp;
     robotStatusBufferPtr_->SetData(status);
   }
@@ -286,7 +272,6 @@ void G1Sim2RealEnv::zeroTorqueState() {
   FRC_INFO("[G1Sim2RealEnv.zeroTorqueState] Waiting for the start signal...");
   Timer zeroTorqueStateTimer(control_dt_);
 
-  // while (listenerPtr_ && listenerPtr_->remote.button[KeyMap::start] != 1) {
   while (listenerPtr_ && listenerPtr_->gamepad_.start.pressed != 1) {
     create_zero_cmd(low_cmd_);  
     sendCmd(low_cmd_);        
@@ -344,7 +329,6 @@ void G1Sim2RealEnv::defaultPosState() {
   const auto& default_joint_pos = cfg_->default_angles;
   int dof_size = jointDim_;
 
-  // while (remote_controller.button[KeyMap::A] != 1) {
   while (listenerPtr_ && listenerPtr_->gamepad_.A.pressed != 1) {
     for (int i = 0; i < dof_size; ++i) {
       int motor_idx = i;
@@ -391,9 +375,10 @@ void G1Sim2RealEnv::run() {
         low_cmd_.motor_cmd()[i].tau() = 0.0f;
       }
     }
-    // stop button
+
+    // emergency stop button
     if (listenerPtr_ && listenerPtr_->gamepad_.select.pressed == 1) {
-      FRC_INFO("[G1Sim2RealEnv.run] Stop!");
+      FRC_INFO("[G1Sim2RealEnv.run] Emergency Stop!");
       running_ = false;
     }
 

@@ -20,7 +20,7 @@ public:
     std::shared_ptr<DataBuffer<jointCMD>> getJointCMDBufferPtr() const {return _jointCMDBuffer;}
 
 protected:
-    void parseRobotData();
+    void getRawObs();
     void updateCommands();
     void packJointAction();
     
