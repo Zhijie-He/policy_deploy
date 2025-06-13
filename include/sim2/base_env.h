@@ -20,9 +20,7 @@ public:
   virtual ~BaseEnv() = default;
   virtual void stop() { running_ = false;}  
   virtual void setUserInputPtr(std::shared_ptr<Listener> listener, char* key, JoystickData* joy) {listenerPtr_ = listener; keyPtr_ = key; joyPtr_ = joy;}
-  virtual void renderLoop() {}  
   virtual void run() {}
-  virtual void integrate() {}
 
   virtual void zeroTorqueState() {}
   virtual void moveToDefaultPos() {}

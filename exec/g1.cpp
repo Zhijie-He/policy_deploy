@@ -48,19 +48,8 @@ public:
     if(mode_=="sim2real") hu_env_->defaultPosState();
   }
 
-  void start_threads(){
-    if(mode_ != "sim2mujoco") return;
-    threads_.emplace_back([&]() { hu_env_->integrate(); }); 
-    threads_.emplace_back([&]() { hu_env_->run(); });      
-  }
-
   void run(){
-    if(mode_ == "sim2mujoco"){
-      start_threads();
-      hu_env_->renderLoop();
-    }else if(mode_=="sim2real"){
-      hu_env_->run();
-    }
+    hu_env_->run();
   }
 
   ~G1Controller(){

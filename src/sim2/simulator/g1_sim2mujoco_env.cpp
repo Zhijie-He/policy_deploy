@@ -173,7 +173,7 @@ void G1Sim2MujocoEnv::updateRobotState() {
   }
 }
 
-void G1Sim2MujocoEnv::run() {
+void G1Sim2MujocoEnv::step() {
   Timer controlTimer(control_dt_);
   while (!glfwWindowShouldClose(window_) && running_) {
     if(state_machine_) state_machine_->step();
@@ -191,59 +191,49 @@ void G1Sim2MujocoEnv::run() {
       memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
       memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
       memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
-      isFirstActionReceived = true;
     }
     
-    if (isStatesReady) updateRobotState();
+    // integrate();
+    updateRobotState();
     controlTimer.wait();
   }
 }
 
 void G1Sim2MujocoEnv::integrate() {
-  Timer worldTimer(control_dt_);
-  
-  // 等待 jointCMD 初始化完毕（首次策略输出）
-  // while (!isFirstActionReceived.load()) {
-  //   FRC_INFO("[G1Sim2MujocoEnv.integrate] Waiting for first jointCMD data...");
-  //   std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  // }
-
-  while (!glfwWindowShouldClose(window_) && running_) {
-    for (int i = 0; i < int(control_dt_ / simulation_dt_); i++) {
-      {   // or mjcb_control 简化结构
-        std::lock_guard<std::mutex> stateLock(state_lock_);  
-        mj_step1(mj_model_, mj_data_); // step1: 更新状态，获得最新 qpos/qvel/contact 等
-      }
-      { 
-        std::lock_guard<std::mutex> actionLock(action_lock_);
-        Eigen::VectorXf joint_pos = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, jointDim_).cast<float>();
-        Eigen::VectorXf joint_vel = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel + 6, jointDim_).cast<float>();
-        tauCmd = tools::pd_control(pTarget, joint_pos, jointPGain, vTarget, joint_vel, jointDGain);
-        for (int i = 0; i < tauCmd.size(); ++i) {
-          float limit = cfg_->effort_limit[i];
-          if(std::isfinite(limit)){
-            tauCmd[i] = std::clamp(tauCmd[i], -limit, limit);
-          }
-        }
-        for (int i = 0; i < jointDim_; ++i) mj_data_->ctrl[i] = tauCmd[i];
-        // FRC_INFO("tauCmd: " << tauCmd.transpose());
-      }
-      {
-        std::lock_guard<std::mutex> stateLock(state_lock_); 
-        mj_step2(mj_model_, mj_data_);  // step2: 推进仿真
-      }
+  for (int i = 0; i < int(control_dt_ / simulation_dt_); i++) {
+    {   // or mjcb_control 简化结构
+      std::lock_guard<std::mutex> stateLock(state_lock_);  
+      mj_step1(mj_model_, mj_data_); // step1: 更新状态，获得最新 qpos/qvel/contact 等
     }
-    if (!isStatesReady) isStatesReady = true;
-    worldTimer.wait();
+    { 
+      std::lock_guard<std::mutex> actionLock(action_lock_);
+      Eigen::VectorXf joint_pos = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, jointDim_).cast<float>();
+      Eigen::VectorXf joint_vel = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel + 6, jointDim_).cast<float>();
+      tauCmd = tools::pd_control(pTarget, joint_pos, jointPGain, vTarget, joint_vel, jointDGain);
+      for (int i = 0; i < tauCmd.size(); ++i) {
+        float limit = cfg_->effort_limit[i];
+        if(std::isfinite(limit)){
+          tauCmd[i] = std::clamp(tauCmd[i], -limit, limit);
+        }
+      }
+      for (int i = 0; i < jointDim_; ++i) mj_data_->ctrl[i] = tauCmd[i];
+      // FRC_INFO("tauCmd: " << tauCmd.transpose());
+    }
+    {
+      std::lock_guard<std::mutex> stateLock(state_lock_); 
+      mj_step2(mj_model_, mj_data_);  // step2: 推进仿真
+    }
   }
 }
 
-void G1Sim2MujocoEnv::renderLoop() {
-  // 每秒渲染频率
-  const float render_dt = 1.0 / 120.0;
-  Timer renderTimer(render_dt);
+void G1Sim2MujocoEnv::run() {
+  // const float render_dt = 1.0 / 120.0;   // 每秒渲染频率
+  Timer renderTimer(control_dt_);
 
+  std::thread step_thread(&G1Sim2MujocoEnv::step, this);
+  
   while (!glfwWindowShouldClose(window_) && running_) {
+    integrate();
     {
       std::lock_guard<std::mutex> lock(state_lock_);
       mjv_updateScene(mj_model_, mj_data_, &opt_, nullptr, &cam_, mjCAT_ALL, &scn_);
@@ -255,6 +245,8 @@ void G1Sim2MujocoEnv::renderLoop() {
     glfwPollEvents();
     renderTimer.wait();
   }
+
+  step_thread.join();
 }
 
 void G1Sim2MujocoEnv::moveToDefaultPos() {

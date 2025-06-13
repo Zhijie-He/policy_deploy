@@ -50,17 +50,10 @@ int main(int argc, char** argv) {
   // Move to the default position
   env->moveToDefaultPos();
 
-  std::thread comm_thread(&G1Sim2MujocoEnv::run, env);
-  std::thread integrate_thread(&G1Sim2MujocoEnv::integrate, env);
-
-  env->renderLoop();
-
-  state_machine->stop();
-  listener->stop();
+  env->run();
+  
+  close_all_threads(404);
   ctrl_thread.join();
   keyboard_thread.join();
-  comm_thread.join();
-  integrate_thread.join();
-
   return 0;
 }

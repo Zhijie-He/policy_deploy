@@ -26,9 +26,9 @@ public:
   void initWorld();
   void initState();
   void launchServer();
-  void renderLoop() override;
   void run() override;
-  void integrate() override;
+  void step();
+  void integrate();
   void updateRobotState();
   void stop() override;
   void moveToDefaultPos() override;
@@ -38,10 +38,7 @@ private:
   double lastx_ = 0, lasty_ = 0;
   std::string robotName_;
   float simulation_dt_ = 5e-4;
-  bool isStatesReady = false;
-  
   Eigen::VectorXf tauCmd;
-  std::atomic<bool> isFirstActionReceived = false;
 
   // MuJoCo core members
   mjModel* mj_model_ = nullptr;
