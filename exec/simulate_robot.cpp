@@ -1,5 +1,6 @@
 #include <memory>
 #include <csignal>
+#include <random>
 #include "utility/timer.h"
 #include "utility/real/unitree_tools.h"
 // unitree
@@ -52,12 +53,20 @@ int main(int argc, char** argv) {
   auto& remote = fake_state.wireless_remote();
   // remote[0] = ...;  // 可填充 bitmap/float 数据
 
-
   uint64_t tick_counter = 0;
   Timer simulateRobotTimer(1); // 每秒 1 次
 
+  // 随机数引擎
+  std::default_random_engine rng(std::random_device{}());
+  std::uniform_real_distribution<float> pos_dist(-0.3f, 0.3f); // 位置扰动范围
+  std::uniform_real_distribution<float> vel_dist(-0.05f, 0.05f); // 速度扰动范围
+  int joint_num = 29;
   while (!stop_flag) {
       fake_state.tick() = tick_counter++;
+      for (int i = 0; i < joint_num; ++i) {
+          fake_state.motor_state().at(i).q() = pos_dist(rng);   // 随机关节角度
+          fake_state.motor_state().at(i).dq() = vel_dist(rng);  // 随机关节速度
+      }
       // CRC 校验
       fake_state.crc() = unitree_tools::Crc32Core((uint32_t*)&fake_state, (sizeof(LowState_) >> 2) - 1);
 
@@ -68,4 +77,5 @@ int main(int argc, char** argv) {
 
   return 0;
 }
+
 

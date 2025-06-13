@@ -22,6 +22,10 @@ using namespace unitree_hg::msg::dds_;
 #define LOG_USE_PREFIX 1
 #include "utility/logger.h"
 
+// global low state
+LowState_ latestLowState;
+std::mutex lowstate_mutex;
+
 class MinimalMujocoViewer {
 public:
     MinimalMujocoViewer(std::shared_ptr<BaseRobotConfig> cfg)
@@ -30,11 +34,7 @@ public:
         simulation_dt_(cfg->simulation_dt),
         control_dt_(cfg->getPolicyDt())
     {
-        // Mujoco版本检查
-        if (mjVERSION_HEADER != mj_version()) {
-            FRC_ERROR("[MinimalMujocoViewer.Const] MuJoCo header and library version mismatch!");
-            throw std::runtime_error("MuJoCo header and library version mismatch!");
-        }
+        tools::checkMujucoVersion();
         initWorld();
         initState();
         launchServer();
@@ -155,36 +155,50 @@ public:
     
     void integrate() {
         Timer worldTimer(control_dt_);
-        std::default_random_engine rng(std::random_device{}());
-        std::uniform_real_distribution<float> dist(-0.1f, 0.1f);  // 设置扰动范围 ±dasdasd0.1
-
         while (!glfwWindowShouldClose(window_)) {
-            for (int i = 0; i < int(control_dt_ / simulation_dt_); i++) {
-                {   // or mjcb_control 简化结构
-                    std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动锁定 state
-                    mj_step1(mj_model_, mj_data_); // step1: 更新状态，获得最新 qpos/qvel/contact 等
+            {
+                std::lock_guard<std::mutex> lock(lowstate_mutex);
+
+                const auto& motor_state = latestLowState.motor_state();
+                const auto& imu = latestLowState.imu_state();
+                int joint_num = std::min(int(motor_state.size()), jointDim_);
+
+                // 写入关节数据
+                for (int i = 0; i < joint_num; ++i) {
+                    mj_data_->qpos[7 + i] = motor_state.at(i).q();
+                    mj_data_->qvel[6 + i] = motor_state.at(i).dq();
                 }
-                { 
-                    // Apply PD control
-                    std::lock_guard<std::mutex> actionLock(action_lock_);  // 自动锁定 action
-                    Eigen::VectorXf q = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, jointDim_).cast<float>();
-                    Eigen::VectorXf dq = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel + 6, jointDim_).cast<float>();
-                    tauCmd = tools::pd_control(pTarget, q, jointPGain, vTarget, dq, jointDGain);
-                    // for (int i = 0; i < tauCmd.size(); ++i) {
-                    //   tauCmd[i] = std::min(std::max(tauCmd[i], -100.0f), 100.0f);
-                    // }
-                    for (int i = 0; i < jointDim_; ++i) mj_data_->ctrl[i] = tauCmd[i];
-                    // FRC_INFO("tauCmd: " << tauCmd.transpose());
-                }
-                {
-                    std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动锁定 state
-                    mj_step2(mj_model_, mj_data_);  // step2: 推进仿真
-                }
+
+                // 写入 base 姿态（IMU → 四元数）
+                // float roll = imu.rpy()[0];
+                // float pitch = imu.rpy()[1];
+                // float yaw = imu.rpy()[2];
+                // mjtNum quat[4];
+                // mju_fromEulerXYZ(quat, roll, pitch, yaw);
+                // mj_data_->qpos[3] = quat[0];  // w
+                // mj_data_->qpos[4] = quat[1];  // x
+                // mj_data_->qpos[5] = quat[2];  // y
+                // mj_data_->qpos[6] = quat[3];  // z
+                Eigen::AngleAxisf rollAngle(imu.rpy()[0], Eigen::Vector3f::UnitX());
+                Eigen::AngleAxisf pitchAngle(imu.rpy()[1], Eigen::Vector3f::UnitY());
+                Eigen::AngleAxisf yawAngle(imu.rpy()[2], Eigen::Vector3f::UnitZ());
+
+                Eigen::Quaternionf quat = yawAngle * pitchAngle * rollAngle;  // ZYX顺序
+
+                mj_data_->qpos[3] = quat.w();
+                mj_data_->qpos[4] = quat.x();
+                mj_data_->qpos[5] = quat.y();
+                mj_data_->qpos[6] = quat.z();
+
+                // 写入 base angular velocity（IMU gyroscope → base twist 的旋转部分）
+                mj_data_->qvel[3] = imu.gyroscope()[0];  // ωx
+                mj_data_->qvel[4] = imu.gyroscope()[1];  // ωy
+                mj_data_->qvel[5] = imu.gyroscope()[2];  // ωz
             }
-            pTarget = cfg_->default_angles;
-            // for(int i = 0; i < pTarget.size(); ++i){
-            //     pTarget[i] += dist(rng);
-            // }
+
+            for (int i = 0; i < int(control_dt_ / control_dt_); i++) {
+                mj_step(mj_model_, mj_data_); 
+            }
             worldTimer.wait();
         }
     }
@@ -197,7 +211,6 @@ public:
         while (!glfwWindowShouldClose(window_)) {
             {
                 std::lock_guard<std::mutex> lock(state_lock_);
-                // mj_step(mj_model_, mj_data_);
                 mjv_updateScene(mj_model_, mj_data_, &opt_, nullptr, &cam_, mjCAT_ALL, &scn_);
                 int width, height;
                 glfwGetFramebufferSize(window_, &width, &height);
@@ -246,25 +259,24 @@ private:
 
 void Handler(const void* message)
 {   
-    LowState_ low_state_ = *(const LowState_ *)message;
-    if (low_state_.crc() != unitree_tools::Crc32Core((uint32_t *)&low_state_, (sizeof(LowState_) >> 2) - 1)) {
+    const LowState_& msg = *(const LowState_ *)message;
+    if (msg.crc() != unitree_tools::Crc32Core((uint32_t *)&msg, (sizeof(LowState_) >> 2) - 1)) {
         FRC_ERROR("[Handler] CRC Error");
         return;
     }
-    FRC_INFO("low_state with tick: " << low_state_.tick());
+    FRC_INFO("low_state with tick: " << msg.tick());
+    {
+        std::lock_guard<std::mutex> lock(lowstate_mutex);
+        latestLowState = msg;
+    }
 }
 
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;
 
 int main(int argc, char** argv) {
-    // ChannelFactory::Instance()->Init(0);
-    // ChannelSubscriber<LowState_> subscriber("rt/lowstate");
-    // subscriber.InitChannel(Handler);
-
-    // while (true)
-    // {
-    //     sleep(10);
-    // }
+    ChannelFactory::Instance()->Init(0);
+    ChannelSubscriber<LowState_> subscriber("rt/lowstate");
+    subscriber.InitChannel(Handler);
 
     try {
       cfg = tools::loadConfig("g1_eman");
@@ -278,6 +290,3 @@ int main(int argc, char** argv) {
     }
     return 0;
 }
-
-
-
