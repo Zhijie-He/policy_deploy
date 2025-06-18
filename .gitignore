@@ -1,8 +1,10 @@
 # IDE
 .vscode
 
-# cpp
-build
+# colcon build
+build/
+install/
+log/
 
 #cland
 .cache
