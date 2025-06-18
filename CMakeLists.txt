@@ -28,7 +28,6 @@ set(UNITREE_SDK2_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/unitree_sdk2) # set Uni
 find_package(Torch REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(YAMLCPP REQUIRED yaml-cpp)
-find_package(Eigen3 REQUIRED)
 pkg_check_modules(GLFW REQUIRED glfw3) # GLFW
 
 message(STATUS "System: ${CMAKE_SYSTEM_NAME}")
@@ -48,10 +47,10 @@ set(SRC_FILES ${ALL_SRC_FILES})
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${YAMLCPP_INCLUDE_DIRS}
-    ${EIGEN3_INCLUDE_DIRS}
     ${MUJOCO_DIR}/include
     ${GLFW_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/exec
+    ${CMAKE_CURRENT_SOURCE_DIR}/library
 )
 
 # 链接库目录
