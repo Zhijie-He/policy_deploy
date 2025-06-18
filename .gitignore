@@ -1,5 +1,7 @@
 # ---- 编译输出 ----
 build/
+install/
+log/
 bin/
 lib/
 *.o
