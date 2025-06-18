@@ -176,6 +176,7 @@ void G1Sim2MujocoEnv::updateRobotState() {
 void G1Sim2MujocoEnv::step() {
   Timer controlTimer(control_dt_);
   while (!glfwWindowShouldClose(window_) && running_) {
+
     if(state_machine_) state_machine_->step();
     
     auto actionPtr = jointCMDBufferPtr_->GetData();
@@ -193,10 +194,32 @@ void G1Sim2MujocoEnv::step() {
       memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
     }
     
-    // integrate();
     updateRobotState();
     controlTimer.wait();
   }
+}
+
+void G1Sim2MujocoEnv::run() {
+  // const float render_dt = 1.0 / 120.0;   // 每秒渲染频率
+  Timer renderTimer(control_dt_);
+
+  std::thread step_thread(&G1Sim2MujocoEnv::step, this);
+  
+  while (!glfwWindowShouldClose(window_) && running_) {
+    integrate();
+    {
+      std::lock_guard<std::mutex> lock(state_lock_);
+      mjv_updateScene(mj_model_, mj_data_, &opt_, nullptr, &cam_, mjCAT_ALL, &scn_);
+      int width, height;
+      glfwGetFramebufferSize(window_, &width, &height);
+      mjr_render({0, 0, width, height}, &scn_, &con_);
+    }
+    glfwSwapBuffers(window_);
+    glfwPollEvents();
+    renderTimer.wait();
+  }
+
+  step_thread.join();
 }
 
 void G1Sim2MujocoEnv::integrate() {
@@ -224,29 +247,6 @@ void G1Sim2MujocoEnv::integrate() {
       mj_step2(mj_model_, mj_data_);  // step2: 推进仿真
     }
   }
-}
-
-void G1Sim2MujocoEnv::run() {
-  // const float render_dt = 1.0 / 120.0;   // 每秒渲染频率
-  Timer renderTimer(control_dt_);
-
-  std::thread step_thread(&G1Sim2MujocoEnv::step, this);
-  
-  while (!glfwWindowShouldClose(window_) && running_) {
-    integrate();
-    {
-      std::lock_guard<std::mutex> lock(state_lock_);
-      mjv_updateScene(mj_model_, mj_data_, &opt_, nullptr, &cam_, mjCAT_ALL, &scn_);
-      int width, height;
-      glfwGetFramebufferSize(window_, &width, &height);
-      mjr_render({0, 0, width, height}, &scn_, &con_);
-    }
-    glfwSwapBuffers(window_);
-    glfwPollEvents();
-    renderTimer.wait();
-  }
-
-  step_thread.join();
 }
 
 void G1Sim2MujocoEnv::moveToDefaultPos() {

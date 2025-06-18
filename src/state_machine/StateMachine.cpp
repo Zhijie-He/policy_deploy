@@ -98,9 +98,9 @@ void StateMachine::updateCommands(){
   // Vec3f maxVelCmd{1.0, 0.3, 1.0}; // 最大线速度限制（1.0 前进，0.3 横向，0 竖直）；
   Vec3f maxVelCmd = cfg_->max_cmd;
   constexpr float maxYaw = 1.0f;
-  
+
   // 键盘输入控制逻辑
-  if (_keyState != nullptr && *_keyState != '\0') { 
+  if (_keyState != nullptr && *_keyState != '\0') {
     //  构造键盘增量指令
     Vec3<float> deltaVelTarg{0, 0, 0};
     Vec3<float> deltaAngTarg{0, 0, 0};
@@ -113,26 +113,25 @@ void StateMachine::updateCommands(){
     if (*_keyState == 'w') {
       deltaVelTarg << kStep, 0, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'w' → Forward +" << kStep);
-    }
-    else if (*_keyState == 's') {
+    } else if (*_keyState == 's') {
       deltaVelTarg << -kStep, 0, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 's' → Backward -"  << kStep);
-    }
-    else if (*_keyState == 'a') {
+    } else if (*_keyState == 'a') {
       deltaVelTarg << 0, kStep, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'a' → Left +"  << kStep);
-    }
-    else if (*_keyState == 'd') {
+    } else if (*_keyState == 'd') {
       deltaVelTarg << 0, -kStep, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'd' → Right -"  << kStep);
-    }
-    else if (*_keyState == 'q') {
+    } else if (*_keyState == 'q') {
       deltaAngTarg << 0, 0, kYawStep;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'q' → Turn left +" << kYawStep << "rad");
-    }
-    else if (*_keyState == 'e') {
+    } else if (*_keyState == 'e') {
       deltaAngTarg << 0, 0, -kYawStep;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'e' → Turn right -" << kYawStep << "rad");
+    } else if (*_keyState == ' ') {
+      robotData.targetCMD.setZero();
+      yawTarg = 0.f;
+      FRC_INFO("[StateMachine.updateCommands] Pressed 'space' → Reset target velocity and yaw to zero.");
     }
 
     // 线速度增量
@@ -167,4 +166,5 @@ void StateMachine::packJointAction(){
   memcpy(cmd.data.kd, robotAction.kD.data(), _jointNum * sizeof(float));
   _jointCMDBuffer->SetData(cmd);
 }
+
 

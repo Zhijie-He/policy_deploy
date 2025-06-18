@@ -56,13 +56,14 @@ private:
   // unitree sdk
   uint8_t mode_machine_;
   Mode mode_pr_;
+  
   LowCmd_ low_cmd_;
   LowState_ low_state_;
-  
+
+  DataBuffer<LowState_> low_state_buffer_;
+
   // publisher
   std::unique_ptr<ChannelPublisher<LowCmd_>> lowcmd_publisher_;
   // subscriber
   std::unique_ptr<ChannelSubscriber<LowState_>> lowstate_subscriber_;
-
-  unitree::common::ThreadPtr command_writer_ptr_, control_thread_ptr_;
 };

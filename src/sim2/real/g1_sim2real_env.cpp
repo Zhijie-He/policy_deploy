@@ -119,7 +119,7 @@ G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
         [this](const void *message) {
           this->LowStateHandler(message);
         }, 10
-      );
+      ); // TODO change the freq
     } else {
       FRC_ERROR("[G1Sim2RealEnv.Const] Invalid msg_type" << cfg_->msg_type);
       throw std::invalid_argument("Invalid msg_type: " + cfg_->msg_type);
@@ -150,106 +150,93 @@ void G1Sim2RealEnv::initState() {
   jointDGain = cfg_->kD;
 
   // ③ 动作目标
-  // pTarget.setZero(jointDim_);
-  pTarget = cfg_->default_angles;// desired position（用于位置控制）
-  FRC_INFO("[G1Sim2RealEnv.initState] default_angles: " << cfg_->default_angles.transpose());
+  pTarget.setZero(jointDim_);
+  // pTarget = cfg_->default_angles;// desired position（用于位置控制）
+  // FRC_INFO("[G1Sim2RealEnv.initState] default_angles: " << cfg_->default_angles.transpose());
   vTarget.setZero(jointDim_); // desired velocity（用于速度控制）
 }
 
 void G1Sim2RealEnv::waitForLowState() {
     FRC_INFO("[G1Sim2RealEnv.waitForLowState] Waiting to connect to the robot.");
-    while (low_state_.tick() == 0) {
+    while (low_state_buffer_.GetCopy().tick() == 0) {
         std::this_thread::sleep_for(std::chrono::duration<double>(control_dt_));
     }
     FRC_INFO("[G1Sim2RealEnv.waitForLowState] Successfully connected to the robot.");
 }
 
 void G1Sim2RealEnv::LowStateHandler(const void *message) {
-  low_state_ = *(const LowState_ *)message;
-  if (low_state_.crc() != unitree_tools::Crc32Core((uint32_t *)&low_state_, (sizeof(LowState_) >> 2) - 1)) {
+  const LowState_& msg = *(const LowState_ *)message;
+  // CRC verify
+  if (msg.crc() != unitree_tools::Crc32Core((uint32_t *)&msg, (sizeof(LowState_) >> 2) - 1)) {
     FRC_ERROR("[G1Sim2RealEnv.LowStateHandler] CRC Error");
     return;
   }
-
+  
   // 机器人类型模式更新
-  if (mode_machine_ != low_state_.mode_machine()) { // 检查当前程序记录的机器人类型（mode_machine_）是否与最新状态中的不一致
-    if (mode_machine_ == 0) FRC_INFO("[G1Sim2RealEnv.LowStateHandler] G1 type: " << unsigned(low_state_.mode_machine()));
-    mode_machine_ = low_state_.mode_machine(); // 因为类型是 uint8_t，用 unsigned(...) 是为了防止 char 类型被当作 ASCII 打印。
+  if (mode_machine_ != msg.mode_machine()) { // 检查当前程序记录的机器人类型（mode_machine_）是否与最新状态中的不一致
+    if (mode_machine_ == 0) FRC_INFO("[G1Sim2RealEnv.LowStateHandler] G1 type: " << unsigned(msg.mode_machine()));
+    mode_machine_ = msg.mode_machine(); // 因为类型是 uint8_t，用 unsigned(...) 是为了防止 char 类型被当作 ASCII 打印。
   }
   
   // update gamepad
+  // TODO: create a new thread to update gamepad in low freq e.g.-> policy_dt
   if (listenerPtr_) {
-    memcpy(listenerPtr_->rx_.buff, &low_state_.wireless_remote()[0], 40);
+    memcpy(listenerPtr_->rx_.buff, &msg.wireless_remote()[0], 40);
     listenerPtr_->gamepad_.update(listenerPtr_->rx_.RF_RX);
-    FRC_INFO("[G1Sim2RealEnv.LowStateHandler] tick: "<<low_state_.tick()<<" Gamepad: lx=" << listenerPtr_->gamepad_.lx
-            << " ly=" << listenerPtr_->gamepad_.ly
-            << " rx=" << listenerPtr_->gamepad_.rx
-            << " ry=" << listenerPtr_->gamepad_.ry
-            << " | A=" << static_cast<int>(listenerPtr_->gamepad_.A.pressed)
-            << " B=" << static_cast<int>(listenerPtr_->gamepad_.B.pressed)
-            << " X=" << static_cast<int>(listenerPtr_->gamepad_.X.pressed)
-            << " Y=" << static_cast<int>(listenerPtr_->gamepad_.Y.pressed)
-            << " select=" << static_cast<int>(listenerPtr_->gamepad_.select.pressed)
-            << " start=" << static_cast<int>(listenerPtr_->gamepad_.start.pressed));
+    FRC_INFO("[G1Sim2RealEnv.LowStateHandler] tick: "<<msg.tick()<<" Gamepad: lx=" << listenerPtr_->gamepad_.lx);
   }
   
+  low_state_buffer_.SetData(msg);
+
   updateRobotState();
 }
 
 void G1Sim2RealEnv::updateRobotState() {
-  Eigen::VectorXf positionVec, velocityVec;
-  float timestamp;
+  LowState_ state = low_state_buffer_.GetCopy();
 
-  {
-    std::lock_guard<std::mutex> stateLock(state_lock_);
+  // === 获取广义坐标 (generalized coordinates) ===
+  Eigen::Vector3d rootPos = Eigen::Vector3d::Zero();  // 设为 0
+  Eigen::Vector4d rootQuat;  
+  // imu_state quaternion: w, x, y, z
+  rootQuat << state.imu_state().quaternion()[0],
+              state.imu_state().quaternion()[1],
+              state.imu_state().quaternion()[2],
+              state.imu_state().quaternion()[3];
 
-    // === 获取广义坐标 (generalized coordinates) ===
-    Eigen::Vector3d rootPos = Eigen::Vector3d::Zero();  // 设为 0
-    Eigen::Vector4d rootQuat;  // 四元数
-    // imu_state quaternion: w, x, y, z
-    rootQuat << low_state_.imu_state().quaternion()[0],
-                low_state_.imu_state().quaternion()[1],
-                low_state_.imu_state().quaternion()[2],
-                low_state_.imu_state().quaternion()[3];
-
-    Eigen::VectorXd jointPos(jointDim_);
-    for (int i = 0; i < jointDim_; ++i) {
-      jointPos[i] = low_state_.motor_state()[i].q();
-    }
-
-    // === 获取速度项 ===
-    Eigen::Vector3d rootVel = Eigen::Vector3d::Zero();  // 暂设为 0
-    Eigen::Vector3d rootAngVel;
-    rootAngVel << low_state_.imu_state().gyroscope()[0],
-                 low_state_.imu_state().gyroscope()[1],
-                 low_state_.imu_state().gyroscope()[2];
-
-    Eigen::VectorXd jointVel(jointDim_);
-    for (int i = 0; i < jointDim_; ++i) {
-      jointVel[i] = low_state_.motor_state()[i].dq();
-    }
-    
-    if(cfg_->imu_type == "torso"){
-      // h1 and h1_2 imu is on the torso
-      // imu data needs to be transformed to the pelvis frame
-      FRC_INFO("[G1Sim2RealEnv.updateRobotState] TODO: torso IMU type");
-      throw std::runtime_error("torso IMU type is not supported!");
-      // waist_yaw = low_state_.motor_state()[cfg_->arm_waist_joint2motor_idx[0]].q();
-      // waist_yaw_omega = low_state_.motor_state()[cfg_->arm_waist_joint2motor_idx[0]].dq();
-      // rootQuat, rootAngVel = transform_imu_data(waist_yaw, waist_yaw_omega, rootQuat, rootAngVel);
-    }
-
-    gc_ << rootPos, rootQuat, jointPos;
-    gv_ << rootVel, rootAngVel, jointVel;
-    
-    // === 转换为 float 用于 status 共享 ===
-    positionVec = gc_.cast<float>();
-    velocityVec = gv_.cast<float>();
-    timestamp = low_state_.tick();  // use tick() as timestamp
-    // FRC_INFO("[G1Sim2RealEnv.updateRobotState] gc_ dim = " << gc_.size() << ", values = " << gc_.transpose());
-    // FRC_INFO("[G1Sim2RealEnv.updateRobotState] gv_ dim = " << gv_.size() << ", values = " << gv_.transpose());
-    // FRC_INFO("[G1Sim2RealEnv.updateRobotState] timestamp/low_state_.tick() = " << timestamp);
+  Eigen::VectorXd jointPos(jointDim_);
+  for (int i = 0; i < jointDim_; ++i) {
+    jointPos[i] = state.motor_state()[i].q();
   }
+
+  // === 获取速度项 ===
+  Eigen::Vector3d rootVel = Eigen::Vector3d::Zero();  // 暂设为 0
+  Eigen::Vector3d rootAngVel;
+  rootAngVel << state.imu_state().gyroscope()[0],
+                state.imu_state().gyroscope()[1],
+                state.imu_state().gyroscope()[2];
+
+  Eigen::VectorXd jointVel(jointDim_);
+  for (int i = 0; i < jointDim_; ++i) {
+    jointVel[i] = state.motor_state()[i].dq();
+  }
+  
+  if(cfg_->imu_type == "torso"){
+    // h1 and h1_2 imu is on the torso
+    // imu data needs to be transformed to the pelvis frame
+    FRC_INFO("[G1Sim2RealEnv.updateRobotState] TODO: torso IMU type");
+    throw std::runtime_error("torso IMU type is not supported!");
+    // waist_yaw = state.motor_state()[cfg_->arm_waist_joint2motor_idx[0]].q();
+    // waist_yaw_omega = state.motor_state()[cfg_->arm_waist_joint2motor_idx[0]].dq();
+    // rootQuat, rootAngVel = transform_imu_data(waist_yaw, waist_yaw_omega, rootQuat, rootAngVel);
+  }
+
+  gc_ << rootPos, rootQuat, jointPos;
+  gv_ << rootVel, rootAngVel, jointVel;
+  
+  // === 转换为 float 用于 status 共享 ===
+  Eigen::VectorXf positionVec = gc_.cast<float>();
+  Eigen::VectorXf velocityVec = gv_.cast<float>();
+  float timestamp = state.tick();  // use tick() as timestamp
 
   // === 更新 robotStatus 共享结构 ===
   if (robotStatusBufferPtr_) {
@@ -294,8 +281,9 @@ void G1Sim2RealEnv::moveToDefaultPos() {
 
   // 初始位置
   std::vector<float> init_dof_pos(dof_size, 0.0f);
+  LowState_ state = low_state_buffer_.GetCopy();
   for (int i = 0; i < dof_size; ++i) {
-      init_dof_pos[i] = low_state_.motor_state()[i].q();
+      init_dof_pos[i] = state.motor_state()[i].q();
   }
 
   // move to default pos
@@ -349,6 +337,13 @@ void G1Sim2RealEnv::run() {
   while (running_) {
     counter_++;
 
+    // emergency stop button
+    if (listenerPtr_ && listenerPtr_->gamepad_.select.pressed == 1) {
+      FRC_INFO("[G1Sim2RealEnv.run] Emergency Stop! at " << counter_ << "count");
+      running_ = false;
+      break;
+    }
+
     if(state_machine_) state_machine_->step();
     
     auto actionPtr = jointCMDBufferPtr_->GetData();  
@@ -358,7 +353,6 @@ void G1Sim2RealEnv::run() {
       actionPtr = jointCMDBufferPtr_->GetData();  // 重新尝试获取
     }
 
-    auto action = std::make_shared<jointCMD>();
     {
       std::lock_guard<std::mutex> actionLock(action_lock_);
       const auto& cmd = *actionPtr;
@@ -374,12 +368,6 @@ void G1Sim2RealEnv::run() {
         low_cmd_.motor_cmd()[i].kd()  = jointDGain[i];
         low_cmd_.motor_cmd()[i].tau() = 0.0f;
       }
-    }
-
-    // emergency stop button
-    if (listenerPtr_ && listenerPtr_->gamepad_.select.pressed == 1) {
-      FRC_INFO("[G1Sim2RealEnv.run] Emergency Stop!");
-      running_ = false;
     }
 
     sendCmd(low_cmd_);

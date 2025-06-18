@@ -74,11 +74,9 @@ public:
         gv_.setZero(gvDim_);      //  当前 generalized velocity（广义速度）
 
         // ② 控制增益
-        // jointPGain.setZero(jointDim_); 
-        // jointDGain.setZero(jointDim_); 
-        jointPGain = cfg_->kP;
-        jointDGain = cfg_->kD;
-        
+        jointPGain.setZero(jointDim_); 
+        jointDGain.setZero(jointDim_); 
+
         // ③ 动作目标
         pTarget.setZero(jointDim_); // desired position（用于位置控制）
         vTarget.setZero(jointDim_); // desired velocity（用于速度控制）
@@ -163,54 +161,48 @@ public:
                 const auto& imu = latestLowState.imu_state();
                 int joint_num = std::min(int(motor_state.size()), jointDim_);
 
-                // 写入关节数据
-                for (int i = 0; i < joint_num; ++i) {
-                    mj_data_->qpos[7 + i] = motor_state.at(i).q();
-                    mj_data_->qvel[6 + i] = motor_state.at(i).dq();
-                }
+                // root xyz
+                mj_data_->qpos[0] = 0;
+                mj_data_->qpos[1] = 0;
+                mj_data_->qpos[2] = 1.2;
 
                 // 写入 base 姿态（IMU → 四元数）
-                // float roll = imu.rpy()[0];
-                // float pitch = imu.rpy()[1];
-                // float yaw = imu.rpy()[2];
-                // mjtNum quat[4];
-                // mju_fromEulerXYZ(quat, roll, pitch, yaw);
-                // mj_data_->qpos[3] = quat[0];  // w
-                // mj_data_->qpos[4] = quat[1];  // x
-                // mj_data_->qpos[5] = quat[2];  // y
-                // mj_data_->qpos[6] = quat[3];  // z
                 Eigen::AngleAxisf rollAngle(imu.rpy()[0], Eigen::Vector3f::UnitX());
                 Eigen::AngleAxisf pitchAngle(imu.rpy()[1], Eigen::Vector3f::UnitY());
                 Eigen::AngleAxisf yawAngle(imu.rpy()[2], Eigen::Vector3f::UnitZ());
 
                 Eigen::Quaternionf quat = yawAngle * pitchAngle * rollAngle;  // ZYX顺序
-
+               
                 mj_data_->qpos[3] = quat.w();
                 mj_data_->qpos[4] = quat.x();
                 mj_data_->qpos[5] = quat.y();
                 mj_data_->qpos[6] = quat.z();
-
+                
                 // 写入 base angular velocity（IMU gyroscope → base twist 的旋转部分）
                 mj_data_->qvel[3] = imu.gyroscope()[0];  // ωx
                 mj_data_->qvel[4] = imu.gyroscope()[1];  // ωy
                 mj_data_->qvel[5] = imu.gyroscope()[2];  // ωz
+                
+                // 写入关节数据
+                for (int i = 0; i < joint_num; ++i) {
+                    mj_data_->qpos[7 + i] = motor_state.at(i).q();
+                    mj_data_->qvel[6 + i] = motor_state.at(i).dq();
+                }
             }
-
-            for (int i = 0; i < int(control_dt_ / control_dt_); i++) {
-                mj_step(mj_model_, mj_data_); 
-            }
+            
             worldTimer.wait();
         }
     }
 
     void renderLoop() {
         // 每秒渲染频率
-        const float render_dt = 1.0 / 120.0;
-        Timer renderTimer(render_dt);
+        // const float render_dt = 1.0 / 120.0;
+        Timer renderTimer(control_dt_);
 
         while (!glfwWindowShouldClose(window_)) {
             {
                 std::lock_guard<std::mutex> lock(state_lock_);
+                mj_step(mj_model_, mj_data_); 
                 mjv_updateScene(mj_model_, mj_data_, &opt_, nullptr, &cam_, mjCAT_ALL, &scn_);
                 int width, height;
                 glfwGetFramebufferSize(window_, &width, &height);
@@ -274,12 +266,14 @@ void Handler(const void* message)
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;
 
 int main(int argc, char** argv) {
+    std::string config_name = argv[1];      
+
     ChannelFactory::Instance()->Init(0);
     ChannelSubscriber<LowState_> subscriber("rt/lowstate");
     subscriber.InitChannel(Handler);
 
     try {
-      cfg = tools::loadConfig("g1_eman");
+      cfg = tools::loadConfig(config_name);
       MinimalMujocoViewer viewer(cfg);
       std::thread integrate_thread(&MinimalMujocoViewer::integrate, &viewer);
       viewer.renderLoop();

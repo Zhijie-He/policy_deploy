@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <filesystem>
 #include <csignal>
 #include "state_machine/StateMachine.h"

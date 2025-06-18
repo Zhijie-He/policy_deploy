@@ -6,6 +6,7 @@
 #include "utility/data_buffer.h"
 #include "hardware/listener.h"
 #include "types/CustomTypes.h"
+#include "state_machine/StateMachine.h"
 
 class BaseEnv {
 public:
@@ -30,6 +31,7 @@ protected:
   std::shared_ptr<const BaseRobotConfig> cfg_;
   std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr_;
   std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr_;
+  
   float control_dt_;
   bool running_ = true;
   
