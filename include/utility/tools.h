@@ -8,6 +8,7 @@
 #include "controller/EmanPolicyWrapper.h"
 #include "controller/UnitreePolicyWrapper.h"
 #include <mujoco/mujoco.h>
+#include <torch/torch.h>
 #include "utility/logger.h"
 
 namespace tools {
@@ -20,6 +21,7 @@ namespace tools {
                                   const Eigen::VectorXf& dq,
                                   const Eigen::VectorXf& kd);
     void checkMujucoVersion();
+    torch::Device getDefaultDevice();  // ✅ 新增：统一设备选择函数
 }
 
 

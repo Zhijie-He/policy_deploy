@@ -59,13 +59,15 @@ CustomTypes::Action UnitreePolicyWrapper::getControlAction(const CustomTypes::Ro
     }
 
     // 2. 构造 Torch 输入
-    obTorch = torch::from_blob(observation.data(), {1, obDim}, torch::kFloat32).clone();
-    
+    obTorch = torch::from_blob(observation.data(), {1, obDim}, torch::kFloat32)
+              .clone()
+              .to(device_);  // 显式迁移到正确设备
+
     // 3. 推理输出
-    // auto output = module_.forward({obTorch}).toTensor();  // shape: [1, act_dim]
     auto t_start = std::chrono::high_resolution_clock::now();
-    auto output = module_.forward({obTorch}).toTensor();
+    auto output = module_.forward({obTorch}).toTensor().to(torch::kCPU);  // 推理后迁回 CPU
     auto t_end = std::chrono::high_resolution_clock::now();
+    
     double infer_time_us = std::chrono::duration<double, std::micro>(t_end - t_start).count();
     infer_sum_us += infer_time_us;
     infer_sum_sq_us += infer_time_us * infer_time_us;

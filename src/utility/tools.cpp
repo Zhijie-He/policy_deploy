@@ -32,5 +32,23 @@ namespace tools {
         }
         FRC_INFO("[checkMujucoVersion] Using MuJoCo("<< mj_version() << ")!");
     }
+
+    torch::Device getDefaultDevice() {
+        #if defined(__APPLE__)
+            FRC_INFO("[getDefaultDevice] Running on macOS. Using CPU.");
+            return torch::kCPU;
+        #elif defined(_WIN32) || defined(__linux__)
+            if (torch::cuda::is_available()) {
+                FRC_INFO("[getDefaultDevice] CUDA available. Using GPU.");
+                return torch::kCUDA;
+            } else {
+                FRC_INFO("[getDefaultDevice] CUDA not available. Using CPU.");
+                return torch::kCPU;
+            }
+        #else
+            FRC_WARN("[getDefaultDevice] Unknown platform. Defaulting to CPU.");
+            return torch::kCPU;
+        #endif
+    }
 }
 

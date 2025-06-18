@@ -53,12 +53,13 @@ CustomTypes::Action EmanPolicyWrapper::getControlAction(const CustomTypes::Robot
     }
 
     // 2. 构造 Torch 输入
-    obTorch = torch::from_blob(observation.data(), {1, obDim}, torch::kFloat32).clone();
+    obTorch = torch::from_blob(observation.data(), {1, obDim}, torch::kFloat32)
+              .clone()
+              .to(device_);  // 显式迁移到正确设备
 
     // 3. 推理输出
-    // auto output = module_.forward({obTorch}).toTensor();  // shape: [1, act_dim]
     auto t_start = std::chrono::high_resolution_clock::now();
-    auto output = module_.forward({obTorch}).toTensor();
+    auto output = module_.forward({obTorch}).toTensor().to(torch::kCPU);  // 推理后迁回 CPU
     auto t_end = std::chrono::high_resolution_clock::now();
     
     double infer_time_us = std::chrono::duration<double, std::micro>(t_end - t_start).count();
@@ -80,14 +81,11 @@ CustomTypes::Action EmanPolicyWrapper::getControlAction(const CustomTypes::Robot
         if (action[i] > 10.0f) action[i] = 10.0f;
         if (action[i] < -10.0f) action[i] = -10.0f;
     }
-    // std::cout << "[EmanPolicyWrapper.getControlAction] robotData: " << robotData.jointPosition.transpose()  << std::endl;
-    // std::cout << "[EmanPolicyWrapper.getControlAction] action: " << action.transpose()  << std::endl;
-    
+
     // 5. 构造控制命令
     CustomTypes::Action robotAction = CustomTypes::zeroAction(acDim);
     robotAction.timestamp = robotData.timestamp;
-    // 应用动作映射（比如 env 控制的只有某些 motor）
-    robotAction.motorPosition = action(cfg_->actor2env) * cfg_->action_scale + cfg_->default_angles;
+    robotAction.motorPosition = action(cfg_->actor2env) * cfg_->action_scale + cfg_->default_angles;  // 应用动作映射（比如 env 控制的只有某些 motor）
     robotAction.motorVelocity.setZero();
     robotAction.motorTorque.setZero();
     robotAction.kP = _kP;

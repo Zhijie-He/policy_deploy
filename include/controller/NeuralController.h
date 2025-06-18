@@ -13,6 +13,7 @@ public:
 
 protected:
     int obDim, acDim;
+    torch::Device device_ = torch::kCPU;  // 全局 device 成员
     torch::jit::script::Module module_;
     torch::Tensor obTorch, acTorch;
     std::vector<c10::IValue> obVector{}; 
