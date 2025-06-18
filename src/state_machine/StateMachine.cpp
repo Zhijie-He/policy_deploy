@@ -49,7 +49,7 @@ void StateMachine::run(){
         double avg = run_sum_us / run_count;
         double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
         FRC_INFO("[StateMachine.run] Run AVG: " << avg << " us | STDDEV: " << stddev << " us");
-        std::cout << "[StateMachine.run] Run AVG: " << avg << " us | STDDEV: " << stddev << " us\n";
+        
          // 重置
         run_sum_us = 0;
         run_sum_sq_us = 0;
