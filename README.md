@@ -5,7 +5,6 @@ Ensure the following packages and libraries are installed:
 - [MuJoCo](https://github.com/google-deepmind/mujoco/releases) (for physics simulation)
 - [LibTorch](https://pytorch.org/get-started/locally/) (PyTorch C++ API)
 - glfw3: `sudo apt install libglfw3-dev`
-- Eigen3: `sudo apt install libeigen3-dev`
 - yaml-cpp: `sudo apt install libyaml-cpp-dev`
 - pkg-config: `sudo apt install pkg-config`
 
