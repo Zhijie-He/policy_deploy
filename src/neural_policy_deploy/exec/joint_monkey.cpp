@@ -6,7 +6,6 @@
 #include "state_machine/StateMachine.h"
 #include "utility/MathUtilities.h"
 #include "ros_node/RobotInterface.h"
-#include "utility/timer.h"
 
 #define LOG_USE_COLOR 1
 #define LOG_USE_PREFIX 1
@@ -17,7 +16,7 @@ void close_all_threads(int signum);
 class JointMonkey: public StateMachine{
 public:
   explicit JointMonkey(const YAML::Node& cfg):
-  StateMachine(cfg), loopTimer(-1), gains_coeff(1.0){
+  StateMachine(cfg), gains_coeff(1.0){
     std::string package_share_dir = ament_index_cpp::get_package_share_directory("neural_policy_deploy");
     Eigen::MatrixXf RobotDef = readCSV(package_share_dir+cfg["homing_pos_path"].as<std::string>(), _jointNum, 6,1).cast<float>();
     const Eigen::VectorXf jointPosMax = RobotDef.col(4);
@@ -36,7 +35,6 @@ private:
   bool _onFinishing = false;
   int printFreq = 100;
   int printCounter = 0;
-  Timer loopTimer;
   int jointIdx = 0;
   int timestep = 0;
   float amp = 0.5;

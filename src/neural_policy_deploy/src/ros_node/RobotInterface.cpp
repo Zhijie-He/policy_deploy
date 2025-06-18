@@ -1,5 +1,4 @@
 #include "ros_node/RobotInterface.h"
-#include "utility/timer.h"
 #include "utility/logger.h"
 
 RobotInterface::RobotInterface(const std::string &node_name, StateMachine* controller_ptr):
