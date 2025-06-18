@@ -1,0 +1,35 @@
+robot_name: HuV3
+joint_num: 14
+homing_pos_path: /config/homing_pos_HuV3.csv
+#policy_path: /resource/policies/241109_113423_10000/
+policy_path: /resource/policies/250214_110859_hipZ_rwd_rough.10000/
+
+# rsc path should be relative to your local WORKSPACE environment variable
+rsc_path: /resource/
+save_path: /home/willw/Westlake/ros2_ws/log
+
+control_dt: 0.001
+policy_dt: 0.01
+
+max_velocity_target: [1.0, 0.2, 0.]
+
+joystick_device: /dev/input/js0
+homing_timesteps: 100
+
+filter:
+  enable: false
+  roll_twist:
+    order: 1
+    cutoff_frequency: 10
+  pitch_twist:
+    order: 1
+    cutoff_frequency: 10
+  yaw_twist:
+    order: 2
+    cutoff_frequency: 10
+  joint_pos:
+    order: 2
+    cutoff_frequency: 18
+  joint_vel:
+    order: 1
+    cutoff_frequency: 12

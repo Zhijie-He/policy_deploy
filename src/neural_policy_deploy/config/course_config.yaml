@@ -1,0 +1,96 @@
+width: 3.0
+gravity: [0,0,-9.8113]
+starting_pad_length: 0.5
+
+straight_track:
+  starting_padding: 0.02
+  ending_padding: 0.02
+  length: 0.1
+  friction_coeff: 0.8
+
+wavy_heightmap:
+  starting_padding: 0.02
+  ending_padding: 0.02
+  length: 3
+  z_scale: 0.2
+  frequency: 1.2
+  fractal_octaves: 2
+  fractal_gain: 10.25
+  fractal_lacunarity: 2.0
+
+discrete_terrain:
+  starting_padding: 0.02
+  ending_padding: 1
+  length: 3
+  z_scale: 0.08
+  z_unit: 0.02
+  platform_width: 0.3
+  platform_length: 0.4
+  platform_frequency: 20
+  # How many platforms would be generated within 1m^2
+
+slope:
+  starting_padding: 0.02
+  ending_padding: 0.02
+  length: 3
+  upward_length: 1.2
+  downward_length: 1.2
+  platform_height: 0.6
+
+gap_terrain:
+  starting_padding: 0.02
+  ending_padding: 0.02
+  length: 1
+  gap_length: 0.08
+  gap_interval_range: [0.1, 0.4]
+
+friction_variation:
+  starting_padding: 0.02
+  ending_padding: 0.02
+  length: 1
+  max_friction: 4.0
+  min_friction: 0.2
+  resample_rate: 0.002
+
+payload_test_zone:
+  starting_padding: 0.1
+  ending_padding: 0.1
+  length: 1
+  max_payload: 5.0
+  min_payload: 2.0
+  loading_point_range: [0.1, 0.05, 0.1]
+  resample_rate: 0.002
+  
+shooting_range:
+  starting_padding: 0.1
+  ending_padding: 0.1
+  length: 7
+  bullet_size: 0.02
+  bullet_mass: 0.1
+  bullet_init_vel: 100
+  fire_distance: 1
+  fire_frequency: 2
+  shooting_precision: 0.1
+
+pushing_zone:
+  starting_padding: 0.01
+  ending_padding: 0.01
+  length: 5
+  force_frequency: 0.25
+  effect_time: 0.2
+  force_magnitude: [100, 40, 0]
+  force_minimal: [60, 0, 0]
+  apply_point_range: [0.1, 0.05, 0.04]
+
+malfunction:
+  starting_padding: 0.01
+  ending_padding: 0.01
+  length: 1
+  disable_leg_index: 0
+  disable_joint_index: -1
+  # joint -1 means all joints of this leg
+  keep_position: [0.6, 1.4, -2.6]
+
+
+
+
