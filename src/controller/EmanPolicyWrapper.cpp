@@ -10,6 +10,16 @@ EmanPolicyWrapper::EmanPolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg)
     action.setZero(acDim);
     actionPrev.setZero(acDim);
     observation.setZero(obDim);
+
+    for (int i = 0; i < 10; i++) { // Pre-Running for warmup. Otherwise, first running takes more time。
+        obTorch = (torch::ones({1, obDim}) + torch::rand({1, obDim}) * 0.01f).to(device_);
+        obVector.clear();
+        obVector.emplace_back(obTorch); // 把 obTorch 这个 Tensor 包装成 IValue 并压入 obVector
+        acTorch = module_.forward(obVector).toTensor().to(torch::kCPU);  // 推理完可转回 CPU
+        if (i < 3) FRC_INFO("[NeuralController.Const] Warm up " << i << "th Action(" << acTorch.sizes() << "): " << *(acTorch.data_ptr<float>() + 1));
+    }
+    module_.get_method("reset_hist_buffer")({});
+
     FRC_INFO("[EmanPolicyWrapper] Constructor Finished.");
 }
 
@@ -40,6 +50,25 @@ void EmanPolicyWrapper::updateObservation(const CustomTypes::RobotData &raw_obs)
     observation.segment(6 + acDim, acDim)      = joint_vel(cfg_->env2actor);
     observation.segment(6 + 2 * acDim, acDim)  = actionPrev;
     observation.segment(6 + 3 * acDim, 3)      = cmd;
+
+    // 打印调试信息
+    // FRC_INFO("################################################################################");
+    // FRC_INFO("[RobotData] raw_obs.root_xyz: " << raw_obs.root_xyz.transpose());
+    // FRC_INFO("[RobotData] raw_obs.root_rot: " << raw_obs.root_rot.transpose());
+    // FRC_INFO("[RobotData] raw_obs.joint_pos: " << raw_obs.joint_pos.transpose());
+    // FRC_INFO("[RobotData] raw_obs.root_vel: " << raw_obs.root_vel.transpose());
+    // FRC_INFO("[RobotData] raw_obs.root_ang_vel: " << raw_obs.root_ang_vel.transpose());
+    // FRC_INFO("[RobotData] raw_obs.joint_vel: " << raw_obs.joint_vel.transpose());
+    // FRC_INFO("[RobotData] raw_obs.joint_torques: " << raw_obs.joint_torques.transpose());
+    // FRC_INFO("[RobotData] raw_obs.targetCMD: " << raw_obs.targetCMD.transpose());
+    
+    // FRC_INFO("[Obs] projected_gravity_b (0-2): " << projected_gravity_b.transpose());
+    // FRC_INFO("[Obs] root_ang_vel_b      (3-5): " << root_ang_vel_b.transpose());
+    // FRC_INFO("[Obs] joint_pos[env2actor] (6-" << 6 + acDim - 1 << "): " << joint_pos(cfg_->env2actor).transpose());
+    // FRC_INFO("[Obs] joint_vel[env2actor] (" << 6 + acDim << "-" << 6 + 2 * acDim - 1 << "): " << joint_vel(cfg_->env2actor).transpose());
+    // FRC_INFO("[Obs] actionPrev          (" << 6 + 2 * acDim << "-" << 6 + 3 * acDim - 1 << "): " << actionPrev.transpose());
+    // FRC_INFO("[Obs] cmd                 (" << 6 + 3 * acDim << "-" << 6 + 3 * acDim + 2 << "): " << cmd.transpose());
+    // FRC_INFO("-------------------------------------------------------------------");
 }
 
 CustomTypes::Action EmanPolicyWrapper::getControlAction(const CustomTypes::RobotData &robotData) {
@@ -62,17 +91,6 @@ CustomTypes::Action EmanPolicyWrapper::getControlAction(const CustomTypes::Robot
     auto output = module_.forward({obTorch}).toTensor().to(torch::kCPU);  // 推理后迁回 CPU
     auto t_end = std::chrono::high_resolution_clock::now();
     
-    double infer_time_us = std::chrono::duration<double, std::micro>(t_end - t_start).count();
-    infer_sum_us += infer_time_us;
-    infer_sum_sq_us += infer_time_us * infer_time_us;
-    ++infer_count;
-
-    if (infer_count % 100 == 0) {
-        double avg = infer_sum_us / infer_count;
-        double stddev = std::sqrt(infer_sum_sq_us / infer_count - avg * avg);
-        // std::cout << "[EmanPolicyWrapper.getControlAction] Inference AVG: " << avg << " us | STDDEV: " << stddev << " us\n";
-    }
-
     TORCH_CHECK(output.sizes() == torch::IntArrayRef({1, acDim}), "Unexpected output shape from policy network");
     action = Eigen::Map<Eigen::VectorXf>(output.data_ptr<float>(), acDim);
 

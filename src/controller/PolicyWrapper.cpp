@@ -68,16 +68,6 @@ CustomTypes::Action UnitreePolicyWrapper::getControlAction(const CustomTypes::Ro
     auto output = module_.forward({obTorch}).toTensor().to(torch::kCPU);  // 推理后迁回 CPU
     auto t_end = std::chrono::high_resolution_clock::now();
     
-    double infer_time_us = std::chrono::duration<double, std::micro>(t_end - t_start).count();
-    infer_sum_us += infer_time_us;
-    infer_sum_sq_us += infer_time_us * infer_time_us;
-    ++infer_count;
-
-    if (infer_count % 100 == 0) {
-        double avg = infer_sum_us / infer_count;
-        double stddev = std::sqrt(infer_sum_sq_us / infer_count - avg * avg);
-        // std::cout << "[UnitreePolicyWrapper.getControlAction] Inference AVG: " << avg << " us | STDDEV: " << stddev << " us\n";
-    }
 
     TORCH_CHECK(output.sizes() == torch::IntArrayRef({1, acDim}), "Unexpected output shape from policy network");
     action = Eigen::Map<Eigen::VectorXf>(output.data_ptr<float>(), acDim);
