@@ -174,11 +174,12 @@ void G1Sim2MujocoEnv::updateRobotState() {
 }
 
 void G1Sim2MujocoEnv::step() {
-  Timer controlTimer(control_dt_);
+  // Timer controlTimer(control_dt_);
+  RateLimiter controlTimer(1.0 / control_dt_, "mujoco main loop");
   while (!glfwWindowShouldClose(window_) && running_) {
 
     if(state_machine_) state_machine_->step();
-    
+
     auto actionPtr = jointCMDBufferPtr_->GetData();
     while (!actionPtr) { // 等待policy 传递action
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -201,8 +202,9 @@ void G1Sim2MujocoEnv::step() {
 
 void G1Sim2MujocoEnv::run() {
   // const float render_dt = 1.0 / 120.0;   // 每秒渲染频率
-  Timer renderTimer(control_dt_);
-
+  // Timer renderTimer(control_dt_);
+  RateLimiter renderTimer(1.0 / control_dt_, "mujoco render loop");
+  
   std::thread step_thread(&G1Sim2MujocoEnv::step, this);
   
   while (!glfwWindowShouldClose(window_) && running_) {

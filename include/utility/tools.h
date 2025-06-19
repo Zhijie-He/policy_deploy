@@ -21,7 +21,7 @@ namespace tools {
                                   const Eigen::VectorXf& dq,
                                   const Eigen::VectorXf& kd);
     void checkMujucoVersion();
-    torch::Device getDefaultDevice();  // ✅ 新增：统一设备选择函数
+    torch::Device getDefaultDevice(); 
 }
 
 

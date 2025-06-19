@@ -332,8 +332,9 @@ void G1Sim2RealEnv::defaultPosState() {
 }
 
 void G1Sim2RealEnv::run() {
-  Timer controlTimer(control_dt_);
-
+  // Timer controlTimer(control_dt_);
+  RateLimiter controlTimer(1.0 / control_dt_, "real main loop");
+  
   while (running_) {
     counter_++;
 
