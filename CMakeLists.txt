@@ -66,6 +66,7 @@ set(COMMON_LIBS
     yaml-cpp
     ${GLFW_LIBRARIES}
     mujoco
+    pthread
 )
 
 # 如果启用 Unitree SDK
