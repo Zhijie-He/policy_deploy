@@ -87,20 +87,20 @@ void close_all_threads(int signum) {
   std::exit(0);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) {  
   std::string exec_name = std::filesystem::path(argv[0]).filename().string();
+  // 参数num检查
+  if (argc < 4) {
+      FRC_ERROR("Usage: " << exec_name << " <mode> <config_name> <device> [net]");
+      FRC_ERROR("Example: " << exec_name << " sim2mujoco g1_eman cuda");
+      FRC_ERROR("         " << exec_name << " sim2real   g1_eman cpu enp0s31f6");
+      return -1;
+  }
+  
   std::string mode = argv[1];        // sim2mujoco or sim2real
   std::string config_name = argv[2]; // config name like g1_eman
   std::string device = argv[3];      // cpu or cuda
   std::string net = (argc >= 5) ? argv[4] : "";
-  
-  // 参数num检查
-  if (argc != 4) {
-      FRC_ERROR("Usage: " << exec_name << " <mode> <config_name> <device> [net]");
-      FRC_ERROR("Example: " << exec_name << " sim2mujoco g1_eman cpu");
-      FRC_ERROR("         " << exec_name << " sim2real   g1_eman cuda");
-      return -1;
-  }
   
   // 模式合法性检查
   if (mode != "sim2mujoco" && mode != "sim2real") {
@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  // sim2real 限制：只支持 g1_eman，不支持 g1_unitree
+  // sim2real 限制：只支持 g1_eman，不支持 other config
   if (mode == "sim2real" && config_name != "g1_eman") {
     FRC_ERROR("Mode 'sim2real' is not supported with config " << config_name);
     FRC_ERROR("Only 'g1_eman' is supported in sim2real mode.");
@@ -144,16 +144,15 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  // 默认设备检查
-  torch::Device defaultDevice = tools::getDefaultDevice();
   if (device == "cuda") {
+      // 默认设备检查
+      torch::Device defaultDevice = tools::getDefaultDevice();
       if (defaultDevice.type() != torch::kCUDA) {
           FRC_WARN("CUDA requested, but not available on this machine. Falling back to CPU.");
           device = "cpu";
-      } else {
-          device = "cuda";
       }
   }
+
   torch::Device torchDevice = (device == "cuda") ? torch::kCUDA : torch::kCPU;
 
   signal(SIGINT, close_all_threads);

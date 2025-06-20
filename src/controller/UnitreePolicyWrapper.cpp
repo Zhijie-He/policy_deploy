@@ -10,6 +10,7 @@ UnitreePolicyWrapper::UnitreePolicyWrapper(std::shared_ptr<const BaseRobotConfig
     action.setZero(acDim);
     actionPrev.setZero(acDim);
     observation.setZero(obDim);
+
     FRC_INFO("[UnitreePolicyWrapper] Constructor Finished.");
 }
 

@@ -13,7 +13,7 @@
 
 namespace tools {
     std::shared_ptr<BaseRobotConfig> loadConfig(const std::string& config_name);
-    std::unique_ptr<NeuralController> loadPolicyWrapper(const std::string& config_name, std::shared_ptr<const BaseRobotConfig> cfg);
+    std::unique_ptr<NeuralController> loadPolicyWrapper(const std::string& config_name, std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device);
     Eigen::VectorXf pd_control(const Eigen::VectorXf& target_q,
                                   const Eigen::VectorXf& q,
                                   const Eigen::VectorXf& kp,

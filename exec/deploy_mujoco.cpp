@@ -36,7 +36,8 @@ int main(int argc, char** argv) {
   std::string config_name = argv[1]; 
   cfg = tools::loadConfig(config_name);
   listener = std::make_shared<Listener>();
-  state_machine = std::make_shared<StateMachine>(cfg, config_name);
+  torch::Device defaultDevice = tools::getDefaultDevice();
+  state_machine = std::make_shared<StateMachine>(cfg, config_name, defaultDevice);
   env = std::make_shared<G1Sim2MujocoEnv>(cfg,
                                           state_machine->getJointCMDBufferPtr(),
                                           state_machine->getRobotStatusBufferPtr());

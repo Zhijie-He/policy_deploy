@@ -11,9 +11,9 @@ namespace tools {
 
     std::unique_ptr<NeuralController> loadPolicyWrapper(const std::string& config_name, std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device) {
         if (config_name == "g1_eman")
-            return std::make_unique<EmanPolicyWrapper>(cfg, torch::Device device); 
+            return std::make_unique<EmanPolicyWrapper>(cfg, device); 
         else
-            return std::make_unique<UnitreePolicyWrapper>(cfg, torch::Device device);
+            return std::make_unique<UnitreePolicyWrapper>(cfg, device);
     }
 
     Eigen::VectorXf pd_control(const Eigen::VectorXf& target_q,
