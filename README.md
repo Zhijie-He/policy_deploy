@@ -37,7 +37,7 @@ Main control entry, supporting two execution modes:
 Mode 1: Sim2Mujoco (Simulation Deployment)
 
 Deploys the trained policy into a MuJoCo-based simulated environment.
-`./g1 sim2mujoco g1_unitree`
+`./g1 sim2mujoco g1_unitree cuda`
 
 Available robot model options:
 - g1_unitree
@@ -48,7 +48,7 @@ Available robot model options:
 Mode 2: Sim2Real (Real Robot Deployment)
 
 Deploys the policy onto the real G1 robot and controls it via DDS.
-`./g1 sim2real g1_eman net_interface`
+`./g1 sim2real g1_eman cpu net_interface`
 
 Parameters:
 - g1_eman: Currently, only this robot configuration is supported for real deployment.
