@@ -94,8 +94,6 @@ if (NOT USE_UNITREE_SDK)
     add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
     target_link_libraries(deploy_mujoco ${COMMON_LIBS})
 endif()
-add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
-target_link_libraries(deploy_mujoco ${COMMON_LIBS})
 
 # 真机部署（仅在启用Unitree SDK时编译）
 if (USE_UNITREE_SDK)
