@@ -7,7 +7,7 @@
 #include <thread>
 #include <chrono>
 
-StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, const std::string& config_name)
+StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, const std::string& config_name, torch::Device device)
     : cfg_(cfg)
 {
   // 1. 初始化底层设备数据结构
@@ -28,7 +28,7 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, const std
   }
   
   // 4. get control policy
-  _neuralCtrl = tools::loadPolicyWrapper(config_name, cfg);
+  _neuralCtrl = tools::loadPolicyWrapper(config_name, cfg, device);
 }
 
 void StateMachine::run(){

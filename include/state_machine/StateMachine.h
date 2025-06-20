@@ -10,7 +10,7 @@
 
 class StateMachine {
 public:
-    explicit StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, const std::string& config_name);
+    explicit StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, const std::string& config_name, torch::Device device);
     void run();
     virtual void step();
     virtual void stop(); 

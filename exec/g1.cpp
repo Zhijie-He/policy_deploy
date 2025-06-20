@@ -15,13 +15,14 @@ public:
   G1Controller(const std::string& net,
                std::shared_ptr<BaseRobotConfig> cfg,
                const std::string& config_name,
+               torch::Device device,
                const std::string& mode,
                const std::string& track,
                const std::vector<std::string>& track_list,
                std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,
                std::shared_ptr<CustomTypes::VlaConfig> vla_cfg)
       : cfg_(cfg), mode_(mode), track_(track), track_list_(track_list) ,mocap_cfg_(mocap_cfg), vla_cfg_(vla_cfg){
-        state_machine_ = std::make_shared<StateMachine>(cfg, config_name);
+        state_machine_ = std::make_shared<StateMachine>(cfg, config_name, device);
 
         if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, state_machine_);
         else if(mode == "sim2real") hu_env_ = std::make_shared<G1Sim2RealEnv>(net, cfg, state_machine_);
@@ -90,16 +91,17 @@ int main(int argc, char** argv) {
   std::string exec_name = std::filesystem::path(argv[0]).filename().string();
   std::string mode = argv[1];        // sim2mujoco or sim2real
   std::string config_name = argv[2]; // config name like g1_eman
-  std::string net = (argc >= 4) ? argv[3] : "";
-
+  std::string device = argv[3];      // cpu or cuda
+  std::string net = (argc >= 5) ? argv[4] : "";
+  
   // 参数num检查
-  if (argc < 3) {
-      FRC_ERROR("Usage: " << exec_name << " <mode> <config_name> [net]");
-      FRC_ERROR("Example: " << exec_name << " sim2mujoco g1_eman");
-      FRC_ERROR("         " << exec_name << " sim2real g1_eman net");
+  if (argc != 4) {
+      FRC_ERROR("Usage: " << exec_name << " <mode> <config_name> <device> [net]");
+      FRC_ERROR("Example: " << exec_name << " sim2mujoco g1_eman cpu");
+      FRC_ERROR("         " << exec_name << " sim2real   g1_eman cuda");
       return -1;
   }
-
+  
   // 模式合法性检查
   if (mode != "sim2mujoco" && mode != "sim2real") {
     FRC_ERROR("Invalid mode: " << mode);
@@ -135,6 +137,25 @@ int main(int argc, char** argv) {
     return -1;
   }
 
+    // 设备合法性检查
+  if (device != "cpu" && device != "cuda") {
+    FRC_ERROR("Invalid device: " << device);
+    FRC_ERROR("Device must be 'cpu' or 'cuda'");
+    return -1;
+  }
+
+  // 默认设备检查
+  torch::Device defaultDevice = tools::getDefaultDevice();
+  if (device == "cuda") {
+      if (defaultDevice.type() != torch::kCUDA) {
+          FRC_WARN("CUDA requested, but not available on this machine. Falling back to CPU.");
+          device = "cpu";
+      } else {
+          device = "cuda";
+      }
+  }
+  torch::Device torchDevice = (device == "cuda") ? torch::kCUDA : torch::kCPU;
+
   signal(SIGINT, close_all_threads);
 
   // mode: sim2mujoco, sim2real
@@ -153,7 +174,7 @@ int main(int argc, char** argv) {
   try {
     cfg = tools::loadConfig(config_name);
     
-    controller = std::make_unique<G1Controller>(net, cfg, config_name, mode, track, track_list, mocap_cfg, vla_cfg);
+    controller = std::make_unique<G1Controller>(net, cfg, config_name, torchDevice, mode, track, track_list, mocap_cfg, vla_cfg);
 
     // Enter the zero torque state, press the start key to continue executing
     controller->zero_torque_state();

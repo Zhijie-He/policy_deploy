@@ -4,8 +4,8 @@
 #include "utility/timer.h"
 #include <chrono>
 
-UnitreePolicyWrapper::UnitreePolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg):
-    NeuralController(cfg)  // 初始化基类
+UnitreePolicyWrapper::UnitreePolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device):
+    NeuralController(cfg, device)  // 初始化基类
 {   
     action.setZero(acDim);
     actionPrev.setZero(acDim);

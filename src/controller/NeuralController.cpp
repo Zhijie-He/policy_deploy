@@ -2,14 +2,15 @@
 #include "utility/logger.h"
 #include "utility/tools.h"
 
-NeuralController::NeuralController(std::shared_ptr<const BaseRobotConfig> cfg)
+NeuralController::NeuralController(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device)
  :  cfg_(cfg),
     obDim(cfg->num_obs),
     acDim(cfg->num_actions),
     _kP(cfg->kP),
-    _kD(cfg->kD)
+    _kD(cfg->kD),
+    device_(device)
 {
-    device_ = tools::getDefaultDevice();
+    
     try {
         module_ = torch::jit::load(cfg_->policy_path, device_);
         FRC_INFO("[NeuralController.Const] model loaded from " << cfg_->policy_path);

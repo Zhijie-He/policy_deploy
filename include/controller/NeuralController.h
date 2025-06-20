@@ -7,7 +7,7 @@
 class NeuralController
 {
 public:
-    NeuralController(std::shared_ptr<const BaseRobotConfig> cfg);
+    NeuralController(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device);
     virtual CustomTypes::Action getControlAction(const CustomTypes::RobotData &robotData) = 0;
     virtual ~NeuralController() = default;
 
@@ -24,8 +24,4 @@ protected:
 
     Eigen::VectorXf observation;
     Eigen::VectorXf action, actionPrev;
-    
-    int infer_count=0;
-    double infer_sum_us=0;
-    double infer_sum_sq_us=0;
 };
