@@ -8,7 +8,6 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED) # ROS 2 构建系统（ament）基础包，所有 ROS 包都需要。
-# find_package(builtin_interfaces REQUIRED) # 提供基础消息类型，如 Time, Duration 等（如果 .msg 文件引用了这些类型，必须添加）。
 find_package(rosidl_default_generators REQUIRED) # 提供 rosidl_generate_interfaces() 宏，用于生成 .msg 的 C++/Python 接口代码。
 
 set(msg_files
@@ -31,12 +30,7 @@ ament_export_dependencies(rosidl_default_runtime)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # comment the line when this package is in a git repo and when
-  # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()

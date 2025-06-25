@@ -52,9 +52,9 @@ void RobotInterface::IMU_State_Message_Callback(const robot_message::msg::ImuDat
 	auto data = std::make_shared<GyroData>();
 	// data->timestamp = msg->timestamp;
 	for (int i = 0; i < 3; i++) {
-		data->gyro.rpy[i] = msg->rpy[i] * M_PI / 180.0;
-		data->gyro.acc[i] = msg->accelerometer[i];
-		data->gyro.rpy_rate[i] = msg->gyroscope[i];
+		data->gyro.group.rpy[i] = msg->rpy[i] * M_PI / 180.0;
+		data->gyro.group.acc[i] = msg->accelerometer[i];
+		data->gyro.group.rpy_rate[i] = msg->gyroscope[i];
 	}
 	controller_ptr_->setGyroPtr(data);
 

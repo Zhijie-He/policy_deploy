@@ -9,4 +9,6 @@ log/
 #cland
 .cache
 
+__pycache__
+
 resources/

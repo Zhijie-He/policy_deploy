@@ -35,7 +35,7 @@ typedef struct GyroData {
       float rpy[3];
       float acc[3];
       float rpy_rate[3];
-    };
+    } group;
     float buffer[3][3];
     unsigned char buffer_byte[3][12];
   } gyro;
