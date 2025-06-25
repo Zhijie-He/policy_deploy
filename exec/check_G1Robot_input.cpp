@@ -14,6 +14,7 @@
 #include "utility/real/unitree_tools.h"
 #include "utility/tools.h"
 #include "utility/timer.h"
+#include "utility/cxxopts.hpp"
 
 using namespace unitree::robot;
 using namespace unitree_hg::msg::dds_;
@@ -266,7 +267,17 @@ void Handler(const void* message)
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;
 
 int main(int argc, char** argv) {
-    std::string config_name = argv[1];      
+    cxxopts::Options options("check_G1Robot_input", "Check G1 robot input and visualize using Mujoco viewer");
+    options.add_options()
+        ("c,config", "Config name (e.g., g1_unitree, g1_eman, h1, h1_2)", cxxopts::value<std::string>())
+        ("h,help", "Print usage");
+
+    auto result = options.parse(argc, argv);
+    if (result.count("help") || !result.count("config")) {
+        std::cout << options.help() << std::endl;
+        return 0;
+    }
+    std::string config_name = result["config"].as<std::string>();
 
     ChannelFactory::Instance()->Init(0);
     ChannelSubscriber<LowState_> subscriber("rt/lowstate");
