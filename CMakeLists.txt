@@ -118,8 +118,8 @@ if (USE_UNITREE_SDK)
         ${UNITREE_SDK2_DIR}/thirdparty/include/ddscxx
     )
     link_directories(
-        ${UNITREE_SDK2_DIR}/lib/x86_64
-        ${UNITREE_SDK2_DIR}/thirdparty/lib/x86_64
+        ${UNITREE_SDK2_DIR}/lib/${CMAKE_SYSTEM_PROCESSOR}
+        ${UNITREE_SDK2_DIR}/thirdparty/lib/${CMAKE_SYSTEM_PROCESSOR}
     )
     list(APPEND COMMON_LIBS
         unitree_sdk2

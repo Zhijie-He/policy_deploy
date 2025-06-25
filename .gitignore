@@ -3,9 +3,7 @@ build/
 install/
 log/
 bin/
-*.o
 *.obj
-*.a
 *.dll
 *.exe
 *.out
