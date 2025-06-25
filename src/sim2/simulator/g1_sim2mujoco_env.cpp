@@ -194,7 +194,7 @@ void G1Sim2MujocoEnv::step() {
       if (run_count % 100 == 0) {
           double avg = run_sum_us / run_count;
           double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
-          FRC_INFO("[StateMachine.step] Step 100 runs AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
+          FRC_INFO("[StateMachine.step] 100 steps AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
           
           // 重置
           run_sum_us = 0;
