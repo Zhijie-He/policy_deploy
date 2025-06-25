@@ -5,10 +5,8 @@ log/
 bin/
 *.o
 *.obj
-*.so
 *.a
 *.dll
-*.dylib
 *.exe
 *.out
 
