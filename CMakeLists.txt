@@ -70,8 +70,9 @@ set(UNITREE_SDK2_DIR ${CMAKE_SOURCE_DIR}/library/unitree_sdk2) # set Unitree SDK
 
 # 查找依赖库
 find_package(Torch REQUIRED)
-find_package(yaml-cpp REQUIRED)
-find_package(glfw3 REQUIRED) 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(YAMLCPP REQUIRED yaml-cpp)
+pkg_check_modules(GLFW REQUIRED glfw3) 
 
 # 递归收集所有 .cpp 文件
 file(GLOB_RECURSE ALL_SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp)
@@ -85,14 +86,18 @@ set(SRC_FILES ${ALL_SRC_FILES})
 
 # 包含头文件
 include_directories(
-    ${CMAKE_SOURCE_DIR}/include
     ${MUJOCO_DIR}/include
+    ${YAMLCPP_INCLUDE_DIRS}
+    ${GLFW_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/exec
     ${CMAKE_SOURCE_DIR}/library
 )
 
 # 链接库目录
 link_directories(
+    ${YAMLCPP_LIBRARY_DIRS}
+    ${GLFW_LIBRARY_DIRS}
     ${MUJOCO_DIR}/lib/${CURRENT_PLATFORM}
 )
 
@@ -100,7 +105,7 @@ link_directories(
 set(COMMON_LIBS
     ${TORCH_LIBRARIES}
     yaml-cpp
-    glfw
+    ${GLFW_LIBRARIES}
     mujoco
     pthread
 )

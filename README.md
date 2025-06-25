@@ -3,6 +3,7 @@
 ## Dependencies
 Ensure the following packages and libraries are installed:
 - [LibTorch](https://pytorch.org/get-started/locally/) (PyTorch C++ API)
+- pkg-config: `sudo apt install pkg-config`
 - glfw3: `sudo apt install libglfw3-dev`
 - yaml-cpp: `sudo apt install libyaml-cpp-dev`
 
