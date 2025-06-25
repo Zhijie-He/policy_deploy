@@ -3,7 +3,6 @@ build/
 install/
 log/
 bin/
-lib/
 *.o
 *.obj
 *.so
