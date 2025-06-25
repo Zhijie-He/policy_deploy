@@ -181,7 +181,27 @@ void G1Sim2MujocoEnv::step() {
   RateLimiter controlTimer(1.0 / control_dt_, "mujoco main loop");
   while ((headless_ || !glfwWindowShouldClose(window_)) && running_){
 
-    if(state_machine_) state_machine_->step();
+    if(state_machine_) {
+      auto t_start = std::chrono::high_resolution_clock::now();
+      state_machine_->step();
+      auto t_end = std::chrono::high_resolution_clock::now();
+      
+      double run_time_us = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+      run_sum_us += run_time_us;
+      run_sum_sq_us += run_time_us * run_time_us;
+      ++run_count;
+
+      if (run_count % 100 == 0) {
+          double avg = run_sum_us / run_count;
+          double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
+          FRC_INFO("[StateMachine.step] Step 100 runs AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
+          
+          // 重置
+          run_sum_us = 0;
+          run_sum_sq_us = 0;
+          run_count = 0;
+      }
+    }
 
     auto actionPtr = jointCMDBufferPtr_->GetData();
     while (!actionPtr) { // 等待policy 传递action

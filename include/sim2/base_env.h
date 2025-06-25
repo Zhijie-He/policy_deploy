@@ -54,4 +54,8 @@ protected:
   std::vector<std::string> track_list_;
   std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg_;
   std::shared_ptr<CustomTypes::VlaConfig> vla_cfg_;
+
+  int run_count=0;
+  double run_sum_us=0;
+  double run_sum_sq_us=0;
 };

@@ -183,7 +183,7 @@ void G1Sim2RealEnv::LowStateHandler(const void *message) {
   if (listenerPtr_) {
     memcpy(listenerPtr_->rx_.buff, &msg.wireless_remote()[0], 40);
     listenerPtr_->gamepad_.update(listenerPtr_->rx_.RF_RX);
-    FRC_INFO("[G1Sim2RealEnv.LowStateHandler] tick: "<<msg.tick()<<" Gamepad: lx=" << listenerPtr_->gamepad_.lx);
+    // FRC_INFO("[G1Sim2RealEnv.LowStateHandler] tick: "<<msg.tick()<<" Gamepad: lx=" << listenerPtr_->gamepad_.lx);
   }
   
   low_state_buffer_.SetData(msg);
@@ -344,8 +344,28 @@ void G1Sim2RealEnv::run() {
       running_ = false;
       break;
     }
+    
+    if(state_machine_) {
+      auto t_start = std::chrono::high_resolution_clock::now();
+      state_machine_->step();
+      auto t_end = std::chrono::high_resolution_clock::now();
+      
+      double run_time_us = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+      run_sum_us += run_time_us;
+      run_sum_sq_us += run_time_us * run_time_us;
+      ++run_count;
 
-    if(state_machine_) state_machine_->step();
+      if (run_count % 100 == 0) {
+          double avg = run_sum_us / run_count;
+          double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
+          FRC_INFO("[StateMachine.step] Step 100 runs AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
+          
+          // 重置
+          run_sum_us = 0;
+          run_sum_sq_us = 0;
+          run_count = 0;
+      }
+    }
     
     auto actionPtr = jointCMDBufferPtr_->GetData();  
     while (!actionPtr) { 

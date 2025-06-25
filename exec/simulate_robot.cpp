@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
   // remote[0] = ...;  // 可填充 bitmap/float 数据
 
   uint64_t tick_counter = 0;
-  Timer simulateRobotTimer(1); // 每秒 1 次
+  Timer simulateRobotTimer(0.1); // 每秒 1 次
 
   // 随机数引擎
   std::default_random_engine rng(std::random_device{}());

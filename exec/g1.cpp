@@ -87,6 +87,7 @@ std::unique_ptr<G1Controller> controller = nullptr;
 void close_all_threads(int signum) {
   FRC_INFO("Interrupted with SIGINT: " << signum << "\n");
   controller.reset();
+  std::exit(0);
 }
 
 int main(int argc, char** argv) {  
