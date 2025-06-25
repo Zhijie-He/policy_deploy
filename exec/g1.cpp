@@ -35,7 +35,7 @@ public:
         hu_env_->setUserInputPtr(listener_, listener_->getKeyInputPtr(), nullptr);
         state_machine_->setInputPtr(listener_->getKeyInputPtr(), nullptr);
 
-        threads_.emplace_back([&]() { listener_->listenKeyboard(); });             // start keyboard listener
+        threads_.emplace_back([listener = listener_]() { listener->listenKeyboard(); });             // start keyboard listener
         // threads_.emplace_back([&]() { state_machine_->run(); });                // start async policy
   }
 

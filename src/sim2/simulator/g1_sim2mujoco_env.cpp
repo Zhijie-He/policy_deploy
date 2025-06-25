@@ -227,9 +227,16 @@ void G1Sim2MujocoEnv::run() {
   if (headless_) {
       FRC_INFO("[G1Sim2MujocoEnv.run] Headless mode. Running step loop without rendering.");
       std::thread step_thread(&G1Sim2MujocoEnv::step, this);
+
+      // 简单挂起主线程，直到 Ctrl+C
+      while (running_) {
+        std::this_thread::sleep_for(std::chrono::seconds(60));  // 每 60 秒才 wake 一次检查
+      }
+
       step_thread.join(); 
       return;
   }
+  
   launchServer();
   RateLimiter renderTimer(1.0 / control_dt_, "mujoco render loop");
   std::thread step_thread(&G1Sim2MujocoEnv::step, this);
@@ -325,11 +332,11 @@ void G1Sim2MujocoEnv::stop(){
 G1Sim2MujocoEnv::~G1Sim2MujocoEnv() {
   if (mj_data_) mj_deleteData(mj_data_);
   if (mj_model_) mj_deleteModel(mj_model_);
-  mjv_freeScene(&scn_);
-  mjr_freeContext(&con_);
+ 
   if (!headless_) {
-      if (window_) glfwDestroyWindow(window_);
-      glfwTerminate();
+    mjv_freeScene(&scn_);
+    mjr_freeContext(&con_);
+    if (window_) glfwDestroyWindow(window_);
+    glfwTerminate();
   }
 }
-
