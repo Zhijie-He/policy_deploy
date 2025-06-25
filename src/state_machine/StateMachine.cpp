@@ -40,7 +40,7 @@ void StateMachine::run(){
     step();
     auto t_end = std::chrono::high_resolution_clock::now();
     
-    double run_time_us = std::chrono::duration<double, std::micro>(t_end - t_start).count();
+    double run_time_us = std::chrono::duration<double, std::milli>(t_end - t_start).count();
     run_sum_us += run_time_us;
     run_sum_sq_us += run_time_us * run_time_us;
     ++run_count;
@@ -48,7 +48,7 @@ void StateMachine::run(){
     if (run_count % 100 == 0) {
         double avg = run_sum_us / run_count;
         double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
-        FRC_INFO("[StateMachine.run] Run AVG: " << avg << " us | STDDEV: " << stddev << " us");
+        FRC_INFO("[StateMachine.run] Run AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
         
          // 重置
         run_sum_us = 0;

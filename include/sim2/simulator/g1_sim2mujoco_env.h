@@ -26,6 +26,7 @@ public:
   void initWorld();
   void initState();
   void launchServer();
+  void setHeadless(bool headless) override { headless_ = headless; }
   void run() override;
   void step();
   void integrate();
@@ -41,6 +42,7 @@ private:
   Eigen::VectorXf tauCmd;
 
   // MuJoCo core members
+  bool headless_ = true; 
   mjModel* mj_model_ = nullptr;
   mjData* mj_data_ = nullptr;
   GLFWwindow* window_ = nullptr;

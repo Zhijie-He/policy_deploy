@@ -11,7 +11,7 @@ EmanPolicyWrapper::EmanPolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg,
     actionPrev.setZero(acDim);
     observation.setZero(obDim);
 
-    for (int i = 0; i < 10; i++) { // Pre-Running for warmup. Otherwise, first running takes more time。
+    for (int i = 0; i < 20; i++) { // Pre-Running for warmup. Otherwise, first running takes more time。
         obTorch = (torch::ones({1, obDim}) + torch::rand({1, obDim}) * 0.01f).to(device_);
         obVector.clear();
         obVector.emplace_back(obTorch); // 把 obTorch 这个 Tensor 包装成 IValue 并压入 obVector

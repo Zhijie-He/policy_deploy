@@ -19,7 +19,6 @@ G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
   initWorld();
   initState();
   updateRobotState();
-  launchServer();
   FRC_INFO("[G1Sim2MujocoEnv.Const] Ready.");
 }
 
@@ -34,7 +33,6 @@ G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
   initWorld();
   initState();
   updateRobotState();
-  launchServer();
   FRC_INFO("[G1Sim2MujocoEnv.Const] Ready.");
 }
 
@@ -84,6 +82,11 @@ void G1Sim2MujocoEnv::initState() {
 }
 
 void G1Sim2MujocoEnv::launchServer() {
+  if (headless_) {
+    FRC_INFO("[G1Sim2MujocoEnv.launchServer] Headless mode enabled. Skipping GUI setup.");
+    return;
+  }
+
   if (!glfwInit()) mju_error("Could not initialize GLFW");
   window_ = glfwCreateWindow(1200, 900, "MuJoCo Simulation", NULL, NULL);
   if (!window_) mju_error("Could not create GLFW window");
@@ -176,7 +179,7 @@ void G1Sim2MujocoEnv::updateRobotState() {
 void G1Sim2MujocoEnv::step() {
   // Timer controlTimer(control_dt_);
   RateLimiter controlTimer(1.0 / control_dt_, "mujoco main loop");
-  while (!glfwWindowShouldClose(window_) && running_) {
+  while ((headless_ || !glfwWindowShouldClose(window_)) && running_){
 
     if(state_machine_) state_machine_->step();
 
@@ -201,12 +204,15 @@ void G1Sim2MujocoEnv::step() {
 }
 
 void G1Sim2MujocoEnv::run() {
-  // const float render_dt = 1.0 / 120.0;   // 每秒渲染频率
-  // Timer renderTimer(control_dt_);
+  if (headless_) {
+      FRC_INFO("[G1Sim2MujocoEnv.run] Headless mode. Running step loop without rendering.");
+      std::thread step_thread(&G1Sim2MujocoEnv::step, this);
+      step_thread.join(); 
+      return;
+  }
+  launchServer();
   RateLimiter renderTimer(1.0 / control_dt_, "mujoco render loop");
-  
   std::thread step_thread(&G1Sim2MujocoEnv::step, this);
-  
   while (!glfwWindowShouldClose(window_) && running_) {
     integrate();
     {
@@ -301,7 +307,9 @@ G1Sim2MujocoEnv::~G1Sim2MujocoEnv() {
   if (mj_model_) mj_deleteModel(mj_model_);
   mjv_freeScene(&scn_);
   mjr_freeContext(&con_);
-  if (window_) glfwDestroyWindow(window_);
-  glfwTerminate();
+  if (!headless_) {
+      if (window_) glfwDestroyWindow(window_);
+      glfwTerminate();
+  }
 }
 

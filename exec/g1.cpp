@@ -5,6 +5,7 @@
 #include "sim2/real/g1_sim2real_env.h"
 #include "sim2/simulator/g1_sim2mujoco_env.h"
 #include "utility/tools.h"
+#include "utility/cxxopts.hpp"
 
 #define LOG_USE_COLOR 1
 #define LOG_USE_PREFIX 1
@@ -15,6 +16,7 @@ public:
   G1Controller(const std::string& net,
                std::shared_ptr<BaseRobotConfig> cfg,
                const std::string& config_name,
+               bool headless,
                torch::Device device,
                const std::string& mode,
                const std::string& track,
@@ -29,6 +31,7 @@ public:
         else throw std::runtime_error("Unsupported mode!");
 
         listener_ = std::make_shared<Listener>();
+        hu_env_->setHeadless(headless); 
         hu_env_->setUserInputPtr(listener_, listener_->getKeyInputPtr(), nullptr);
         state_machine_->setInputPtr(listener_->getKeyInputPtr(), nullptr);
 
@@ -84,76 +87,96 @@ std::unique_ptr<G1Controller> controller = nullptr;
 void close_all_threads(int signum) {
   FRC_INFO("Interrupted with SIGINT: " << signum << "\n");
   controller.reset();
-  std::exit(0);
 }
 
 int main(int argc, char** argv) {  
   std::string exec_name = std::filesystem::path(argv[0]).filename().string();
-  // 参数num检查
-  if (argc < 4) {
-      FRC_ERROR("Usage: " << exec_name << " <mode> <config_name> <device> [net]");
-      FRC_ERROR("Example: " << exec_name << " sim2mujoco g1_eman cuda");
-      FRC_ERROR("         " << exec_name << " sim2real   g1_eman cpu enp0s31f6");
-      return -1;
-  }
+  std::string mode;
+  std::string config_name;
+  bool headless = false;
+  std::string net;
+  torch::Device torchDevice = torch::kCPU;
   
-  std::string mode = argv[1];        // sim2mujoco or sim2real
-  std::string config_name = argv[2]; // config name like g1_eman
-  std::string device = argv[3];      // cpu or cuda
-  std::string net = (argc >= 5) ? argv[4] : "";
-  
-  // 模式合法性检查
-  if (mode != "sim2mujoco" && mode != "sim2real") {
-    FRC_ERROR("Invalid mode: " << mode);
-    FRC_ERROR("Available modes: sim2mujoco | sim2real");
-    return -1;
-  }
+  try {
+    cxxopts::Options options(exec_name, "Run Mujoco-based simulation Or Real for Human Legged Robot");
+    options.add_options()
+      ("m,mode", "Mode: sim2mujoco or sim2real", cxxopts::value<std::string>())
+      ("c,config", "Config name: g1_unitree | g1_eman | h1 | h1_2", cxxopts::value<std::string>())
+      ("headless", "Run in headless mode (no GUI)", cxxopts::value<bool>()->default_value("false"))
+      ("d,device", "Device to use: cpu or cuda", cxxopts::value<std::string>()->default_value("cpu"))
+      ("n,net", "Network interface name for sim2real", cxxopts::value<std::string>()->default_value(""))
+      ("h,help", "Show help");
 
-  // 配置合法性检查
-  const std::vector<std::string> valid_configs = {"g1_unitree", "g1_eman", "h1", "h1_2"};
-  if (std::find(valid_configs.begin(), valid_configs.end(), config_name) == valid_configs.end()) {
+    auto result = options.parse(argc, argv);
+
+    if (result.count("help") || !result.count("mode") || !result.count("config")) {
+      FRC_INFO("\n" << options.help());
+      return 0;
+    }
+
+    // 读取参数
+    mode = result["mode"].as<std::string>();
+    config_name = result["config"].as<std::string>();
+    headless = result["headless"].as<bool>();
+    net = result["net"].as<std::string>();
+
+    std::string device_str = result["device"].as<std::string>();
+    std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
+    std::transform(device_str.begin(), device_str.end(), device_str.begin(), ::tolower);
+
+    // 模式合法性检查
+    if (mode != "sim2mujoco" && mode != "sim2real") {
+      FRC_ERROR("Invalid mode: " << mode);
+      FRC_ERROR("Available modes: sim2mujoco | sim2real");
+      return -1;
+    }
+
+    // 配置合法性检查
+    const std::vector<std::string> valid_configs = {"g1_unitree", "g1_eman", "h1", "h1_2"};
+    if (std::find(valid_configs.begin(), valid_configs.end(), config_name) == valid_configs.end()) {
       std::ostringstream oss;
       oss << "Available config names: ";
       for (size_t i = 0; i < valid_configs.size(); ++i) {
-          oss << valid_configs[i];
-          if (i != valid_configs.size() - 1) oss << " | ";
+        oss << valid_configs[i];
+        if (i != valid_configs.size() - 1) oss << " | ";
       }
       FRC_ERROR("Invalid config name: " << config_name);
       FRC_ERROR(oss.str());
       return -1;
-  }
+    }
 
-  // sim2real 限制：必须带 net 参数.
-  if (mode == "sim2real" && net.empty()) {
-    FRC_ERROR("Missing <net> argument for mode 'sim2real'.");
-    FRC_ERROR("Usage: " << exec_name << " sim2real g1_eman net");
-    return -1;
-  }
+    // sim2real 限制：必须带 net
+    if (mode == "sim2real" && net.empty()) {
+      FRC_ERROR("Missing <net> argument for mode 'sim2real'.");
+      FRC_ERROR("Usage: " << exec_name << " --mode sim2real --config g1_eman --net <interface>");
+      return -1;
+    }
 
-  // sim2real 限制：只支持 g1_eman，不支持 other config
-  if (mode == "sim2real" && config_name != "g1_eman") {
-    FRC_ERROR("Mode 'sim2real' is not supported with config " << config_name);
-    FRC_ERROR("Only 'g1_eman' is supported in sim2real mode.");
-    return -1;
-  }
+    // sim2real 限制：只支持 g1_eman，不支持 other config
+    if (mode == "sim2real" && config_name != "g1_eman") {
+      FRC_ERROR("Only 'g1_eman' is supported in sim2real mode.");
+      return -1;
+    }
 
-    // 设备合法性检查
-  if (device != "cpu" && device != "cuda") {
-    FRC_ERROR("Invalid device: " << device);
-    FRC_ERROR("Device must be 'cpu' or 'cuda'");
-    return -1;
-  }
+    // 设备检查
+    if (device_str != "cpu" && device_str != "cuda") {
+      FRC_ERROR("Invalid device: " << device_str);
+      FRC_ERROR("Device must be 'cpu' or 'cuda'");
+      return -1;
+    }
 
-  if (device == "cuda") {
-      // 默认设备检查
-      torch::Device defaultDevice = tools::getDefaultDevice();
-      if (defaultDevice.type() != torch::kCUDA) {
-          FRC_WARN("CUDA requested, but not available on this machine. Falling back to CPU.");
-          device = "cpu";
+    if (device_str == "cuda") {
+      torchDevice = tools::getDefaultDevice();
+      if (torchDevice.type() != torch::kCUDA) {
+        FRC_WARN("CUDA requested, but not available. Falling back to CPU.");
+        device_str = "cpu";
       }
-  }
+    }
 
-  torch::Device torchDevice = (device == "cuda") ? torch::kCUDA : torch::kCPU;
+  } catch (const std::exception& e) {
+    FRC_ERROR("[Argument Parsing Error] " << e.what());
+    return 1;
+  }
 
   signal(SIGINT, close_all_threads);
 
@@ -173,7 +196,7 @@ int main(int argc, char** argv) {
   try {
     cfg = tools::loadConfig(config_name);
     
-    controller = std::make_unique<G1Controller>(net, cfg, config_name, torchDevice, mode, track, track_list, mocap_cfg, vla_cfg);
+    controller = std::make_unique<G1Controller>(net, cfg, config_name, headless, torchDevice, mode, track, track_list, mocap_cfg, vla_cfg);
 
     // Enter the zero torque state, press the start key to continue executing
     controller->zero_torque_state();
