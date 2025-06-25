@@ -61,8 +61,8 @@ option(USE_UNITREE_SDK "Enable Unitree SDK support (only for Linux)" ${USE_UNITR
 color_message(STATUS cyan "[INFO] USE_UNITREE_SDK: ${USE_UNITREE_SDK}")
 
 # 启用 AddressSanitizer 调试（可选）
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
-set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
+# set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 
 set(CMAKE_PREFIX_PATH "$ENV{LIBTORCH_DIR}" ${CMAKE_PREFIX_PATH})  # add libtorch path
 set(MUJOCO_DIR ${CMAKE_SOURCE_DIR}/library/mujoco)  # Set Mujoco path
