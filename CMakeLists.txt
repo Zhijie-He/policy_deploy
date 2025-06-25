@@ -7,13 +7,27 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
-# only use unitree sdk in linux system
-if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-    set(USE_UNITREE_SDK_DEFAULT ON)
-else()
+# ========== 平台识别与 Unitree SDK 设置（仅限 macOS / Linux） ==========
+if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
+    set(CURRENT_PLATFORM "macos")
     set(USE_UNITREE_SDK_DEFAULT OFF)
+elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    set(USE_UNITREE_SDK_DEFAULT ON)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        set(CURRENT_PLATFORM "linux-x86_64")
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+        set(CURRENT_PLATFORM "linux-aarch64")
+    else()
+        message(FATAL_ERROR "Unsupported Linux architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+    endif()
+else()
+    message(FATAL_ERROR "Unsupported platform: ${CMAKE_SYSTEM_NAME}")
 endif()
 
+message(STATUS "Detected platform: ${CURRENT_PLATFORM}")
+message(STATUS "USE_UNITREE_SDK_DEFAULT: ${USE_UNITREE_SDK_DEFAULT}")
+
+# 可以手动通过 -DUSE_UNITREE_SDK=ON/OFF 覆盖
 option(USE_UNITREE_SDK "Enable Unitree SDK support (only for Linux)" ${USE_UNITREE_SDK_DEFAULT})
 
 # 启用 AddressSanitizer 调试（可选）
@@ -21,7 +35,7 @@ option(USE_UNITREE_SDK "Enable Unitree SDK support (only for Linux)" ${USE_UNITR
 # set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 
 set(CMAKE_PREFIX_PATH "$ENV{LIBTORCH_DIR}") # 设置 libtorch path 
-set(MUJOCO_DIR $ENV{MUJOCO_DIR})  # Set Mujoco path
+set(MUJOCO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/mujoco)  # Set Mujoco path
 set(UNITREE_SDK2_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/unitree_sdk2) # set Unitree SDK path
 
 # 查找依赖库
@@ -57,7 +71,7 @@ include_directories(
 link_directories(
     ${YAMLCPP_LIBRARY_DIRS}
     ${GLFW_LIBRARY_DIRS}
-    ${MUJOCO_DIR}/lib
+    ${MUJOCO_DIR}/lib/${CURRENT_PLATFORM}
 )
 
 # 公共库列表

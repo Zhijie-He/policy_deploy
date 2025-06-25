@@ -2,7 +2,7 @@
 
 ## Dependencies
 Ensure the following packages and libraries are installed:
-- [MuJoCo](https://github.com/google-deepmind/mujoco/releases) (for physics simulation)
+<!-- - [MuJoCo](https://github.com/google-deepmind/mujoco/releases) (for physics simulation) -->
 - [LibTorch](https://pytorch.org/get-started/locally/) (PyTorch C++ API)
 - glfw3: `sudo apt install libglfw3-dev`
 - yaml-cpp: `sudo apt install libyaml-cpp-dev`
@@ -13,12 +13,6 @@ Before building the project, make sure to set the following environment variable
 ```sh
 # Set the LibTorch directory
 export LIBTORCH_DIR=/path/to/libtorch
-
-# Set the MuJoCo directory
-export MUJOCO_DIR=/path/to/mujoco
-
-# [Linux system] Set the Unitree SDK 2 directory 
-export UNITREE_SDK2_DIR=/path/to/unitree_sdk2
 ```
 
 ## Executables Overview
