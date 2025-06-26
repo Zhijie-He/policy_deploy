@@ -146,6 +146,5 @@ if (USE_UNITREE_SDK)
 
     add_executable(check_G1Robot_input exec/check_G1Robot_input.cpp ${SRC_FILES})
     target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
-
 endif()
 

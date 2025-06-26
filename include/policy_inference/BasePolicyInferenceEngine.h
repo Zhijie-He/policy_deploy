@@ -5,14 +5,26 @@
 #include <Eigen/Core>
 #include <string>
 #include <stdexcept>
+#include "config/BaseRobotConfig.h" 
 
 // 推理引擎的通用接口
 class BasePolicyInferenceEngine {
 public:
-    BasePolicyInferenceEngine(torch::Device device);
+    BasePolicyInferenceEngine(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device, const std::string& precision);
     virtual ~BasePolicyInferenceEngine() = default;
-    torch::jit::Module module_;
+
+    virtual void warmUp(int rounds = 10) {};
+    virtual void reset(const std::string& method_name = ""){};
+    virtual Eigen::VectorXf predict(const Eigen::VectorXf& observation) = 0;
     
 protected:
+    int obDim, acDim;
     torch::Device device_;
+    torch::Dtype precision_ = torch::kFloat32; // default precision
+    std::string precision_str_;
+
+    std::shared_ptr<const BaseRobotConfig> cfg_; 
+    torch::jit::Module module_;
+    torch::Tensor obTorch, acTorch;
+    std::vector<c10::IValue> obVector{}; 
 };

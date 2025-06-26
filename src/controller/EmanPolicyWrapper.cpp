@@ -4,18 +4,14 @@
 #include "utility/timer.h"
 #include <chrono>
 
-EmanPolicyWrapper::EmanPolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device):
-    BasePolicyWrapper(cfg, device)  // 初始化基类
+EmanPolicyWrapper::EmanPolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg, 
+                                     torch::Device device, 
+                                     const std::string& inference_engine_type,
+                                     const std::string& precision)
+    :BasePolicyWrapper(cfg, device, inference_engine_type, precision)  // 初始化基类
 {   
-    // Pre-Running for warmup. Otherwise, first running takes more time。
-    for (int i = 0; i < 20; i++) { 
-        obTorch = (torch::ones({1, obDim}) + torch::rand({1, obDim}) * 0.01f).to(device_);
-        obVector.clear();
-        obVector.emplace_back(obTorch); // 把 obTorch 这个 Tensor 包装成 IValue 并压入 obVector
-        acTorch = module_.forward(obVector).toTensor().to(torch::kCPU);  // 推理完可转回 CPU
-        if (i < 3) FRC_INFO("[EmanPolicyWrapper.Const] Warm up " << i << "th Action(" << acTorch.sizes() << "): " << *(acTorch.data_ptr<float>() + 1));
-    }
-    module_.get_method("reset_hist_buffer")({});
+    engine_->warmUp();
+    engine_->reset("reset_hist_buffer");
 
     FRC_INFO("[EmanPolicyWrapper] Constructor Finished.");
 }
@@ -78,26 +74,16 @@ CustomTypes::Action EmanPolicyWrapper::getControlAction(const CustomTypes::Robot
         std::exit(1);
     }
 
-    // 2. 构造 Torch 输入
-    obTorch = torch::from_blob(observation.data(), {1, obDim}, torch::kFloat32)
-              .clone()
-              .to(device_);  // 显式迁移到正确设备
+    // 2. 推理输出
+    action = engine_->predict(observation);
 
-    // 3. 推理输出
-    auto t_start = std::chrono::high_resolution_clock::now();
-    auto output = module_.forward({obTorch}).toTensor().to(torch::kCPU);  // 推理后迁回 CPU
-    auto t_end = std::chrono::high_resolution_clock::now();
-    
-    TORCH_CHECK(output.sizes() == torch::IntArrayRef({1, acDim}), "Unexpected output shape from policy network");
-    action = Eigen::Map<Eigen::VectorXf>(output.data_ptr<float>(), acDim);
-
-    // 4. clip 动作到合理范围 [-10, 10]
+    // 3. clip 动作到合理范围 [-10, 10]
     for (int i = 0; i < action.size(); ++i) {
         if (action[i] > 10.0f) action[i] = 10.0f;
         if (action[i] < -10.0f) action[i] = -10.0f;
     }
 
-    // 5. 构造控制命令
+    // 4. 构造控制命令
     CustomTypes::Action robotAction = CustomTypes::zeroAction(acDim);
     robotAction.timestamp = robotData.timestamp;
     robotAction.motorPosition = action(cfg_->actor2env) * cfg_->action_scale + cfg_->default_angles;  // 应用动作映射（比如 env 控制的只有某些 motor）
@@ -106,7 +92,7 @@ CustomTypes::Action EmanPolicyWrapper::getControlAction(const CustomTypes::Robot
     robotAction.kP = _kP;
     robotAction.kD = _kD;
 
-    // 6. 保存历史动作
+    // 5. 保存历史动作
     actionPrev = action;
 
     return robotAction;

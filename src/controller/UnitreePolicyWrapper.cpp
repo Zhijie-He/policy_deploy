@@ -4,8 +4,11 @@
 #include "utility/timer.h"
 #include <chrono>
 
-UnitreePolicyWrapper::UnitreePolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device):
-    BasePolicyWrapper(cfg, device)  // 初始化基类
+UnitreePolicyWrapper::UnitreePolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg, 
+                                           torch::Device device, 
+                                           const std::string& inference_engine_type,
+                                           const std::string& precision)
+    :BasePolicyWrapper(cfg, device, inference_engine_type, precision)  // 初始化基类
 {   
     FRC_INFO("[UnitreePolicyWrapper] Constructor Finished.");
 }
@@ -55,21 +58,10 @@ CustomTypes::Action UnitreePolicyWrapper::getControlAction(const CustomTypes::Ro
         std::exit(1);
     }
 
-    // 2. 构造 Torch 输入
-    obTorch = torch::from_blob(observation.data(), {1, obDim}, torch::kFloat32)
-              .clone()
-              .to(device_);  // 显式迁移到正确设备
+    // 2. 推理输出
+    action = engine_->predict(observation);
 
-    // 3. 推理输出
-    auto t_start = std::chrono::high_resolution_clock::now();
-    auto output = module_.forward({obTorch}).toTensor().to(torch::kCPU);  // 推理后迁回 CPU
-    auto t_end = std::chrono::high_resolution_clock::now();
-    
-
-    TORCH_CHECK(output.sizes() == torch::IntArrayRef({1, acDim}), "Unexpected output shape from policy network");
-    action = Eigen::Map<Eigen::VectorXf>(output.data_ptr<float>(), acDim);
-    
-    // 4. 构造控制命令
+    // 3. 构造控制命令
     CustomTypes::Action robotAction = CustomTypes::zeroAction(acDim);
     robotAction.timestamp = robotData.timestamp;
     robotAction.motorPosition = action * cfg_->action_scale + cfg_->default_angles;
@@ -78,7 +70,7 @@ CustomTypes::Action UnitreePolicyWrapper::getControlAction(const CustomTypes::Ro
     robotAction.kP = _kP;
     robotAction.kD = _kD;
 
-    // 5. 保存历史动作
+    // 4. 保存历史动作
     actionPrev = action;
 
     return robotAction;

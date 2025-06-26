@@ -9,11 +9,16 @@ namespace tools {
             return std::make_shared<UnitreeRobotConfig>(config_path);
     }
 
-    std::unique_ptr<BasePolicyWrapper> loadPolicyWrapper(const std::string& config_name, std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device) {
+    std::unique_ptr<BasePolicyWrapper> loadPolicyWrapper(const std::string& config_name, 
+                                                         std::shared_ptr<const BaseRobotConfig> cfg, 
+                                                         torch::Device device,
+                                                         const std::string& inference_engine_type,
+                                                         const std::string& precision)
+    {
         if (config_name == "g1_eman")
-            return std::make_unique<EmanPolicyWrapper>(cfg, device); 
+            return std::make_unique<EmanPolicyWrapper>(cfg, device, inference_engine_type, precision); 
         else
-            return std::make_unique<UnitreePolicyWrapper>(cfg, device);
+            return std::make_unique<UnitreePolicyWrapper>(cfg, device, inference_engine_type, precision);
     }
 
     Eigen::VectorXf pd_control(const Eigen::VectorXf& target_q,
@@ -49,6 +54,13 @@ namespace tools {
             FRC_WARN("[getDefaultDevice] Unknown platform. Defaulting to CPU.");
             return torch::kCPU;
         #endif
+    }
+
+    torch::Dtype parseDtype(const std::string& precision){
+        if(precision == "fp32") return torch::kFloat32;
+        if(precision == "fp16") return torch::kFloat16;
+        if(precision == "int8") return torch::kInt8;
+        throw std::invalid_argument("Unknown dtype string: " + precision);
     }
 }
 

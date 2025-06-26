@@ -3,13 +3,15 @@
 #include "utility/logger.h"
 #include "utility/tools.h"
 
-BasePolicyWrapper::BasePolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device)
+BasePolicyWrapper::BasePolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg, 
+                                     torch::Device device, 
+                                     const std::string& inference_engine_type,
+                                     const std::string& precision)
  :  cfg_(cfg),
     obDim(cfg->num_obs),
     acDim(cfg->num_actions),
     _kP(cfg->kP),
-    _kD(cfg->kD),
-    device_(device)
+    _kD(cfg->kD)
 {
     action.setZero(acDim);
     actionPrev.setZero(acDim);
@@ -17,25 +19,15 @@ BasePolicyWrapper::BasePolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg,
 
     try {
         engine_ = PolicyInferenceEngineFactory::create(
-            "libtorch",
-            cfg_->policy_path,
+            inference_engine_type,
+            cfg,
             device,
-            "fp32"
+            precision
         );
-        FRC_INFO("[BasePolicyWrapper] Inference engine created with backend");
-        FRC_INFO("[BasePolicyWrapper] engine_ pointer: " << engine_.get());
+        FRC_INFO("[BasePolicyWrapper.Const] Inference engine created with {" << inference_engine_type << "} inference backend " << "and {" << precision << "} precision!");
     } catch (const std::exception &e) {
-        FRC_ERROR("[BasePolicyWrapper] Failed to create inference engine: " << e.what());
+        FRC_ERROR("[BasePolicyWrapper.Const] Failed to create inference engine: " << e.what());
         std::exit(EXIT_FAILURE);
     }
-    module_ = engine_->module_;
-    
-    // try {
-    //     module_ = torch::jit::load(cfg_->policy_path, device_);
-    //     FRC_INFO("[BasePolicyWrapper.Const] model loaded from " << cfg_->policy_path);
-    // } catch (const c10::Error &e) {
-    //     FRC_ERROR("BasePolicyWrapper failed to load model: " << e.what());
-    //     std::exit(EXIT_FAILURE);
-    // }
 }
 

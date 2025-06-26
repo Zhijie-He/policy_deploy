@@ -2,9 +2,14 @@
 #include "utility/logger.h"
 #include "utility/tools.h"
 
-BasePolicyInferenceEngine::BasePolicyInferenceEngine(torch::Device device)
- :device_(device)
+BasePolicyInferenceEngine::BasePolicyInferenceEngine(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device, const std::string& precision)
+ :cfg_(cfg),
+  obDim(cfg->num_obs),
+  acDim(cfg->num_actions),
+  device_(device),
+  precision_(tools::parseDtype(precision)),
+  precision_str_(precision)
 {
-
+  
 }
 
