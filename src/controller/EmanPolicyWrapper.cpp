@@ -5,18 +5,15 @@
 #include <chrono>
 
 EmanPolicyWrapper::EmanPolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device):
-    NeuralController(cfg, device)  // 初始化基类
+    BasePolicyWrapper(cfg, device)  // 初始化基类
 {   
-    action.setZero(acDim);
-    actionPrev.setZero(acDim);
-    observation.setZero(obDim);
-
-    for (int i = 0; i < 20; i++) { // Pre-Running for warmup. Otherwise, first running takes more time。
+    // Pre-Running for warmup. Otherwise, first running takes more time。
+    for (int i = 0; i < 20; i++) { 
         obTorch = (torch::ones({1, obDim}) + torch::rand({1, obDim}) * 0.01f).to(device_);
         obVector.clear();
         obVector.emplace_back(obTorch); // 把 obTorch 这个 Tensor 包装成 IValue 并压入 obVector
         acTorch = module_.forward(obVector).toTensor().to(torch::kCPU);  // 推理完可转回 CPU
-        if (i < 3) FRC_INFO("[NeuralController.Const] Warm up " << i << "th Action(" << acTorch.sizes() << "): " << *(acTorch.data_ptr<float>() + 1));
+        if (i < 3) FRC_INFO("[EmanPolicyWrapper.Const] Warm up " << i << "th Action(" << acTorch.sizes() << "): " << *(acTorch.data_ptr<float>() + 1));
     }
     module_.get_method("reset_hist_buffer")({});
 

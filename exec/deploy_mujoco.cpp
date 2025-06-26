@@ -1,6 +1,6 @@
 #include <filesystem>
 #include <csignal>
-#include "controller/NeuralController.h"
+#include "controller/BasePolicyWrapper.h"
 #include "state_machine/StateMachine.h"
 #include "hardware/listener.h"
 #include "sim2/simulator/g1_sim2mujoco_env.h"

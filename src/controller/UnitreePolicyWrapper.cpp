@@ -5,12 +5,8 @@
 #include <chrono>
 
 UnitreePolicyWrapper::UnitreePolicyWrapper(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device):
-    NeuralController(cfg, device)  // 初始化基类
+    BasePolicyWrapper(cfg, device)  // 初始化基类
 {   
-    action.setZero(acDim);
-    actionPrev.setZero(acDim);
-    observation.setZero(obDim);
-
     FRC_INFO("[UnitreePolicyWrapper] Constructor Finished.");
 }
 
@@ -37,7 +33,7 @@ void UnitreePolicyWrapper::updateObservation(const CustomTypes::RobotData &raw_o
     Eigen::VectorXf qj = (raw_obs.joint_pos - cfg_->default_angles) * cfg_->dof_pos_scale;
     Eigen::VectorXf dqj = raw_obs.joint_vel * cfg_->dof_vel_scale;
 
-    // // ---- 构造 observation ----
+    //  ---- 构造 observation ----
     observation.segment(0, 3) = omega;
     observation.segment(3, 3) = gravity_orientation;
     observation.segment(6, 3) = cmd_scaled;

@@ -6,7 +6,7 @@
 #include "types/system_defined.h"
 #include "types/CustomTypes.h"
 #include "utility/data_buffer.h"
-#include "controller/NeuralController.h"
+#include "controller/BasePolicyWrapper.h"
 
 class StateMachine {
 public:
@@ -42,5 +42,5 @@ protected:
     int run_count=0;
     double run_sum_us=0;
     double run_sum_sq_us=0;
-    std::unique_ptr<NeuralController> _neuralCtrl;
+    std::unique_ptr<BasePolicyWrapper> _neuralCtrl;
 };

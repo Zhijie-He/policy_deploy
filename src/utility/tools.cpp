@@ -9,7 +9,7 @@ namespace tools {
             return std::make_shared<UnitreeRobotConfig>(config_path);
     }
 
-    std::unique_ptr<NeuralController> loadPolicyWrapper(const std::string& config_name, std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device) {
+    std::unique_ptr<BasePolicyWrapper> loadPolicyWrapper(const std::string& config_name, std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device) {
         if (config_name == "g1_eman")
             return std::make_unique<EmanPolicyWrapper>(cfg, device); 
         else
