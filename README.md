@@ -12,6 +12,10 @@ Before building the project, make sure to set the following environment variable
 ```sh
 # Set the LibTorch directory
 export LIBTORCH_DIR=/path/to/libtorch
+# Set the TensorRT directory
+export TENSORRT_DIR=/path/to/TensorRT
+# Set the cuda directory
+export CUDA_DIR=/path/to/cuda
 ```
 
 ## Executables Overview
@@ -29,12 +33,16 @@ Main control entry, supporting two execution modes:
 Usage:
   g1 [OPTION...]
 
-  -m, --mode arg    Mode: sim2mujoco or sim2real
-  -c, --config arg  Config name: g1_unitree | g1_eman | h1 | h1_2
-      --headless    Run in headless mode (no GUI)
-  -d, --device arg  Device to use: cpu or cuda (default: cpu)
-  -n, --net arg     Network interface name for sim2real (default: "")
-  -h, --help        Show help
+  -m, --mode arg       Mode: sim2mujoco or sim2real
+  -c, --config arg     Config name: g1_unitree | g1_eman | h1 | h1_2
+      --headless       Run in headless mode (no GUI)
+  -d, --device arg     Device to use: cpu or cuda (default: cpu)
+  -n, --net arg        Network interface name for sim2real (default: "")
+      --engine arg     Inference engine type: libtorch | tensorrt (default: 
+                       libtorch)
+      --precision arg  Inference precision: fp32 | fp16 | int8 (default: 
+                       fp32)
+  -h, --help           Show help
 ```
 
 Mode 1: Sim2Mujoco (Simulation Deployment)
