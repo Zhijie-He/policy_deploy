@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.14)
 project(policy_depoly)
+
 ## Set compiler to use c++ 17 features
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+add_compile_options(-Wno-deprecated-declarations)
 
 # color print function
 option(ENABLE_COLOR_LOG "Enable colorized message output" ON)
@@ -64,9 +66,11 @@ color_message(STATUS cyan "[INFO] USE_UNITREE_SDK: ${USE_UNITREE_SDK}")
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
 # set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 
-set(CMAKE_PREFIX_PATH "$ENV{LIBTORCH_DIR}" ${CMAKE_PREFIX_PATH})  # add libtorch path
+set(CMAKE_PREFIX_PATH $ENV{LIBTORCH_DIR} ${CMAKE_PREFIX_PATH})  # add libtorch path
 set(MUJOCO_DIR ${CMAKE_SOURCE_DIR}/library/mujoco)  # Set Mujoco path
 set(UNITREE_SDK2_DIR ${CMAKE_SOURCE_DIR}/library/unitree_sdk2) # set Unitree SDK path
+set(TENSORRT_DIR $ENV{TENSORRT_DIR}) # TensorRT 路径
+set(CUDA_DIR $ENV{CUDA_DIR}) # CUDA 路径
 
 # 查找依赖库
 find_package(Torch REQUIRED)
@@ -92,6 +96,9 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/exec
     ${CMAKE_SOURCE_DIR}/library
+
+    ${TENSORRT_DIR}/include
+    ${CUDA_DIR}/include
 )
 
 # 链接库目录
@@ -99,6 +106,9 @@ link_directories(
     ${YAMLCPP_LIBRARY_DIRS}
     ${GLFW_LIBRARY_DIRS}
     ${MUJOCO_DIR}/lib/${CURRENT_PLATFORM}
+
+    ${TENSORRT_DIR}/lib
+    ${CUDA_DIR}/lib64
 )
 
 # 公共库列表
@@ -108,6 +118,12 @@ set(COMMON_LIBS
     ${GLFW_LIBRARIES}
     mujoco
     pthread
+    
+    nvinfer
+    nvonnxparser
+    nvparsers
+    nvinfer_plugin
+    cudart           # CUDA runtime
 )
 
 # 如果启用 Unitree SDK

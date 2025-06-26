@@ -24,3 +24,4 @@ num_obs: 47
 cmd_init: [0.3, 0, 0]
 max_cmd: [0.8, 0.5, 1.57]
 robot_name: h1_2
+engine_path: "resources/policies/g1/resnet.engine"

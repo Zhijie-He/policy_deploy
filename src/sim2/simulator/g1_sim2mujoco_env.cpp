@@ -40,7 +40,7 @@ void G1Sim2MujocoEnv::initWorld() {
   char error[1000] = "";
   mj_model_ = mj_loadXML(cfg_->xml_path.c_str(), nullptr, error, 1000);
   if (!mj_model_) {
-    FRC_ERROR("[G1Sim2MujocoEnv.initWorld] Failed to load XML: " << error);
+    FRC_ERROR("[G1Sim2MujocoEnv.initWorld] Failed to load "<< cfg_->xml_path.c_str() << ", " << error);
     std::exit(1);
   }
   mj_data_ = mj_makeData(mj_model_);

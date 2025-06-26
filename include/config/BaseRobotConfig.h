@@ -27,6 +27,7 @@ public:
     float action_scale;
 
     std::string policy_path;
+    std::string engine_path;
     std::string xml_path;
     std::string robot_name;
     virtual float getPolicyDt() const = 0;

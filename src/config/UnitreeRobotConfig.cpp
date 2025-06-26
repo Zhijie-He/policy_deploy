@@ -51,6 +51,7 @@ UnitreeRobotConfig::UnitreeRobotConfig(const std::string& yaml_path)
     // ========== 路径信息 ==========
     std::string project_source_dir = PROJECT_SOURCE_DIR;
     policy_path = project_source_dir + "/" + root_["policy_path"].as<std::string>();
+    engine_path = project_source_dir + "/" + root_["engine_path"].as<std::string>();
     xml_path    = project_source_dir + "/" + root_["xml_path"].as<std::string>();
 
     // ========== 自定义参数 ==========
