@@ -19,12 +19,6 @@ public:
     
 protected:
     int obDim, acDim;
-    torch::Device device_;
-    torch::Dtype precision_ = torch::kFloat32; // default precision
     std::string precision_str_;
-
     std::shared_ptr<const BaseRobotConfig> cfg_; 
-    torch::jit::Module module_;
-    torch::Tensor obTorch, acTorch;
-    std::vector<c10::IValue> obVector{}; 
 };

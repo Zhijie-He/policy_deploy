@@ -22,10 +22,10 @@ void TensorRTInferenceEngine::loadModel(){
         const char* name = engine_->getBindingName(i);
         if (engine_->bindingIsInput(i)) {
             inputIndex_ = i;
-            FRC_INFO("[Binding] Input:  " << name << " (index " << i << ")");
+            FRC_INFO("[TensorRTInferenceEngine.loadModel] Input:  " << name << " (index " << i << ")");
         } else {
             outputIndex_ = i;
-            FRC_INFO("[Binding] Output: " << name << " (index " << i << ")");
+            FRC_INFO("[TensorRTInferenceEngine.loadModel] Output: " << name << " (index " << i << ")");
         }
     }
 
@@ -35,8 +35,8 @@ void TensorRTInferenceEngine::loadModel(){
     inputSize_ = volume(inputDims) * sizeof(float);
     outputSize_ = volume(outputDims) * sizeof(float);
 
-    FRC_INFO("[Input Size]  " << inputSize_ / sizeof(float) << " floats");
-    FRC_INFO("[Output Size] " << outputSize_ / sizeof(float) << " floats");
+    FRC_INFO("[TensorRTInferenceEngine.loadModel] Input Size: " << inputSize_ / sizeof(float) << " floats");
+    FRC_INFO("[TensorRTInferenceEngine.loadModel] Output Size: " << outputSize_ / sizeof(float) << " floats");
 
     cudaMalloc(&buffers_[inputIndex_], inputSize_);
     cudaMalloc(&buffers_[outputIndex_], outputSize_);
@@ -55,7 +55,7 @@ void TensorRTInferenceEngine::warmUp(int rounds){
         cudaMemcpy(output.data(), buffers_[outputIndex_], outputSize_, cudaMemcpyDeviceToHost);
         if (i < 3) {
             float avg = std::accumulate(output.begin(), output.end(), 0.0f) / output.size();
-            FRC_INFO("[WarmUp] Round " << i << " avg = " << avg );
+            FRC_INFO("[TensorRTInferenceEngine.WarmUp] Round " << i << " avg = " << avg );
         }
     }
 }

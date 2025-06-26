@@ -1,11 +1,14 @@
 // policy_inference/libtorch/LibTorchInferenceEngine.cpp
 #include "policy_inference/libtorch/LibTorchInferenceEngine.h"
 #include "utility/logger.h"
+#include "utility/tools.h"
 
 LibTorchInferenceEngine::LibTorchInferenceEngine(std::shared_ptr<const BaseRobotConfig> cfg,
                                                  torch::Device device,
                                                  const std::string& precision)
-    : BasePolicyInferenceEngine(cfg, device, precision)
+    : BasePolicyInferenceEngine(cfg, device, precision),
+    device_(device),
+    precision_(tools::parseDtype(precision))
 {
     loadModel();
 }
@@ -15,14 +18,16 @@ void LibTorchInferenceEngine::loadModel(){
         module_ = torch::jit::load(cfg_->policy_path);
         module_.to(device_);
         module_.eval();
+        FRC_INFO("[LibTorchInferenceEngine.loadModel] model loaded: " << cfg_->policy_path);
     } catch (const std::exception& e) {
-        FRC_ERROR("[LibTorchInferenceEngine] Failed to load model: " << e.what());
+        FRC_ERROR("[LibTorchInferenceEngine.loadModel] Failed to load model: " << e.what());
         std::exit(EXIT_FAILURE);
     }
 }
 
 void LibTorchInferenceEngine::warmUp(int rounds){
     // Pre-Running for warmup. Otherwise, first running takes more time。
+    FRC_INFO("[LibTorchInferenceEngine.WarmUp] Running " << rounds << " rounds using random inputs...");
     for (int i = 0; i < rounds; i++) { 
         obTorch = (torch::ones({1, obDim}) + torch::rand({1, obDim}) * 0.01f).to(device_, precision_);
         obVector.clear();

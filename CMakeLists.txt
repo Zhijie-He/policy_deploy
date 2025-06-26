@@ -1,15 +1,15 @@
 cmake_minimum_required(VERSION 3.14)
 project(policy_depoly)
 
-## Set compiler to use c++ 17 features
+# === 编译器设置 ===
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 add_compile_options(-Wno-deprecated-declarations)
 
-# color print function
+add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+
+# === 彩色日志函数 ===
 option(ENABLE_COLOR_LOG "Enable colorized message output" ON)
 
 function(color_message TYPE COLOR TEXT)
@@ -62,15 +62,29 @@ color_message(STATUS cyan "[INFO] Detected platform: ${CURRENT_PLATFORM}")
 option(USE_UNITREE_SDK "Enable Unitree SDK support (only for Linux)" ${USE_UNITREE_SDK_DEFAULT})
 color_message(STATUS cyan "[INFO] USE_UNITREE_SDK: ${USE_UNITREE_SDK}")
 
-# 启用 AddressSanitizer 调试（可选）
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
-# set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+# === AddressSanitizer 选项（默认关闭）===
+option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
+if (ENABLE_ASAN)
+    color_message(STATUS cyan "[INFO] AddressSanitizer enabled")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g -O1")
+    set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+endif()
 
-set(CMAKE_PREFIX_PATH $ENV{LIBTORCH_DIR} ${CMAKE_PREFIX_PATH})  # add libtorch path
-set(MUJOCO_DIR ${CMAKE_SOURCE_DIR}/library/mujoco)  # Set Mujoco path
-set(UNITREE_SDK2_DIR ${CMAKE_SOURCE_DIR}/library/unitree_sdk2) # set Unitree SDK path
-set(TENSORRT_DIR $ENV{TENSORRT_DIR}) # TensorRT 路径
-set(CUDA_DIR $ENV{CUDA_DIR}) # CUDA 路径
+set(CMAKE_PREFIX_PATH $ENV{LIBTORCH_DIR} ${CMAKE_PREFIX_PATH})      # Add libtorch path
+set(MUJOCO_DIR ${CMAKE_SOURCE_DIR}/library/mujoco)                  # Set Mujoco path
+set(UNITREE_SDK2_DIR ${CMAKE_SOURCE_DIR}/library/unitree_sdk2)      # Set Unitree SDK path
+set(TENSORRT_DIR $ENV{TENSORRT_DIR})                                # Set TensorRT path
+set(CUDA_DIR $ENV{CUDA_DIR})                                        # Set CUDA path
+
+# 根据 TENSORRT_DIR 是否存在自动判断是否使用 TensorRT
+if(DEFINED TENSORRT_DIR AND EXISTS "${TENSORRT_DIR}/lib")
+    set(USE_TENSORRT ON)
+    add_definitions(-DUSE_TENSORRT)
+    color_message(STATUS cyan "[INFO] USE_TENSORRT: ${USE_TENSORRT} (${TENSORRT_DIR})")
+else()
+    set(USE_TENSORRT OFF)
+    color_message(STATUS cyan "[INFO] USE_TENSORRT: ${USE_TENSORRT} (TENSORRT_DIR not set or invalid ${LIBTORCH_DIR})")
+endif()
 
 # 查找依赖库
 find_package(Torch REQUIRED)
@@ -81,9 +95,13 @@ pkg_check_modules(GLFW REQUIRED glfw3)
 # 递归收集所有 .cpp 文件
 file(GLOB_RECURSE ALL_SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp)
 
-# 排除 sim2/real 文件夹下的文件
+# 条件排除目录
 if (NOT USE_UNITREE_SDK)
     list(FILTER ALL_SRC_FILES EXCLUDE REGEX ".*/real/.*")
+endif()
+
+if (NOT USE_TENSORRT)
+    list(FILTER ALL_SRC_FILES EXCLUDE REGEX ".*/tensorrt/.*")
 endif()
 
 set(SRC_FILES ${ALL_SRC_FILES})
@@ -96,9 +114,6 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/exec
     ${CMAKE_SOURCE_DIR}/library
-
-    ${TENSORRT_DIR}/include
-    ${CUDA_DIR}/include
 )
 
 # 链接库目录
@@ -106,9 +121,6 @@ link_directories(
     ${YAMLCPP_LIBRARY_DIRS}
     ${GLFW_LIBRARY_DIRS}
     ${MUJOCO_DIR}/lib/${CURRENT_PLATFORM}
-
-    ${TENSORRT_DIR}/lib
-    ${CUDA_DIR}/lib64
 )
 
 # 公共库列表
@@ -118,12 +130,6 @@ set(COMMON_LIBS
     ${GLFW_LIBRARIES}
     mujoco
     pthread
-    
-    nvinfer
-    nvonnxparser
-    nvparsers
-    nvinfer_plugin
-    cudart           # CUDA runtime
 )
 
 # 如果启用 Unitree SDK
@@ -141,6 +147,25 @@ if (USE_UNITREE_SDK)
         unitree_sdk2
         ddscxx
         ddsc
+    )
+endif()
+
+# 如果启动TensorRT
+if (USE_TENSORRT)
+    include_directories(
+        ${TENSORRT_DIR}/include
+        ${CUDA_DIR}/include
+    )
+    link_directories(
+        ${TENSORRT_DIR}/lib
+        ${CUDA_DIR}/lib64
+    )
+    list(APPEND COMMON_LIBS
+        nvinfer
+        nvonnxparser
+        nvparsers
+        nvinfer_plugin
+        cudart        
     )
 endif()
 

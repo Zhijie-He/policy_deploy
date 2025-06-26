@@ -3,13 +3,12 @@
 
 #include "policy_inference/BasePolicyInferenceEngine.h"
 #include "policy_inference/libtorch/LibTorchInferenceEngine.h"
+#ifdef USE_TENSORRT
 #include "policy_inference/tensorrt/TensorRTInferenceEngine.h"
-
-
+#endif
 #include <memory>
 #include <string>
 #include <stdexcept>
-
 #include "utility/tools.h"
 
 class PolicyInferenceEngineFactory {
@@ -23,9 +22,11 @@ public:
         if (backend == "libtorch") {
             return std::make_shared<LibTorchInferenceEngine>(cfg, device, precision);
         }
+#ifdef USE_TENSORRT
         else if (backend == "tensorrt") {
             return std::make_shared<TensorRTInferenceEngine>(cfg, device, precision);
         }
+#endif
         else {
             FRC_ERROR("[PolicyInferenceEngineFactory.create] Unsupported inference backend type: " << backend);
             throw std::invalid_argument("Unsupported inference backend type: " + backend);
