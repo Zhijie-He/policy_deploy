@@ -12,6 +12,7 @@
 #include <cmath>
 #include <algorithm>
 #include <memory>
+#include <cuda_fp16.h>
 #include "policy_inference/BasePolicyInferenceEngine.h"
 #include "utility/logger.h"
 
@@ -51,7 +52,10 @@ private:
     std::unique_ptr<IRuntime, TRTDestroyer<IRuntime>> runtime_;
     std::unique_ptr<ICudaEngine, TRTDestroyer<ICudaEngine>> engine_;
     std::unique_ptr<IExecutionContext, TRTDestroyer<IExecutionContext>> context_;
-
+    
+    DataType input_dtype_;
+    DataType output_dtype_;
+    
     void* buffers_[2]{nullptr, nullptr};
     int inputIndex_{0};
     int outputIndex_{1};

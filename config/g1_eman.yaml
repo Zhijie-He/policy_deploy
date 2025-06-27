@@ -73,6 +73,7 @@ simulation_dt: 0.00125
 control_decimation: 16
 cmd_init: [0, 0, 0]
 policy_path: "resources/policies/g1/actor.pt"
-engine_path: "resources/policies/g1/resnet.engine"
+# engine_path: "resources/policies/g1/resnet.engine"
+engine_path: "resources/policies/g1/resnet_fp16.engine"
 xml_path: "resources/robots/g1/scene_29dof.xml"
 
