@@ -1,4 +1,6 @@
-policy_path: "resources/policies/g1/motion.pt"
+# policy_path: "resources/policies/g1/motion.pt"
+policy_path: "resources/policies/g1/policy_lstm_1.pt"
+engine_path: "resources/policies/g1/policy_lstm_1.engine"
 xml_path: "resources/robots/g1_description/scene.xml"
 # Total simulation time
 simulation_duration: 60.0
@@ -24,4 +26,3 @@ num_obs: 47
 cmd_init: [0.3, 0, 0]
 max_cmd: [0.8, 0.5, 1.57]
 robot_name: g1_unitree
-engine_path: "resources/policies/g1/resnet.engine"

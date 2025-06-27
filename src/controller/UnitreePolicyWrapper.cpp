@@ -10,6 +10,10 @@ UnitreePolicyWrapper::UnitreePolicyWrapper(std::shared_ptr<const BaseRobotConfig
                                            const std::string& precision)
     :BasePolicyWrapper(cfg, device, inference_engine_type, precision)  // 初始化基类
 {   
+      
+    engine_->warmUp();
+    engine_->reset("reset_memory");
+
     FRC_INFO("[UnitreePolicyWrapper] Constructor Finished.");
 }
 

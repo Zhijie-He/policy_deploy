@@ -72,4 +72,6 @@ private:
         if (!file) throw std::runtime_error("Failed to open engine file: " + path);
         return std::vector<char>(std::istreambuf_iterator<char>(file), {});
     }
+
+    Eigen::VectorXf prev_hidden_state_;
 };

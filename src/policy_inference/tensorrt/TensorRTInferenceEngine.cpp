@@ -45,11 +45,14 @@ void TensorRTInferenceEngine::loadModel(){
          << " | Type: "
          << (input_dtype_ == DataType::kFLOAT ? "FP32" :
              input_dtype_ == DataType::kHALF  ? "FP16" : "Other"));
-
+    
     FRC_INFO("[TensorRTInferenceEngine.loadModel] Output binding: " << engine_->getBindingName(outputIndex_)
             << " | Type: "
             << (output_dtype_ == DataType::kFLOAT ? "FP32" :
                 output_dtype_ == DataType::kHALF  ? "FP16" : "Other"));
+
+    FRC_INFO("[TensorRTInferenceEngine.loadModel] Input dtype: " << static_cast<int>(input_dtype_));
+    FRC_INFO("[TensorRTInferenceEngine.loadModel] Output dtype: " << static_cast<int>(output_dtype_));
 
     input_dtype_ = engine_->getBindingDataType(inputIndex_);
     output_dtype_ = engine_->getBindingDataType(outputIndex_);
@@ -59,8 +62,10 @@ void TensorRTInferenceEngine::loadModel(){
 
     inputSize_ = volume(inputDims) * getElementSize(input_dtype_);
     outputSize_ = volume(outputDims) * getElementSize(output_dtype_);
+    prev_hidden_state_ = Eigen::VectorXf::Zero(inputSize_ / getElementSize(input_dtype_) - obDim);
 
     FRC_INFO("[TensorRTInferenceEngine.loadModel] Input Size: " << inputSize_ / getElementSize(input_dtype_) << " floats");
+    FRC_INFO("[TensorRTInferenceEngine.loadModel] Hidden state Size: " << inputSize_ / getElementSize(input_dtype_) - obDim << " floats");
     FRC_INFO("[TensorRTInferenceEngine.loadModel] Output Size: " << outputSize_ / getElementSize(output_dtype_) << " floats");
 
     cudaMalloc(&buffers_[inputIndex_], inputSize_);
@@ -115,15 +120,19 @@ void TensorRTInferenceEngine::warmUp(int rounds) {
     }
 }
 
-
 void TensorRTInferenceEngine::reset(const std::string& method_name){
-    context_.reset(engine_->createExecutionContext());
-    FRC_INFO("[TensorRTInferenceEngine.Reset] ExecutionContext recreated for method: " << method_name);
+    // context_.reset(engine_->createExecutionContext());
+    prev_hidden_state_.setZero();
+    FRC_INFO("[TensorRTInferenceEngine.Reset] Reset Hidden state");
 }
 
 Eigen::VectorXf TensorRTInferenceEngine::predict(const Eigen::VectorXf& observation) {
+    Eigen::VectorXf input(observation.size() + prev_hidden_state_.size());
+    input << observation, prev_hidden_state_;
+
     // === 输入处理 ===
-    std::vector<float> input(inputSize_ / getElementSize(input_dtype_), 0.0f);
+    std::vector<float> input_data(input.data(), input.data() + input.size());
+    
     if(input_dtype_ == DataType::kFLOAT){
         cudaMemcpy(buffers_[inputIndex_], input.data(), inputSize_, cudaMemcpyHostToDevice);
     } else if (input_dtype_ == DataType::kHALF) {
@@ -142,22 +151,25 @@ Eigen::VectorXf TensorRTInferenceEngine::predict(const Eigen::VectorXf& observat
     context_->enqueueV2(buffers_, stream_, nullptr);
     cudaStreamSynchronize(stream_);
 
-    // === 输出处理 ===
-    Eigen::VectorXf result(outputSize_ / getElementSize(output_dtype_));
-    if (output_dtype_ == DataType::kFLOAT) {
-        std::vector<float> output(outputSize_ / sizeof(float));
-        cudaMemcpy(output.data(), buffers_[outputIndex_], output.size() * sizeof(float), cudaMemcpyDeviceToHost);
-        result = Eigen::Map<Eigen::VectorXf>(output.data(), output.size());
-    } else if (output_dtype_ == DataType::kHALF) {
-        std::vector<__half> output_fp16(outputSize_ / sizeof(__half));
+   // --- 拷贝输出 ---
+    const int total_output_len = outputSize_ / getElementSize(output_dtype_);
+    std::vector<float> output_data(total_output_len);
+
+    if (output_dtype_ == nvinfer1::DataType::kFLOAT) {
+        cudaMemcpy(output_data.data(), buffers_[outputIndex_], outputSize_, cudaMemcpyDeviceToHost);
+    } else if (output_dtype_ == nvinfer1::DataType::kHALF) {
+        std::vector<__half> output_fp16(total_output_len);
         cudaMemcpy(output_fp16.data(), buffers_[outputIndex_], output_fp16.size() * sizeof(__half), cudaMemcpyDeviceToHost);
-        for (int i = 0; i < outputSize_ / sizeof(float); ++i) {
-            result[i] = __half2float(output_fp16[i]);
-        }
+        for (int i = 0; i < total_output_len; ++i)
+            output_data[i] = __half2float(output_fp16[i]);
     } else {
-        throw std::runtime_error("Unsupported output data type");
+        throw std::runtime_error("Unsupported output dtype");
     }
 
-    return Eigen::VectorXf::Zero(acDim);
-}
+    // --- 拆分输出 ---
+    Eigen::VectorXf output = Eigen::Map<Eigen::VectorXf>(output_data.data(), total_output_len);
+    Eigen::VectorXf action = output.head(acDim);
+    prev_hidden_state_ = output.tail(output.size() - acDim);
 
+    return action;
+}

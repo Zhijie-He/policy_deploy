@@ -288,7 +288,7 @@ void G1Sim2MujocoEnv::moveToDefaultPos() {
   FRC_INFO("[G1Sim2MujocoEnv.moveToDefaultPos] Moving to default position...");
   
   // 设定初始 root 位姿
-  Eigen::Vector3f root_xyz(0.0f, 0.0f, 1.2f);
+  Eigen::Vector3f root_xyz(0.0f, 0.0f, 0.8f);
   Eigen::Vector4f root_rot(1.0f, 0.0f, 0.0f, 0.0f); // 无旋转
   Eigen::VectorXf joint_pos = cfg_->default_angles;  // 从 config 加载
 
