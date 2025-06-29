@@ -1,5 +1,5 @@
 #pragma once
-#include "controller/BasePolicyWrapper.h"
+#include "policy_wrapper/BasePolicyWrapper.h"
 
 class EmanPolicyWrapper : public BasePolicyWrapper  {
 public:

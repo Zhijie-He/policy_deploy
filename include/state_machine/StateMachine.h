@@ -6,7 +6,7 @@
 #include "types/system_defined.h"
 #include "types/CustomTypes.h"
 #include "utility/data_buffer.h"
-#include "controller/BasePolicyWrapper.h"
+#include "policy_wrapper/BasePolicyWrapper.h"
 
 class StateMachine {
 public:

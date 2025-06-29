@@ -14,14 +14,15 @@
 class G1Controller {
 public:
   G1Controller(const std::string& net,
+               const std::string& mode,
+               
                std::shared_ptr<BaseRobotConfig> cfg,
                const std::string& config_name,
                bool headless,
                torch::Device device,
                const std::string& inference_engine_type,
                const std::string& precision,
-              
-               const std::string& mode,
+            
                const std::string& track,
                const std::vector<std::string>& track_list,
                std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,
@@ -224,7 +225,8 @@ int main(int argc, char** argv) {
   try {
     cfg = tools::loadConfig(config_name);
     
-    controller = std::make_unique<G1Controller>(net, cfg, config_name, headless, torchDevice, inference_engine_type, precision, mode, track, track_list, mocap_cfg, vla_cfg);
+    controller = std::make_unique<G1Controller>(net, mode, cfg, config_name, headless, torchDevice, inference_engine_type, precision, 
+                                                track, track_list, mocap_cfg, vla_cfg);
 
     // Enter the zero torque state, press the start key to continue executing
     controller->zero_torque_state();

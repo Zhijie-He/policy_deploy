@@ -1,10 +1,10 @@
-// policy_inference/PolicyInferenceEngineFactory.h
+// inference_enginePolicyInferenceEngineFactory.h
 #pragma once
 
-#include "policy_inference/BasePolicyInferenceEngine.h"
-#include "policy_inference/libtorch/LibTorchInferenceEngine.h"
+#include "inference_engine/BasePolicyInferenceEngine.h"
+#include "inference_engine/libtorch/LibTorchInferenceEngine.h"
 #ifdef USE_TENSORRT
-#include "policy_inference/tensorrt/TensorRTInferenceEngine.h"
+#include "inference_engine/tensorrt/TensorRTInferenceEngine.h"
 #endif
 #include <memory>
 #include <string>

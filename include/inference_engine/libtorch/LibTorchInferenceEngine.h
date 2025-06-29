@@ -1,7 +1,7 @@
-// policy_inference/libtorch/LibTorchInferenceEngine.h
+// inference_enginelibtorch/LibTorchInferenceEngine.h
 #pragma once
 
-#include "policy_inference/BasePolicyInferenceEngine.h"
+#include "inference_engine/BasePolicyInferenceEngine.h"
 #include <memory>
 #include <iostream>
 

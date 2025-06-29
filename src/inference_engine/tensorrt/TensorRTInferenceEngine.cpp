@@ -1,5 +1,5 @@
-// policy_inference/tensorrt/TensorRTInferenceEngine.cpp
-#include "policy_inference/tensorrt/TensorRTInferenceEngine.h"
+// inference_enginetensorrt/TensorRTInferenceEngine.cpp
+#include "inference_enginetensorrt/TensorRTInferenceEngine.h"
 
 inline size_t getElementSize(nvinfer1::DataType dtype) {
     switch (dtype) {

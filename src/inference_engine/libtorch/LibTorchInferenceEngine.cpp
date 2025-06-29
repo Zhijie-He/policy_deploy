@@ -1,5 +1,5 @@
-// policy_inference/libtorch/LibTorchInferenceEngine.cpp
-#include "policy_inference/libtorch/LibTorchInferenceEngine.h"
+// inference_enginelibtorch/LibTorchInferenceEngine.cpp
+#include "inference_engine/libtorch/LibTorchInferenceEngine.h"
 #include "utility/logger.h"
 #include "utility/tools.h"
 

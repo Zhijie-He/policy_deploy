@@ -2,8 +2,8 @@
 #include "utility/timer.h"
 #include "utility/tools.h"
 #include "utility/logger.h"
-#include "controller/UnitreePolicyWrapper.h"
-#include "controller/EmanPolicyWrapper.h"
+#include "policy_wrapper/UnitreePolicyWrapper.h"
+#include "policy_wrapper/EmanPolicyWrapper.h"
 #include <thread>
 #include <chrono>
 

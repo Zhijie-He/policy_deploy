@@ -1,5 +1,5 @@
-#include "controller/BasePolicyWrapper.h"
-#include "policy_inference/PolicyInferenceEngineFactory.h"
+#include "policy_wrapper/BasePolicyWrapper.h"
+#include "inference_engine/PolicyInferenceEngineFactory.h"
 #include "utility/logger.h"
 #include "utility/tools.h"
 
