@@ -1,4 +1,5 @@
 policy_path: "resources/policies/h1/motion.pt"
+engine_path: "resources/policies/h1/motion.engine"
 xml_path: "resources/robots/h1/scene.xml"
 # Total simulation time
 simulation_duration: 60.0
@@ -24,4 +25,3 @@ num_obs: 41
 cmd_init: [0.3, 0, 0]
 max_cmd: [0.8, 0.5, 1.57]
 robot_name: h1
-engine_path: "resources/policies/g1/resnet.engine"
