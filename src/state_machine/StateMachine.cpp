@@ -12,7 +12,7 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg,
                            torch::Device device,
                            const std::string& inference_engine_type,
                            const std::string& precision)
-    : cfg_(cfg)
+                           : cfg_(cfg)
 {
   // 1. 初始化底层设备数据结构
   _robotStatusBuffer = std::make_shared<DataBuffer<robotStatus>>();

@@ -1,7 +1,7 @@
 // G1Sim2RealEnv.cpp
+#include <thread>
 #include "sim2/real/g1_sim2real_env.h"
 #include "utility/logger.h"
-#include <thread>
 #include "utility/timer.h"
 #include "utility/real/unitree_tools.h"
 
@@ -59,38 +59,11 @@ G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
       mode_machine_(0),
       state_machine_(state_machine)
 {   
-    FRC_INFO("[G1Sim2RealEnv.Const] net_interface: " << net_interface);
-
-    // initialize DDS communication
-    // ChannelFactory::Instance()->Init(0, net_interface.c_str()); 
-    ChannelFactory::Instance()->Init(0);
-
-    if(cfg_->msg_type == "hg"){
-      // create publisher
-      lowcmd_publisher_ = std::make_unique<ChannelPublisher<LowCmd_>>(cfg_->lowcmd_topic);
-      lowcmd_publisher_->InitChannel();
-      
-      // create subscriber
-      lowstate_subscriber_ = std::make_unique<ChannelSubscriber<LowState_>>(cfg_->lowstate_topic);
-      lowstate_subscriber_->InitChannel(
-        [this](const void *message) {
-          this->LowStateHandler(message);
-        }, 10
-      );
-    } else {
-      FRC_ERROR("[G1Sim2RealEnv.Const] Invalid msg_type: " << cfg_->msg_type);
-      throw std::invalid_argument("Invalid msg_type: " + cfg_->msg_type);
-    }
-    
-    initState();
-    
-    // wait for the subscriber to receive data
-    waitForLowState();
-
-    // Initialize the command msg
-    init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);
-
-    // print_lowcmd(low_cmd_);
+  initWorld();
+  initState();
+  waitForLowState();  // wait for the subscriber to receive data
+  init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);   // Initialize the command msg
+  // print_lowcmd(low_cmd_);
 }
 
 G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
@@ -102,58 +75,38 @@ G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
       mode_pr_(Mode::PR),
       mode_machine_(0)
 {   
-    FRC_INFO("[G1Sim2RealEnv.Const] net_interface: " << net_interface);
-
-    // initialize DDS communication
-    // ChannelFactory::Instance()->Init(0, net_interface.c_str()); 
-    ChannelFactory::Instance()->Init(0);
-
-    if(cfg_->msg_type == "hg"){
-      // create publisher
-      lowcmd_publisher_ = std::make_unique<ChannelPublisher<LowCmd_>>(cfg_->lowcmd_topic);
-      lowcmd_publisher_->InitChannel();
-      
-      // create subscriber
-      lowstate_subscriber_ = std::make_unique<ChannelSubscriber<LowState_>>(cfg_->lowstate_topic);
-      lowstate_subscriber_->InitChannel(
-        [this](const void *message) {
-          this->LowStateHandler(message);
-        }, 10
-      ); // TODO change the freq
-    } else {
-      FRC_ERROR("[G1Sim2RealEnv.Const] Invalid msg_type" << cfg_->msg_type);
-      throw std::invalid_argument("Invalid msg_type: " + cfg_->msg_type);
-    }
-    
-    initState();
-    
-    // wait for the subscriber to receive data
-    waitForLowState();
-
-    // Initialize the command msg
-    init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);
-
-    // print_lowcmd(low_cmd_);
+  initWorld();
+  initState();
+  waitForLowState();  // wait for the subscriber to receive data
+  init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);   // Initialize the command msg
+  // print_lowcmd(low_cmd_);
 }
 
-void G1Sim2RealEnv::initState() {
+void G1Sim2RealEnv::initWorld() {
+  FRC_INFO("[G1Sim2RealEnv.Const] net_interface: " << net_interface_);
+  // ChannelFactory::Instance()->Init(0, net_interface.c_str());   // initialize DDS communication
+  ChannelFactory::Instance()->Init(0);
+
+  if(cfg_->msg_type == "hg"){
+    // create publisher
+    lowcmd_publisher_ = std::make_unique<ChannelPublisher<LowCmd_>>(cfg_->lowcmd_topic);
+    lowcmd_publisher_->InitChannel();
+    
+    // create subscriber
+    lowstate_subscriber_ = std::make_unique<ChannelSubscriber<LowState_>>(cfg_->lowstate_topic);
+    lowstate_subscriber_->InitChannel(
+      [this](const void *message) {
+        this->LowStateHandler(message);
+      }, 10
+    );
+  } else {
+    FRC_ERROR("[G1Sim2RealEnv.Const] Invalid msg_type" << cfg_->msg_type);
+    throw std::invalid_argument("Invalid msg_type: " + cfg_->msg_type);
+  }
+
   gcDim_    = cfg_->num_actions + 7; 
   gvDim_    = cfg_->num_actions + 6; 
   jointDim_ = cfg_->num_actions; 
-
-  // ① 机器人状态变量
-  gc_.setZero(gcDim_);      //  当前 generalized coordinate（广义坐标，位置）
-  gv_.setZero(gvDim_);      //  当前 generalized velocity（广义速度）
-
-  // ② 控制增益
-  jointPGain = cfg_->kP;
-  jointDGain = cfg_->kD;
-
-  // ③ 动作目标
-  pTarget.setZero(jointDim_);
-  // pTarget = cfg_->default_angles;// desired position（用于位置控制）
-  // FRC_INFO("[G1Sim2RealEnv.initState] default_angles: " << cfg_->default_angles.transpose());
-  vTarget.setZero(jointDim_); // desired velocity（用于速度控制）
 }
 
 void G1Sim2RealEnv::waitForLowState() {
@@ -187,7 +140,6 @@ void G1Sim2RealEnv::LowStateHandler(const void *message) {
   }
   
   low_state_buffer_.SetData(msg);
-
   updateRobotState();
 }
 
@@ -332,7 +284,6 @@ void G1Sim2RealEnv::defaultPosState() {
 }
 
 void G1Sim2RealEnv::run() {
-  // Timer controlTimer(control_dt_);
   RateLimiter controlTimer(1.0 / control_dt_, "real main loop");
   
   while (running_) {

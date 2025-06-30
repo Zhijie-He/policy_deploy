@@ -34,10 +34,10 @@ public:
           std::shared_ptr<const BaseRobotConfig> cfg,
           std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
           std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);   
-
+  
+  void initWorld();
   void stop() override { running_ = false;}
   void LowStateHandler(const void *message);
-  void initState();
   void updateRobotState();
   void waitForLowState();
 
@@ -49,21 +49,15 @@ public:
 
 private:
   std::shared_ptr<StateMachine> state_machine_ = nullptr;
-  // 对应构造参数的成员变量
   std::string net_interface_;
   int counter_ = 0;
 
   // unitree sdk
   uint8_t mode_machine_;
   Mode mode_pr_;
-  
   LowCmd_ low_cmd_;
   LowState_ low_state_;
-
   DataBuffer<LowState_> low_state_buffer_;
-
-  // publisher
-  std::unique_ptr<ChannelPublisher<LowCmd_>> lowcmd_publisher_;
-  // subscriber
-  std::unique_ptr<ChannelSubscriber<LowState_>> lowstate_subscriber_;
+  std::unique_ptr<ChannelPublisher<LowCmd_>> lowcmd_publisher_;         // publisher
+  std::unique_ptr<ChannelSubscriber<LowState_>> lowstate_subscriber_;   // subscriber
 };

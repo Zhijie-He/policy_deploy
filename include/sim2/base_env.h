@@ -12,13 +12,9 @@ class BaseEnv {
 public:
   BaseEnv(std::shared_ptr<const BaseRobotConfig> cfg,
           std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-          std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr)
-      : cfg_(cfg),
-        jointCMDBufferPtr_(jointCMDBufferPtr),
-        robotStatusBufferPtr_(robotStatusBufferPtr),
-        control_dt_(cfg->getPolicyDt()) {}
-        
+          std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);
   virtual ~BaseEnv() = default;
+  virtual void initState();
   virtual void stop() { running_ = false;}  
   virtual void setHeadless(bool) {}
   virtual void setUserInputPtr(std::shared_ptr<Listener> listener, char* key, JoystickData* joy) {listenerPtr_ = listener; keyPtr_ = key; joyPtr_ = joy;}
@@ -45,15 +41,12 @@ protected:
   Eigen::VectorXd gc_, gv_, joint_torques_;
   Eigen::VectorXf pTarget, vTarget;
   Eigen::VectorXf jointPGain, jointDGain;
+  Eigen::VectorXf tauCmd;
 
   std::mutex state_lock_;
   std::mutex action_lock_;
 
   std::string mode_;
-  std::string track_;
-  std::vector<std::string> track_list_;
-  std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg_;
-  std::shared_ptr<CustomTypes::VlaConfig> vla_cfg_;
 
   int run_count=0;
   double run_sum_us=0;

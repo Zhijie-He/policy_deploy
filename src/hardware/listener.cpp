@@ -18,7 +18,7 @@ void Listener::listenKeyboard() {
       }
       switch (c) {
         case 'z':
-          stop();  // 原子安全停止
+          stop(); 
           break;
         case '\n':
           break;

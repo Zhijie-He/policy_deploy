@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <csignal>
+#include "controller/BaseController.h"
 #include "state_machine/StateMachine.h"
 #include "hardware/listener.h"
 #include "sim2/real/g1_sim2real_env.h"
@@ -11,40 +12,38 @@
 #define LOG_USE_PREFIX 1
 #include "utility/logger.h"
 
-class G1Controller {
+class G1Controller : public BaseController{
 public:
   G1Controller(const std::string& net,
                const std::string& mode,
-               
                std::shared_ptr<BaseRobotConfig> cfg,
+               const std::vector<std::pair<std::string, char>>& registers,
+               torch::Device device,
+
                const std::string& config_name,
                bool headless,
-               torch::Device device,
                const std::string& inference_engine_type,
-               const std::string& precision,
-            
-               const std::string& track,
-               const std::vector<std::string>& track_list,
-               std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,
-               std::shared_ptr<CustomTypes::VlaConfig> vla_cfg)
-      : cfg_(cfg), mode_(mode), track_(track), track_list_(track_list) ,mocap_cfg_(mocap_cfg), vla_cfg_(vla_cfg){
-        state_machine_ = std::make_shared<StateMachine>(cfg, config_name, device, inference_engine_type, precision);
+               const std::string& precision)
+      : BaseController(registers, cfg, device),
+        mode_(mode) 
+  {
+    state_machine_ = std::make_shared<StateMachine>(cfg, config_name, device, inference_engine_type, precision);
+    if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, state_machine_);
+    else if(mode == "sim2real") hu_env_ = std::make_shared<G1Sim2RealEnv>(net, cfg, state_machine_);
+    else throw std::runtime_error("Unsupported mode!");
 
-        if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, state_machine_);
-        else if(mode == "sim2real") hu_env_ = std::make_shared<G1Sim2RealEnv>(net, cfg, state_machine_);
-        else throw std::runtime_error("Unsupported mode!");
+    listener_ = std::make_shared<Listener>();
 
-        listener_ = std::make_shared<Listener>();
-        hu_env_->setHeadless(headless); 
-        hu_env_->setUserInputPtr(listener_, listener_->getKeyInputPtr(), nullptr);
-        state_machine_->setInputPtr(listener_->getKeyInputPtr(), nullptr);
+    hu_env_->setHeadless(headless); 
+    hu_env_->setUserInputPtr(listener_, listener_->getKeyInputPtr(), nullptr);
+    state_machine_->setInputPtr(listener_->getKeyInputPtr(), nullptr);
 
-        threads_.emplace_back([listener = listener_]() { listener->listenKeyboard(); });             // start keyboard listener
-        // threads_.emplace_back([&]() { state_machine_->run(); });                                 // start async policy
+    threads_.emplace_back([listener = listener_]() { listener->listenKeyboard(); });             // start keyboard listener    
+    // threads_.emplace_back([&]() { state_machine_->run(); });                                  // start async policy
   }
 
   void zero_torque_state(){
-    if(mode_=="sim2real") hu_env_->zeroTorqueState();
+    hu_env_->zeroTorqueState();
   }
 
   void move_to_default_pose(){
@@ -52,7 +51,7 @@ public:
   }
 
   void default_pos_state(){
-    if(mode_=="sim2real") hu_env_->defaultPosState();
+    hu_env_->defaultPosState();
   }
 
   void run(){
@@ -68,20 +67,12 @@ public:
       if(t.joinable()) t.join();
     }
   }
-
+  
+private:
   std::shared_ptr<Listener> listener_ = nullptr;
   std::shared_ptr<StateMachine> state_machine_ = nullptr;
   std::shared_ptr<BaseEnv> hu_env_ = nullptr;
-
-private:
-  std::shared_ptr<BaseRobotConfig> cfg_ = nullptr;
-
   std::string mode_;
-  std::string track_;
-  std::vector<std::string> track_list_;
-  std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg_;
-  std::shared_ptr<CustomTypes::VlaConfig> vla_cfg_;
-
   std::vector<std::thread> threads_;
 };
 
@@ -209,24 +200,16 @@ int main(int argc, char** argv) {
 
   signal(SIGINT, close_all_threads);
 
-  // mode: sim2mujoco, sim2real
-  // track: cmd, fpos, mocap, vla
-  std::string track = "cmd";
-  std::vector<std::string> track_list = {"cmd"};
-  std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg = nullptr;
-  std::shared_ptr<CustomTypes::VlaConfig> vla_cfg = nullptr;
-
-  // std::vector<std::string> track_list = {"cmd", "mocap"};
-  // auto mocap_cfg = std::make_shared<CustomTypes::MocapConfig>("192.168.123.111", 7003, 30);
-
-  // std::vector<std::string> track_list = {"cmd", "vla"};
-  // auto vla_cfg = std::make_shared<CustomTypes::VlaConfig>("example_data.pkl");
-
   try {
     cfg = tools::loadConfig(config_name);
+    std::vector<std::pair<std::string, char>> registers = {
+      {"CmdTask", '1'},
+      {"TeleopTask", '2'},
+      {"MocapTask", '3'}
+    };
     
-    controller = std::make_unique<G1Controller>(net, mode, cfg, config_name, headless, torchDevice, inference_engine_type, precision, 
-                                                track, track_list, mocap_cfg, vla_cfg);
+    controller = std::make_unique<G1Controller>(net, mode, cfg, registers, torchDevice, 
+                                                config_name, headless, inference_engine_type, precision);
 
     // Enter the zero torque state, press the start key to continue executing
     controller->zero_torque_state();
@@ -238,11 +221,9 @@ int main(int argc, char** argv) {
     controller->run();
 
     close_all_threads(404);
-    
   } catch (const std::exception& e) {
       FRC_ERROR("Failed to construct G1Controller: " << e.what());
       return -1;
   }
-
   return 0;
 }

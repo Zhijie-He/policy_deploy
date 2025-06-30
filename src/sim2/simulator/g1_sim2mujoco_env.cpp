@@ -61,26 +61,6 @@ void G1Sim2MujocoEnv::initWorld() {
   FRC_INFO("[G1Sim2MujocoEnv.initWorld] Initial qpos from XML: " <<oss.str());
 }
 
-void G1Sim2MujocoEnv::initState() {
-  // ① 机器人状态变量
-  gc_.setZero(gcDim_);           //  当前 generalized coordinate（广义坐标，位置）
-  gv_.setZero(gvDim_);           //  当前 generalized velocity（广义速度）
-  joint_torques_.setZero(jointDim_); //  当前 tau
-
-  // ② 控制增益
-  // jointPGain.setZero(jointDim_); 
-  // jointDGain.setZero(jointDim_); 
-  jointPGain = cfg_->kP;
-  jointDGain = cfg_->kD;
-  
-  // ③ 动作目标
-  pTarget.setZero(jointDim_); // desired position（用于位置控制）
-  vTarget.setZero(jointDim_); // desired velocity（用于速度控制）
-
-  // ④ 力矩命令
-  tauCmd.setZero(jointDim_); //	最终输出的控制力矩（全体）
-}
-
 void G1Sim2MujocoEnv::launchServer() {
   if (headless_) {
     FRC_INFO("[G1Sim2MujocoEnv.launchServer] Headless mode enabled. Skipping GUI setup.");
@@ -177,10 +157,8 @@ void G1Sim2MujocoEnv::updateRobotState() {
 }
 
 void G1Sim2MujocoEnv::step() {
-  // Timer controlTimer(control_dt_);
   RateLimiter controlTimer(1.0 / control_dt_, "mujoco main loop");
   while ((headless_ || !glfwWindowShouldClose(window_)) && running_){
-
     if(state_machine_) {
       auto t_start = std::chrono::high_resolution_clock::now();
       state_machine_->step();
@@ -205,6 +183,7 @@ void G1Sim2MujocoEnv::step() {
 
     auto actionPtr = jointCMDBufferPtr_->GetData();
     while (!actionPtr) { // 等待policy 传递action
+      FRC_INFO("[G1Sim2MujocoEnv.step] Waiting For actions!");
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       actionPtr = jointCMDBufferPtr_->GetData();  // 重新尝试获取
     }
@@ -217,44 +196,38 @@ void G1Sim2MujocoEnv::step() {
       memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
       memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
     }
-    
-    updateRobotState();
+
     controlTimer.wait();
   }
 }
 
 void G1Sim2MujocoEnv::run() {
   if (headless_) {
-      FRC_INFO("[G1Sim2MujocoEnv.run] Headless mode. Running step loop without rendering.");
-      std::thread step_thread(&G1Sim2MujocoEnv::step, this);
-
-      // 简单挂起主线程，直到 Ctrl+C
-      while (running_) {
-        std::this_thread::sleep_for(std::chrono::seconds(60));  // 每 60 秒才 wake 一次检查
-      }
-
-      step_thread.join(); 
-      return;
+    FRC_INFO("[G1Sim2MujocoEnv.run] Headless mode. Running step loop without rendering.");
+  } else {
+    launchServer();  // 初始化 GUI 窗口和渲染上下文等
   }
-  
-  launchServer();
+  std::thread step_thread(&G1Sim2MujocoEnv::step, this);  // 控制线程启动
   RateLimiter renderTimer(1.0 / control_dt_, "mujoco render loop");
-  std::thread step_thread(&G1Sim2MujocoEnv::step, this);
-  while (!glfwWindowShouldClose(window_) && running_) {
-    integrate();
-    {
-      std::lock_guard<std::mutex> lock(state_lock_);
-      mjv_updateScene(mj_model_, mj_data_, &opt_, nullptr, &cam_, mjCAT_ALL, &scn_);
-      int width, height;
-      glfwGetFramebufferSize(window_, &width, &height);
-      mjr_render({0, 0, width, height}, &scn_, &con_);
+  while (running_ && (headless_ || !glfwWindowShouldClose(window_))) {
+    integrate();  // 控制数据集成
+    if (!headless_) {
+      {
+        std::lock_guard<std::mutex> lock(state_lock_);
+        // 更新视觉场景
+        mjv_updateScene(mj_model_, mj_data_, &opt_, nullptr, &cam_, mjCAT_ALL, &scn_);
+        // 渲染图像
+        int width, height;
+        glfwGetFramebufferSize(window_, &width, &height);
+        mjr_render({0, 0, width, height}, &scn_, &con_);
+      }
+      glfwSwapBuffers(window_);
+      glfwPollEvents();
     }
-    glfwSwapBuffers(window_);
-    glfwPollEvents();
-    renderTimer.wait();
+    updateRobotState();
+    renderTimer.wait();  // 控制渲染频率
   }
-
-  step_thread.join();
+  step_thread.join();  // 等待子线程退出
 }
 
 void G1Sim2MujocoEnv::integrate() {
@@ -275,7 +248,6 @@ void G1Sim2MujocoEnv::integrate() {
         }
       }
       for (int i = 0; i < jointDim_; ++i) mj_data_->ctrl[i] = tauCmd[i];
-      // FRC_INFO("tauCmd: " << tauCmd.transpose());
     }
     {
       std::lock_guard<std::mutex> stateLock(state_lock_); 

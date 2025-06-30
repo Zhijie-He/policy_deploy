@@ -24,7 +24,6 @@ public:
   ~G1Sim2MujocoEnv();
 
   void initWorld();
-  void initState();
   void launchServer();
   void setHeadless(bool headless) override { headless_ = headless; }
   void run() override;
@@ -39,7 +38,6 @@ private:
   double lastx_ = 0, lasty_ = 0;
   std::string robotName_;
   float simulation_dt_ = 5e-4;
-  Eigen::VectorXf tauCmd;
 
   // MuJoCo core members
   bool headless_ = true; 
