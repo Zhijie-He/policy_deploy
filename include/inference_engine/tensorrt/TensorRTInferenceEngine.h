@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <memory>
 #include <cuda_fp16.h>
-#include "inference_engineBasePolicyInferenceEngine.h"
+#include "inference_engine/BasePolicyInferenceEngine.h"
 #include "utility/logger.h"
 
 using namespace nvinfer1;
