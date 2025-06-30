@@ -5,8 +5,8 @@
 #include <memory>
 #include "config/EmanRobotConfig.h"
 #include "config/UnitreeRobotConfig.h"
-#include "controller/EmanPolicyWrapper.h"
-#include "controller/UnitreePolicyWrapper.h"
+#include "policy_wrapper/EmanPolicyWrapper.h"
+#include "policy_wrapper/UnitreePolicyWrapper.h"
 #include <mujoco/mujoco.h>
 #include <torch/torch.h>
 #include "utility/logger.h"

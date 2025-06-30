@@ -1,4 +1,4 @@
-// policy_inference/BasePolicyInferenceEngine.h
+// inference_engine/BasePolicyInferenceEngine.h
 #pragma once
 
 #include <torch/script.h>

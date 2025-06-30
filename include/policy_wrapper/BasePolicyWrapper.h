@@ -1,6 +1,6 @@
 #pragma once
 #include "config/BaseRobotConfig.h" 
-#include "policy_inference/BasePolicyInferenceEngine.h"
+#include "inference_engine/BasePolicyInferenceEngine.h"
 #include "types/CustomTypes.h"
 #include "types/cpp_types.h"
 #include <torch/script.h>

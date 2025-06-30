@@ -1,4 +1,4 @@
-// policy_inference/tensorrt/TensorRTInferenceEngine.h
+// inference_enginetensorrt/TensorRTInferenceEngine.h
 #pragma once
 
 #include <NvInfer.h>
@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <memory>
 #include <cuda_fp16.h>
-#include "policy_inference/BasePolicyInferenceEngine.h"
+#include "inference_engineBasePolicyInferenceEngine.h"
 #include "utility/logger.h"
 
 using namespace nvinfer1;
