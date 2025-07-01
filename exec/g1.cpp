@@ -35,7 +35,7 @@ public:
     else throw std::runtime_error("Unsupported mode: " + mode);
     
     listener_ = std::make_shared<Listener>();
-    listener_->setKeyCallback(std::bind(&StateMachine::handleKeyboardInput, state_machine_.get(), std::placeholders::_1));
+    listener_->setKeyboardCallback(std::bind(&StateMachine::handleKeyboardInput, state_machine_.get(), std::placeholders::_1));
     listener_->start();
 
     hu_env_->setHeadless(headless); 
@@ -60,7 +60,6 @@ public:
   }
 
   ~G1Controller(){
-    if(state_machine_) state_machine_->stop();
     if(hu_env_) hu_env_->stop();
     if(listener_) {
       listener_->stop();

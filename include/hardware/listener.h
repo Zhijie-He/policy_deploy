@@ -20,7 +20,7 @@ class Listener {
   char* getKeyInputPtr() { return &key_input_; }
 
   // 注册键盘回调
-  void setKeyCallback(std::function<void(char)> cb) {
+  void setKeyboardCallback(std::function<void(char)> cb) {
     key_callback_ = std::move(cb);
   }
 

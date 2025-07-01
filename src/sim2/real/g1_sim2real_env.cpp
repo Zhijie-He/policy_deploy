@@ -66,22 +66,6 @@ G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
   // print_lowcmd(low_cmd_);
 }
 
-G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
-            std::shared_ptr<const BaseRobotConfig> cfg,
-            std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr)
-    : BaseEnv(cfg, jointCMDBufferPtr, robotStatusBufferPtr),
-      net_interface_(net_interface),
-      mode_pr_(Mode::PR),
-      mode_machine_(0)
-{   
-  initWorld();
-  initState();
-  waitForLowState();  // wait for the subscriber to receive data
-  init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);   // Initialize the command msg
-  // print_lowcmd(low_cmd_);
-}
-
 void G1Sim2RealEnv::initWorld() {
   FRC_INFO("[G1Sim2RealEnv.Const] net_interface: " << net_interface_);
   // ChannelFactory::Instance()->Init(0, net_interface.c_str());   // initialize DDS communication

@@ -5,7 +5,9 @@
 
 BaseTask::BaseTask(std::shared_ptr<const BaseRobotConfig> cfg,
                    std::shared_ptr<BaseTaskCfg> task_cfg, 
-                   torch::Device device)
+                   torch::Device device,
+                   const std::string& inference_engine_type,
+                   const std::string& precision)
     : cfg_(cfg), 
       obDim(cfg->num_obs),
       acDim(cfg->num_actions),    
@@ -20,20 +22,16 @@ BaseTask::BaseTask(std::shared_ptr<const BaseRobotConfig> cfg,
   action.setZero(acDim);
   actionPrev.setZero(acDim);
   observation.setZero(obDim);
-  std::string inference_engine_type = "libtorch";
-  std::string precision = "fp32";
-  
+
   try {
-    engine_ = PolicyInferenceEngineFactory::create(
-      inference_engine_type,
-      cfg,
-      device,
-      precision);
+    engine_ = PolicyInferenceEngineFactory::create(inference_engine_type,
+                                                   cfg,
+                                                   device,
+                                                   precision);
     FRC_INFO("[BaseTask.Const] Inference engine created with {" << inference_engine_type << "} inference backend " << "and {" << precision << "} precision!");
     
     engine_->warmUp();
-    // engine_->reset("reset_hist_buffer");
-    engine_->reset("reset");
+    engine_->reset("reset_hist_buffer");
     FRC_INFO("[BaseTask.Const] Constructor Finished.");
   } catch (const std::exception &e) {
       FRC_ERROR("[BaseTask.Const] Failed to create inference engine: " << e.what());

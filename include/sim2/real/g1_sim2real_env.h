@@ -30,11 +30,6 @@ public:
             std::shared_ptr<const BaseRobotConfig> cfg,
             std::shared_ptr<StateMachine> state_machine);   
 
-  G1Sim2RealEnv(const std::string& net_interface,
-          std::shared_ptr<const BaseRobotConfig> cfg,
-          std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-          std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);   
-  
   void initWorld();
   void stop() override { running_ = false;}
   void LowStateHandler(const void *message);

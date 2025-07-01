@@ -8,6 +8,7 @@ EmanRobotConfig::EmanRobotConfig(const std::string& yaml_path)
     // ========== 基础参数 ==========
     num_actions = root_["num_actions"].as<int>();
     num_obs = root_["num_obs"].as<int>();
+    num_hidden = root_["num_hidden"].as<int>();
     simulation_dt = root_["simulation_dt"].as<float>();
     control_decimation = root_["control_decimation"].as<int>();
     policy_dt = simulation_dt *  control_decimation;

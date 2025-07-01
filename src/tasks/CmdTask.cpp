@@ -3,12 +3,20 @@
 #include "utility/logger.h"
 #include "utility/tools.h"
 
-CmdTask::CmdTask(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device)
-    : BaseTask(cfg, std::make_shared<CmdTaskCfg>(), device),  // 初始化父类里的 cfg_
+CmdTask::CmdTask(std::shared_ptr<const BaseRobotConfig> cfg,
+                 torch::Device device,
+                 const std::string& inference_engine_type,
+                 const std::string& precision)
+    : BaseTask(cfg, std::make_shared<CmdTaskCfg>(), device, inference_engine_type, precision), 
       task_cfg_()  // 默认构造即可
 {
     FRC_INFO("[CmdTask.Const] Created on " << device << ", control_dt=" << control_dt_);
-    cmd_states_.setZero();  
+    if (!cfg_->cmd_init.isZero()) {
+        cmd_states_ = cfg_->cmd_init;
+        FRC_INFO("[CmdTask.Const] Initial target cmd: " << cmd_states_.transpose()); 
+    } else {
+        cmd_states_.setZero();  
+    }
     max_cmd_ = task_cfg_.max_cmd;
     cmd_obs_scale_ = task_cfg_.obs_scale;
 }

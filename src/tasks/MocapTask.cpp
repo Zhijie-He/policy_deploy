@@ -3,8 +3,11 @@
 #include "utility/logger.h"
 #include "utility/tools.h"
 
-MocapTask::MocapTask(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device)
-      : BaseTask(cfg, std::make_shared<MocapTaskCfg>(), device)
+MocapTask::MocapTask(std::shared_ptr<const BaseRobotConfig> cfg,
+                     torch::Device device,
+                     const std::string& inference_engine_type,
+                     const std::string& precision)
+      : BaseTask(cfg, std::make_shared<MocapTaskCfg>(), device,  inference_engine_type, precision)
 {
     FRC_INFO("[MocapTask.Const] Created on " << device << ", control_dt=" << control_dt_);
 }

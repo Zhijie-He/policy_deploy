@@ -9,6 +9,7 @@ public:
     virtual ~BaseRobotConfig() = default;
     int num_actions;
     int num_obs;
+    int num_hidden;
     float simulation_dt;
     float policy_dt;
     int control_decimation;

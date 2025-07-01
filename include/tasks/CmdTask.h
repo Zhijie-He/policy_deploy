@@ -17,7 +17,10 @@ struct CmdTaskCfg : public BaseTaskCfg {
 
 class CmdTask : public BaseTask {
 public:
-    CmdTask(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device);
+    CmdTask(std::shared_ptr<const BaseRobotConfig> cfg,
+            torch::Device device,
+            const std::string& inference_engine_type,
+            const std::string& precision);
     void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
     void resolveObservation(const CustomTypes::RobotData& robotData) override;
     void reset() override;
@@ -34,9 +37,13 @@ private:
 // Register Task
 namespace {
 bool registered = []() {
-    TaskFactory::registerTask("CmdTask", [](std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device) {
-        return std::make_shared<CmdTask>(cfg, device);
-    });
+    TaskFactory::registerTask("CmdTask", 
+        [](std::shared_ptr<const BaseRobotConfig> cfg, 
+           torch::Device device,
+           const std::string& inference_engine_type,
+           const std::string& precision) {
+            return std::make_shared<CmdTask>(cfg, device, inference_engine_type, precision);
+        });
     return true;
 }();
 }

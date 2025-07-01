@@ -17,10 +17,6 @@ public:
   G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
                 std::shared_ptr<StateMachine> state_machine);
 
-  G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-                std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-                std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);
-
   ~G1Sim2MujocoEnv();
 
   void initWorld();
@@ -38,7 +34,8 @@ private:
   double lastx_ = 0, lasty_ = 0;
   std::string robotName_;
   float simulation_dt_ = 5e-4;
-
+  std::thread step_thread_;
+  
   // MuJoCo core members
   bool headless_ = true; 
   mjModel* mj_model_ = nullptr;

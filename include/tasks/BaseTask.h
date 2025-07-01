@@ -16,7 +16,10 @@ class BaseTask {
 public:
      BaseTask(std::shared_ptr<const BaseRobotConfig> cfg,
               std::shared_ptr<BaseTaskCfg> task_cfg, 
-              torch::Device device);
+              torch::Device device,
+              const std::string& inference_engine_type,
+              const std::string& precision);
+              
     virtual ~BaseTask() = default;
     CustomTypes::Action getAction(const CustomTypes::RobotData &robotData);
     

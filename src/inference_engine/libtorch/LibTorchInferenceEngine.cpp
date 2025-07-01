@@ -7,10 +7,15 @@ LibTorchInferenceEngine::LibTorchInferenceEngine(std::shared_ptr<const BaseRobot
                                                  torch::Device device,
                                                  const std::string& precision)
     : BasePolicyInferenceEngine(cfg, device, precision),
+    hiddenDim(cfg->num_hidden),
     device_(device),
     precision_(tools::parseDtype(precision))
 {
     loadModel();
+    
+    if (hiddenDim > 0) {
+        prev_hidden_state_ = Eigen::VectorXf::Zero(hiddenDim);
+    }
 }
 
 void LibTorchInferenceEngine::loadModel(){
@@ -25,40 +30,77 @@ void LibTorchInferenceEngine::loadModel(){
     }
 }
 
-void LibTorchInferenceEngine::warmUp(int rounds){
-    // Pre-Running for warmup. Otherwise, first running takes more time。
-    FRC_INFO("[LibTorchInferenceEngine.WarmUp] Running " << rounds << " rounds using random inputs...");
-    for (int i = 0; i < rounds; i++) { 
-        obTorch = (torch::ones({1, 2979}) + torch::rand({1, 2979}) * 0.01f).to(device_, precision_);
+void LibTorchInferenceEngine::warmUp(int rounds) {
+    int input_dim = obDim + hiddenDim;
+    FRC_INFO("[LibTorchInferenceEngine.WarmUp] Running " << rounds 
+             << " rounds using random inputs... (input_dim=" << input_dim << ")");
+
+    for (int i = 0; i < rounds; i++) {
+        // 构造随机输入：[obs | hidden_state]
+        Eigen::VectorXf dummy_input = Eigen::VectorXf::Ones(input_dim) 
+                                    + Eigen::VectorXf::Random(input_dim) * 0.91f;
+
+        // 转为 tensor
+        obTorch = torch::from_blob(dummy_input.data(), {1, input_dim})
+                      .clone().to(device_, precision_);
+
         obVector.clear();
-        obVector.emplace_back(obTorch); // 把 obTorch 这个 Tensor 包装成 IValue 并压入 obVector
-        acTorch = module_.forward(obVector).toTensor().to(torch::kCPU, torch::kFloat32);  // 推理完可转回 CPU
-        if (i < 3) FRC_INFO("[LibTorchInferenceEngine.warmUp] Warm up " << i << "th Action(" << acTorch.sizes() << "): " << *(acTorch.data_ptr<float>() + 1));
+        obVector.emplace_back(obTorch);
+
+        // 推理
+        acTorch = module_.forward(obVector).toTensor().to(torch::kCPU, torch::kFloat32);
+
+        if (i < 3) {
+            FRC_INFO("[LibTorchInferenceEngine.warmUp] Warm up " << i 
+                     << "th Action(" << acTorch.sizes() << "): " 
+                     << *(acTorch.data_ptr<float>() + 1));
+        }
     }
 }
 
 void LibTorchInferenceEngine::reset(const std::string& method_name){
-    if(method_name.empty()) return;
+    // 因为之后把中间态都外面维护了 所以可以不用reset了
+    // if(method_name.empty()) return;
 
-    try{
-        FRC_INFO("[LibTorchInferenceEngine.reset] Calling reset method: " << method_name);
-        module_.get_method(method_name)({});
-    }catch(const std::exception& e){
-        FRC_ERROR("[LibTorchInferenceEngine.reset] Failed to call reset method" << method_name <<":" << e.what());
-    }
+    // try{
+    //     FRC_INFO("[LibTorchInferenceEngine.reset] Calling reset method: " << method_name);
+    //     module_.get_method(method_name)({});
+    // }catch(const std::exception& e){
+    //     FRC_ERROR("[LibTorchInferenceEngine.reset] Failed to call reset method" << method_name <<":" << e.what());
+    // }
+    // 重置 C++ 侧隐藏状态缓存
+    if (hiddenDim > 0)
+        prev_hidden_state_.setZero();  // 确保 predict 中拼接的是全零
+
 }
 
 Eigen::VectorXf LibTorchInferenceEngine::predict(const Eigen::VectorXf& observation) {
-    obTorch = torch::from_blob(const_cast<float*>(observation.data()), {1, obDim})
-                                             .clone()
-                                             .to(device_, precision_);
+    Eigen::VectorXf input(obDim + hiddenDim);    // 拼接输入
+    input.head(obDim) = observation;
+
+    if (hiddenDim > 0)
+        input.tail(hiddenDim) = prev_hidden_state_;
+
+    // 转换为 tensor
+    obTorch = torch::from_blob(input.data(), {1, obDim + hiddenDim})
+              .clone().to(device_, precision_);
+              
     obVector.clear();
     obVector.emplace_back(obTorch);
+    
     acTorch = module_.forward(obVector).toTensor().to(torch::kCPU, torch::kFloat32); // 推理完可转回 CPU
-    if (acTorch.sizes() != torch::IntArrayRef({1, acDim})) {
-        FRC_ERROR("[LibTorchInferenceEngine.predict] Unexpected output shape: " << acTorch.sizes());
-        std::exit(1);
-    }
-    return Eigen::Map<Eigen::VectorXf>(acTorch.data_ptr<float>(), acDim);
+    
+    // 安全方案：显式克隆，避免悬挂引用
+    torch::Tensor output_tensor = acTorch.clone();  // 必须 clone！
+
+    Eigen::VectorXf output = Eigen::Map<Eigen::VectorXf>(
+        output_tensor.data_ptr<float>(), output_tensor.size(1));
+
+    Eigen::VectorXf action = output.head(acDim);
+
+    if (hiddenDim > 0)
+        prev_hidden_state_ = output.tail(hiddenDim);
+
+    return action;
 }
 

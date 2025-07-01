@@ -22,20 +22,6 @@ G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
   FRC_INFO("[G1Sim2MujocoEnv.Const] Ready.");
 }
 
-G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-                                 std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-                                 std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr)
-    : BaseEnv(cfg, jointCMDBufferPtr, robotStatusBufferPtr),
-      robotName_(cfg->robot_name),
-      simulation_dt_(cfg->simulation_dt) 
-{
-  tools::checkMujucoVersion();
-  initWorld();
-  initState();
-  updateRobotState();
-  FRC_INFO("[G1Sim2MujocoEnv.Const] Ready.");
-}
-
 void G1Sim2MujocoEnv::initWorld() {
   char error[1000] = "";
   mj_model_ = mj_loadXML(cfg_->xml_path.c_str(), nullptr, error, 1000);
@@ -207,7 +193,7 @@ void G1Sim2MujocoEnv::run() {
   } else {
     launchServer();  // 初始化 GUI 窗口和渲染上下文等
   }
-  std::thread step_thread(&G1Sim2MujocoEnv::step, this);  // 控制线程启动
+  step_thread_ = std::thread(&G1Sim2MujocoEnv::step, this);
   RateLimiter renderTimer(1.0 / control_dt_, "mujoco render loop", false);
   while (running_ && (headless_ || !glfwWindowShouldClose(window_))) {
     integrate();  // 控制数据集成
@@ -227,7 +213,6 @@ void G1Sim2MujocoEnv::run() {
     updateRobotState();
     renderTimer.wait();  // 控制渲染频率
   }
-  step_thread.join();  // 等待子线程退出
 }
 
 void G1Sim2MujocoEnv::integrate() {
@@ -297,18 +282,28 @@ void G1Sim2MujocoEnv::moveToDefaultPos() {
   FRC_INFO("[G1Sim2MujocoEnv.moveToDefaultPos] Default pose initialized.");
 }
 
-void G1Sim2MujocoEnv::stop(){
+void G1Sim2MujocoEnv::stop() {
   running_ = false;
+  if (step_thread_.joinable()) {
+    step_thread_.join();  // ✅ 等线程退出
+  }
 }
 
 G1Sim2MujocoEnv::~G1Sim2MujocoEnv() {
   if (mj_data_) mj_deleteData(mj_data_);
   if (mj_model_) mj_deleteModel(mj_model_);
- 
+
   if (!headless_) {
     mjv_freeScene(&scn_);
     mjr_freeContext(&con_);
-    if (window_) glfwDestroyWindow(window_);
-    glfwTerminate();
+
+    // 安全销毁 window
+    if (window_ && !glfwWindowShouldClose(window_)) {
+        glfwDestroyWindow(window_);
+        window_ = nullptr;
+    }
+
+    // ✅ 推荐放到主程序退出时调用一次，不建议每个环境都调用
+    // glfwTerminate();
   }
 }

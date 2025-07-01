@@ -17,18 +17,25 @@ struct MocapTaskCfg : public BaseTaskCfg {
 
 class MocapTask : public BaseTask {
 public:
-    MocapTask(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device);
+    MocapTask(std::shared_ptr<const BaseRobotConfig> cfg,
+              torch::Device device,
+              const std::string& inference_engine_type,
+              const std::string& precision);
     void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
     void resolveObservation(const CustomTypes::RobotData& robotData) override;
 };
 
+
 // Register Task
 namespace {
 bool registered = []() {
-    TaskFactory::registerTask("MocapTask", [](std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device) {
-        return std::make_shared<MocapTask>(cfg, device);
-    });
+    TaskFactory::registerTask("MocapTask", 
+        [](std::shared_ptr<const BaseRobotConfig> cfg, 
+           torch::Device device,
+           const std::string& inference_engine_type,
+           const std::string& precision) {
+            return std::make_shared<MocapTask>(cfg, device, inference_engine_type, precision);
+        });
     return true;
 }();
 }
-
