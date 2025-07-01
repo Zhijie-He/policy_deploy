@@ -36,7 +36,6 @@ int main(int argc, char** argv) {
   state_pub->InitChannel();
 
   // 构造初始 LowState_
-  // 构造并发布消息
   LowState_ fake_state;
 
   // IMU 数据

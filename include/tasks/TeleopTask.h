@@ -18,18 +18,17 @@ struct TeleopTaskCfg : public BaseTaskCfg {
 
 class TeleopTask : public BaseTask {
 public:
-    TeleopTask(float control_dt, const torch::Device device);
+    TeleopTask(std::shared_ptr<const BaseRobotConfig> cfg, const torch::Device device);
 
-    void resolveKeyboardInput(char key) override;
-    std::unordered_map<std::string, Eigen::MatrixXf> resolveObs(
-        const Eigen::VectorXf& self_obs,
-        const Eigen::VectorXf& raw_obs) override;
+    void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
+    void resolveObservation(const CustomTypes::RobotData& robotData) override;
 };
 
+// Register Task
 namespace {
 bool registered = []() {
-    TaskFactory::registerTask("TeleopTask", [](float control_dt, torch::Device device) {
-        return std::make_shared<TeleopTask>(control_dt, device);
+    TaskFactory::registerTask("TeleopTask", [](std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device) {
+        return std::make_shared<TeleopTask>(cfg, device);
     });
     return true;
 }();

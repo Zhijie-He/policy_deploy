@@ -1,67 +1,80 @@
 // tasks/CmdTask.cpp
 #include "tasks/CmdTask.h"
 #include "utility/logger.h"
+#include "utility/tools.h"
 
-CmdTask::CmdTask(float control_dt, torch::Device device)
-    : BaseTask(std::make_shared<CmdTaskCfg>(), control_dt, device),  // 初始化父类里的 cfg_
-      cfg_()  // 默认构造即可
+CmdTask::CmdTask(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device)
+    : BaseTask(cfg, std::make_shared<CmdTaskCfg>(), device),  // 初始化父类里的 cfg_
+      task_cfg_()  // 默认构造即可
 {
-    FRC_INFO("[CmdTask.Const] Created on " << device << ", control_dt=" << control_dt);
-    cmd_states_.setZero();  // 全部初始化为 0
-    max_cmd_ = cfg_.max_cmd;
-    cmd_obs_scale_ = cfg_.obs_scale;
+    FRC_INFO("[CmdTask.Const] Created on " << device << ", control_dt=" << control_dt_);
+    cmd_states_.setZero();  
+    max_cmd_ = task_cfg_.max_cmd;
+    cmd_obs_scale_ = task_cfg_.obs_scale;
 }
 
+void CmdTask::resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) {
+    constexpr float kStep = 0.05f;
+    constexpr float kYawStep = 0.05f;
+    constexpr float kThresh = 1e-2f;
 
-void CmdTask::resolveKeyboardInput(char key) {
+    Vec3f deltaVel{0, 0, 0};
+    float deltaYaw = 0.f;
+
+    if (key == 'w') deltaVel << kStep, 0, 0;
+    if (key == 's') deltaVel << -kStep, 0, 0;
+    if (key == 'a') deltaVel << 0, kStep, 0;
+    if (key == 'd') deltaVel << 0, -kStep, 0;
+    if (key == 'q') deltaYaw = kYawStep;
+    if (key == 'e') deltaYaw = -kYawStep;
+
     std::lock_guard<std::mutex> lock(cmd_states_mutex_);
-    switch (key) {
-        case ' ': cmd_states_.setZero(); break;
-        case 'w': cmd_states_[0] += 0.05f; break;
-        case 's': cmd_states_[0] -= 0.05f; break;
-        case 'a': cmd_states_[1] += 0.05f; break;
-        case 'd': cmd_states_[1] -= 0.05f; break;
-        case ',': cmd_states_[2] += 0.05f; break;
-        case '.': cmd_states_[2] -= 0.05f; break;
-        default:  cmd_states_.setZero(); break;
+
+    // 更新线速度
+    if (deltaVel.norm() > kThresh) {
+        cmd_states_.head<2>() += deltaVel.head<2>();
+        cmd_states_.head<2>() = cmd_states_.head<2>().cwiseMax(-max_cmd_.head<2>()).cwiseMin(max_cmd_.head<2>());
     }
 
-    // clip and round
-    for (int i = 0; i < 3; ++i) {
-        float val = std::round(cmd_states_[i] * 100.0f) / 100.0f;
-        cmd_states_[i] = std::clamp(val, -max_cmd_[i], max_cmd_[i]);
+    // 更新 yaw
+    if (std::abs(deltaYaw) > kThresh) {
+        float yaw = cmd_states_[2] + deltaYaw;
+        yaw = std::clamp(yaw, -1.0f, 1.0f);  // 限制 yaw 范围
+        if (std::abs(yaw) < kThresh) yaw = 0.f;
+        cmd_states_[2] = yaw;
     }
 
-    FRC_INFO("[CmdTask] cmd_states: " << cmd_states_.transpose());
+    if (key == ' ') {
+        cmd_states_.setZero();  // 空格重置
+    }
+
+    FRC_INFO("[CmdTask.resolveKeyboardInput] Cmd state = " << cmd_states_.transpose());
 }
 
-std::unordered_map<std::string, Eigen::MatrixXf> CmdTask::resolveObs(
-    const Eigen::VectorXf& self_obs,
-    const Eigen::VectorXf& raw_obs)
-{
-    Eigen::Vector3f cmd;
+void CmdTask::resolveObservation(const CustomTypes::RobotData& raw_obs) {
+    Eigen::Vector3f projected_gravity_b = tools::quat_rotate_inverse_on_gravity(raw_obs.root_rot * cfg_->obs_scale_projected_gravity_b);
+    Eigen::Vector3f root_ang_vel_b = raw_obs.root_ang_vel * cfg_->ang_vel_scale;
+    Eigen::VectorXf joint_pos = (raw_obs.joint_pos - cfg_->default_angles) * cfg_->dof_pos_scale;
+    Eigen::VectorXf joint_vel = raw_obs.joint_vel * cfg_->dof_vel_scale;
+    Eigen::VectorXf last_action = actionPrev * cfg_->action_scale;
+
+    Vec3f scaled_cmd;
     {
         std::lock_guard<std::mutex> lock(cmd_states_mutex_);
-        cmd = cmd_states_;
+        scaled_cmd = cmd_states_.cwiseProduct(cfg_->cmd_scale);
     }
 
-    Eigen::Vector3f task_obs = cmd.cwiseProduct(cmd_obs_scale_);
-
-    Eigen::MatrixXf task_obs_mat(1, 3);
-    task_obs_mat << task_obs.transpose();  // shape: [1 x 3]
-
-    Eigen::MatrixXf self_obs_mat(1, self_obs.size());
-    self_obs_mat = self_obs.transpose();  // shape: [1 x N]
-
-    return {
-        {"self_obs", self_obs_mat},
-        {"task_obs", task_obs_mat}
-    };
+    observation.segment(0, 3)                  = projected_gravity_b;
+    observation.segment(3, 3)                  = root_ang_vel_b;
+    observation.segment(6, acDim)              = joint_pos(cfg_->env2actor);
+    observation.segment(6 + acDim, acDim)      = joint_vel(cfg_->env2actor);
+    observation.segment(6 + 2 * acDim, acDim)  = actionPrev;
+    observation.segment(6 + 3 * acDim, 3)      = scaled_cmd;
 }
 
 void CmdTask::reset() {
-    BaseTask::reset();  // 调用父类的重置逻辑
-
+    BaseTask::reset();
     std::lock_guard<std::mutex> lock(cmd_states_mutex_);
-    cmd_states_.setZero();  // cmd 状态归零
+    cmd_states_.setZero();
 }
+

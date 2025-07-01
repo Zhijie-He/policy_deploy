@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <memory>
 #include "config/BaseRobotConfig.h" 
 #include "types/joystickTypes.h"
@@ -7,17 +8,23 @@
 #include "types/CustomTypes.h"
 #include "utility/data_buffer.h"
 #include "policy_wrapper/BasePolicyWrapper.h"
+#include "tasks/BaseTask.h"
+#include "tasks/TaskFactory.h"
 
 class StateMachine {
 public:
-    explicit StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, 
-                          const std::string& config_name, 
-                          torch::Device device,
-                          const std::string& inference_engine_type = "libtorch", 
-                          const std::string& precision = "fp32");
+    StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, 
+                 const std::string& config_name, 
+                 torch::Device device,
+                 const std::vector<std::pair<std::string, char>>& registers,
+                 const std::string& inference_engine_type = "libtorch", 
+                 const std::string& precision = "fp32");
+
+    void registerTasks(const std::vector<std::pair<std::string, char>>& registers, torch::Device device);
+    void handleKeyboardInput(char c);
     void run();
-    virtual void step();
-    virtual void stop(); 
+    void step();
+    void stop(); 
     
     void setInputPtr(char* key, JoystickData* joy) {_jsStates = joy; _keyState = key;}
     std::shared_ptr<DataBuffer<robotStatus>> getRobotStatusBufferPtr() const {return _robotStatusBuffer;}
@@ -47,4 +54,10 @@ protected:
     double run_sum_us=0;
     double run_sum_sq_us=0;
     std::unique_ptr<BasePolicyWrapper> _neuralCtrl;
+
+    std::string current_task_;
+    std::vector<std::string> task_name_list_;
+    std::unordered_map<std::string, std::shared_ptr<BaseTask>> tasks_;
+    std::unordered_map<std::string, char> task_key_map_;
+    std::mutex task_lock_;
 };

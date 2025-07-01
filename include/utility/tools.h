@@ -27,6 +27,8 @@ namespace tools {
     void checkMujucoVersion();
     torch::Device getDefaultDevice(); 
     torch::Dtype parseDtype(const std::string& precision);
+    Eigen::Vector3f get_gravity_orientation(const Eigen::Vector4f& q);
+    Eigen::Vector3f quat_rotate_inverse_on_gravity(const Eigen::Vector4f& q);
 }
 
 

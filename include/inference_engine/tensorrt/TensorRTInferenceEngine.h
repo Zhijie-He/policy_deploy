@@ -74,4 +74,5 @@ private:
     }
 
     Eigen::VectorXf prev_hidden_state_;
+    bool is_first_inference_ = true;
 };

@@ -121,12 +121,31 @@ void TensorRTInferenceEngine::warmUp(int rounds) {
 }
 
 void TensorRTInferenceEngine::reset(const std::string& method_name){
-    // context_.reset(engine_->createExecutionContext());
     prev_hidden_state_.setZero();
     FRC_INFO("[TensorRTInferenceEngine.Reset] Reset Hidden state");
 }
 
 Eigen::VectorXf TensorRTInferenceEngine::predict(const Eigen::VectorXf& observation) {
+    if (is_first_inference_) {
+        constexpr int chunk_size = 93;
+        constexpr int num_repeat = 31;
+        int expected_len = chunk_size * num_repeat;
+        if (observation.size() < chunk_size) {
+            throw std::runtime_error("Observation too short for initializing hidden state.");
+        }
+
+        if (prev_hidden_state_.size() != expected_len) {
+            throw std::runtime_error("prev_hidden_state_ size mismatch!");
+        }
+
+        Eigen::VectorXf seed = observation.head(chunk_size);
+        for (int i = 0; i < num_repeat; ++i) {
+            prev_hidden_state_.segment(i * chunk_size, chunk_size) = seed;
+        }
+        is_first_inference_ = false;
+    }
+
+
     Eigen::VectorXf input(observation.size() + prev_hidden_state_.size());
     input << observation, prev_hidden_state_;
 

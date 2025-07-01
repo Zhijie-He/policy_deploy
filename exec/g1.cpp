@@ -1,6 +1,5 @@
 #include <filesystem>
 #include <csignal>
-#include "controller/BaseController.h"
 #include "state_machine/StateMachine.h"
 #include "hardware/listener.h"
 #ifdef USE_UNITREE_SDK
@@ -14,7 +13,7 @@
 #define LOG_USE_PREFIX 1
 #include "utility/logger.h"
 
-class G1Controller : public BaseController{
+class G1Controller {
 public:
   G1Controller(const std::string& net,
                const std::string& mode,
@@ -26,9 +25,9 @@ public:
                bool headless,
                const std::string& inference_engine_type,
                const std::string& precision)
-      : BaseController(registers, cfg, device)
   {
-    state_machine_ = std::make_shared<StateMachine>(cfg, config_name, device, inference_engine_type, precision);
+    state_machine_ = std::make_shared<StateMachine>(cfg, config_name, device, registers, inference_engine_type, precision);
+    
     if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, state_machine_);
 #ifdef USE_UNITREE_SDK
     else if(mode == "sim2real") hu_env_ = std::make_shared<G1Sim2RealEnv>(net, cfg, state_machine_);
@@ -36,13 +35,12 @@ public:
     else throw std::runtime_error("Unsupported mode: " + mode);
     
     listener_ = std::make_shared<Listener>();
+    listener_->setKeyCallback(std::bind(&StateMachine::handleKeyboardInput, state_machine_.get(), std::placeholders::_1));
+    listener_->start();
 
     hu_env_->setHeadless(headless); 
     hu_env_->setUserInputPtr(listener_, listener_->getKeyInputPtr(), nullptr);
     state_machine_->setInputPtr(listener_->getKeyInputPtr(), nullptr);
-
-    // threads_.emplace_back([listener = listener_]() { listener->listenKeyboard(); });             // start keyboard listener    
-    // threads_.emplace_back([&]() { state_machine_->run(); });                                  // start async policy
   }
 
   void zero_torque_state(){
@@ -63,8 +61,11 @@ public:
 
   ~G1Controller(){
     if(state_machine_) state_machine_->stop();
-    if(listener_) listener_->stop();
     if(hu_env_) hu_env_->stop();
+    if(listener_) {
+      listener_->stop();
+      listener_->join();
+    }
   }
   
 private:

@@ -1,15 +1,16 @@
+#include <thread>
+#include <chrono>
 #include "state_machine/StateMachine.h"
 #include "utility/timer.h"
 #include "utility/tools.h"
 #include "utility/logger.h"
 #include "policy_wrapper/UnitreePolicyWrapper.h"
 #include "policy_wrapper/EmanPolicyWrapper.h"
-#include <thread>
-#include <chrono>
 
 StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, 
                            const std::string& config_name, 
                            torch::Device device,
+                           const std::vector<std::pair<std::string, char>>& registers,
                            const std::string& inference_engine_type,
                            const std::string& precision)
                            : cfg_(cfg)
@@ -32,8 +33,84 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg,
   }
   
   // 4. get control policy
-  _neuralCtrl = tools::loadPolicyWrapper(config_name, cfg, device, inference_engine_type, precision);
+  // _neuralCtrl = tools::loadPolicyWrapper(config_name, cfg, device, inference_engine_type, precision);
+
+  registerTasks(registers, device);
 }
+
+void StateMachine::registerTasks(const std::vector<std::pair<std::string, char>>& registers, torch::Device device){
+  // check if task_name is available and create tasks
+  for (const auto& [task_name, key] : registers) {
+    if (!TaskFactory::exists(task_name)) {
+      FRC_ERROR("[StateMachine.registerTasks] Invalid task name: " << task_name);
+      auto available = TaskFactory::getAvailableTaskNames();
+      std::ostringstream oss;
+      oss << "[StateMachine.registerTasks] Available task names: ";
+      for (size_t i = 0; i < available.size(); ++i) {
+          oss << available[i];
+          if (i != available.size() - 1) oss << " | ";
+      }
+      FRC_ERROR(oss.str());
+      throw std::runtime_error("Invalid task name: " + task_name);
+    }
+    auto task = TaskFactory::create(task_name, cfg_, device);
+    tasks_[task_name] = task;
+    task_key_map_[task_name] = key;
+    task_name_list_.push_back(task_name);
+  }
+  
+  // default activate the first task
+  if (!task_name_list_.empty()) {
+      current_task_ = task_name_list_.front();  
+      FRC_INFO("[StateMachine.registerTasks] Current active task: " << current_task_);
+  } else {
+      FRC_ERROR("[StateMachine.registerTasks] No tasks registered in StateMachine");
+      throw std::runtime_error("No  tasks registered in StateMachine.");
+  }
+
+  // print all available tasks
+  std::ostringstream oss;
+  oss << "[StateMachine.registerTasks] Available Tasks: ";
+  for (const auto& r : task_name_list_) oss << r << " ";
+  FRC_INFO(oss.str());
+}
+
+void StateMachine::handleKeyboardInput(char c) {
+  // 1. Switch to specific task by key
+  for (const auto& [task_name, key] : task_key_map_) {
+    if (c == key) {
+      {
+        std::lock_guard<std::mutex> lock(task_lock_);
+        current_task_ = task_name;
+        FRC_INFO("[StateMachine.handleKeyboardInput] Switched to task: " << current_task_);
+        tasks_[current_task_]->reset();
+      }
+      return;
+    }
+  }
+
+  // 2. Cycle to next task with 'v'
+  if (c == 'v') {
+    std::lock_guard<std::mutex> lock(task_lock_);
+    auto it = std::find(task_name_list_.begin(), task_name_list_.end(), current_task_);
+    if (it != task_name_list_.end()) {
+      size_t idx = (std::distance(task_name_list_.begin(), it) + 1) % task_name_list_.size();
+      current_task_ = task_name_list_[idx];
+      FRC_INFO("[StateMachine.handleKeyboardInput] Cycled to task: " << current_task_);
+      tasks_[current_task_]->reset();
+    }
+    return;
+  }
+
+  // 3. Let current task handle the input
+  // {
+  //   std::lock_guard<std::mutex> lock(task_lock_);
+  //   if (!current_task_.empty() && tasks_.count(current_task_)) {
+  //     tasks_[current_task_]->resolveKeyboardInput(c);
+  //   }
+  // }
+}
+
 
 void StateMachine::run(){
   Timer _loopTimer(_policyDt); // 创建一个定时器，周期是 _policyDt 秒（比如 0.01s，表示 100Hz）
@@ -66,10 +143,21 @@ void StateMachine::run(){
 
 void StateMachine::step(){
   getRawObs();
-  updateCommands();
-  robotAction = _neuralCtrl->getControlAction(robotData);
+  // updateCommands();
+
+  {
+    std::lock_guard<std::mutex> lock(task_lock_);
+    if(*_keyState != '\0'){
+      char key = *_keyState;
+      tasks_[current_task_]->resolveKeyboardInput(key, robotData);
+      *_keyState = '\0';
+    }
+    robotAction = tasks_[current_task_]->getAction(robotData);
+  }
+
+  // robotAction = _neuralCtrl->getControlAction(robotData);
   packJointAction();
-  if (*_keyState != '\0') *_keyState = '\0';
+  // if (*_keyState != '\0') *_keyState = '\0';
 }
 
 void StateMachine::getRawObs() {
@@ -95,7 +183,9 @@ void StateMachine::getRawObs() {
   robotData.joint_torques = Eigen::Map<const Eigen::VectorXf>(status.data.jointTorques, _jointNum);
 }
 
-void StateMachine::stop() { _isRunning = false; }
+void StateMachine::stop() { 
+  _isRunning = false; 
+}
 
 void StateMachine::updateCommands(){
   float deltaYaw = 0; // deltaYaw 表示当前目标朝向与机器人当前朝向的差值

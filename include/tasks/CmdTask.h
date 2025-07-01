@@ -17,28 +17,25 @@ struct CmdTaskCfg : public BaseTaskCfg {
 
 class CmdTask : public BaseTask {
 public:
-    CmdTask(float control_dt, torch::Device device);
-
-    void resolveKeyboardInput(char key) override;
-    std::unordered_map<std::string, Eigen::MatrixXf> resolveObs(
-        const Eigen::VectorXf& self_obs,
-        const Eigen::VectorXf& raw_obs) override;
+    CmdTask(std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device);
+    void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
+    void resolveObservation(const CustomTypes::RobotData& robotData) override;
     void reset() override;
     
 private:
-    CmdTaskCfg cfg_;
+    CmdTaskCfg task_cfg_;
     std::mutex cmd_states_mutex_;
     Eigen::Vector3f cmd_states_;          // 初始为 0
     Eigen::Vector3f max_cmd_;             // 从 cfg_ 读取
     Eigen::Vector3f cmd_obs_scale_;       // 从 cfg_ 读取
-
+    float yawTarg = 0;
 };
 
-// 注册
+// Register Task
 namespace {
 bool registered = []() {
-    TaskFactory::registerTask("CmdTask", [](float control_dt, torch::Device device) {
-        return std::make_shared<CmdTask>(control_dt, device);
+    TaskFactory::registerTask("CmdTask", [](std::shared_ptr<const BaseRobotConfig> cfg, torch::Device device) {
+        return std::make_shared<CmdTask>(cfg, device);
     });
     return true;
 }();

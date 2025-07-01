@@ -29,7 +29,7 @@ void LibTorchInferenceEngine::warmUp(int rounds){
     // Pre-Running for warmup. Otherwise, first running takes more time。
     FRC_INFO("[LibTorchInferenceEngine.WarmUp] Running " << rounds << " rounds using random inputs...");
     for (int i = 0; i < rounds; i++) { 
-        obTorch = (torch::ones({1, obDim}) + torch::rand({1, obDim}) * 0.01f).to(device_, precision_);
+        obTorch = (torch::ones({1, 2979}) + torch::rand({1, 2979}) * 0.01f).to(device_, precision_);
         obVector.clear();
         obVector.emplace_back(obTorch); // 把 obTorch 这个 Tensor 包装成 IValue 并压入 obVector
         acTorch = module_.forward(obVector).toTensor().to(torch::kCPU, torch::kFloat32);  // 推理完可转回 CPU

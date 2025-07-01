@@ -62,5 +62,31 @@ namespace tools {
         if(precision == "int8") return torch::kInt8;
         throw std::invalid_argument("Unknown dtype string: " + precision);
     }
+
+
+    Eigen::Vector3f get_gravity_orientation(const Eigen::Vector4f& q) {
+        float qw = q[0], qx = q[1], qy = q[2], qz = q[3];
+
+        Eigen::Vector3f g;
+        g[0] = 2 * (-qz * qx + qw * qy);
+        g[1] = -2 * (qz * qy + qw * qx);
+        g[2] = 1 - 2 * (qw * qw + qz * qz);
+        return g;
+    }
+
+    Eigen::Vector3f quat_rotate_inverse_on_gravity(const Eigen::Vector4f& q) {
+        Eigen::Vector3f v(0.0f, 0.0f, -1.0f);  // world gravity vector
+
+        float qw = q[0];
+        Eigen::Vector3f q_vec = q.tail<3>();
+
+        Eigen::Vector3f a = v * (2.0f * qw * qw - 1.0f);
+        Eigen::Vector3f b = 2.0f * qw * q_vec.cross(v);
+        Eigen::Vector3f c = 2.0f * q_vec * (q_vec.dot(v));
+
+        return a - b + c;
+    }
+
+
 }
 

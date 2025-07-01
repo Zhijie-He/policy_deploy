@@ -190,7 +190,6 @@ public:
                     mj_data_->qvel[6 + i] = motor_state.at(i).dq();
                 }
             }
-            
             worldTimer.wait();
         }
     }
@@ -199,7 +198,6 @@ public:
         // 每秒渲染频率
         // const float render_dt = 1.0 / 120.0;
         Timer renderTimer(control_dt_);
-
         while (!glfwWindowShouldClose(window_)) {
             {
                 std::lock_guard<std::mutex> lock(state_lock_);
