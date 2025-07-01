@@ -169,10 +169,10 @@ void G1Sim2MujocoEnv::step() {
       run_sum_sq_us += run_time_us * run_time_us;
       ++run_count;
 
-      if (run_count % 100 == 0) {
+      if (run_count % 500 == 0) {
           double avg = run_sum_us / run_count;
           double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
-          FRC_INFO("[StateMachine.step] 100 steps AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
+          FRC_INFO("[StateMachine.step] 500 steps AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
           
           // 重置
           run_sum_us = 0;
@@ -208,7 +208,7 @@ void G1Sim2MujocoEnv::run() {
     launchServer();  // 初始化 GUI 窗口和渲染上下文等
   }
   std::thread step_thread(&G1Sim2MujocoEnv::step, this);  // 控制线程启动
-  RateLimiter renderTimer(1.0 / control_dt_, "mujoco render loop");
+  RateLimiter renderTimer(1.0 / control_dt_, "mujoco render loop", false);
   while (running_ && (headless_ || !glfwWindowShouldClose(window_))) {
     integrate();  // 控制数据集成
     if (!headless_) {

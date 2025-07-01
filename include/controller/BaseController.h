@@ -17,13 +17,16 @@ public:
     BaseController(const std::vector<std::pair<std::string, char>>& registers,
                    std::shared_ptr<BaseRobotConfig> cfg,
                    torch::Device device);
-                   
+    void listenKeyboard();               
     virtual ~BaseController();
     virtual void zero_torque_state() = 0;
     virtual void move_to_default_pose() = 0;
     virtual void default_pos_state() = 0;
     virtual void run() = 0;
 
+    bool isKeyBoardThreadRunning() const { return keyboard_thread_running_.load(); }
+    void stopKeyBoradThread() { keyboard_thread_running_.store(false); }
+    
 protected:
     float control_dt_;
     std::shared_ptr<BaseRobotConfig> cfg_ = nullptr;
@@ -34,6 +37,9 @@ protected:
 
     std::mutex register_mutex_;
     std::thread keyboard_thread_;
+
     std::atomic<bool> keyboard_thread_running_{true};
+    char key_input_ = '\0';
+    std::vector<std::thread> threads_;
 };
 

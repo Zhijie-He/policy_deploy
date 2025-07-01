@@ -5,11 +5,11 @@ bool TaskFactory::exists(const std::string& name) {
     return registry().count(name) > 0;
 }
 
-std::shared_ptr<BaseTask> TaskFactory::create(const std::string& name, float dt, torch::Device device) {
+std::shared_ptr<BaseTask> TaskFactory::create(const std::string& name, float control_dt, torch::Device device) {
     if (!exists(name)) {
         throw std::runtime_error("[TaskFactory] Task not registered: " + name);
     }
-    return registry()[name](dt, device);
+    return registry()[name](control_dt, device);
 }
 
 void TaskFactory::registerTask(const std::string& name,

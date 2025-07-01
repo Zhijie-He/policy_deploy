@@ -2,6 +2,7 @@
 #include "controller/BaseController.h"
 #include "utility/logger.h"
 #include "tasks/TaskFactory.h"
+#include "hardware/conio.h"
 
 BaseController::BaseController(
     const std::vector<std::pair<std::string, char>>& registers,
@@ -45,15 +46,76 @@ BaseController::BaseController(
     FRC_INFO(oss.str());
     FRC_INFO("[BaseController.Const] Current active task: " << current_task_);
 
-    // startKeyboardListener();
-    // listener_ = std::make_shared<Listener>();
-    // threads_.emplace_back([listener = listener_]() { listener->listenKeyboard(); });             // start keyboard listener
-    // std::thread step_thread(&BaseController::step, this);
+    threads_.emplace_back(&BaseController::listenKeyboard, this);
 }
 
-BaseController::~BaseController() {
-    
+void BaseController::listenKeyboard() {
+    FRC_INFO("[BaseController.listenKeyboard] Press 'z' to exit keyboard listener.");
+    while (isKeyBoardThreadRunning()) {
+        if (kbhit()) {
+            char c = getchar();
+            if (c < 'Z' && c > 'A') c = c - 'A' + 'a';
+
+            if (c == '\n') continue;
+            key_input_ = c;
+            FRC_INFO("[BaseController.listenKeyboard] Pressed Button: " << c);
+
+            // 1. 退出键
+            if (c == 'z') {
+                stopKeyBoradThread();
+                break;
+            }
+
+            // 2. 注册任务切换
+            for (const auto& [task_name, key] : keyboards_) {
+                if (c == key) {
+                    {
+                        std::lock_guard<std::mutex> lock(register_mutex_);
+                        current_task_ = task_name;
+                        FRC_INFO("[KeyEvent] Switched task to: " << current_task_);
+                        tasks_[current_task_]->reset();
+                    }
+                    goto continue_loop;
+                }
+            }
+
+            // 3. v：循环切换任务
+            if (c == 'v') {
+                std::lock_guard<std::mutex> lock(register_mutex_);
+                auto it = std::find(task_name_list_.begin(), task_name_list_.end(), current_task_);
+                if (it != task_name_list_.end()) {
+                    size_t idx = (std::distance(task_name_list_.begin(), it) + 1) % task_name_list_.size();
+                    current_task_ = task_name_list_[idx];
+                    FRC_INFO("[KeyEvent] Cycled to task: " << current_task_);
+                    tasks_[current_task_]->reset();
+                }
+                goto continue_loop;
+            }
+
+            // 4. 交由当前任务处理按键
+            {
+                std::lock_guard<std::mutex> lock(register_mutex_);
+                if (!current_task_.empty() && tasks_.count(current_task_)) {
+                    tasks_[current_task_]->resolveKeyboardInput(c);
+                }
+            }
+
+            continue_loop: ;
+        } else {
+            usleep(10000);
+        }
+    }
+    FRC_INFO("[BaseController.listenKeyboard] Keyboard thread exited.");
 }
+
+
+BaseController::~BaseController() {
+    stopKeyBoradThread();  // 设置 running_ = false，让线程退出 while 循环
+    for (auto& t : threads_) {
+        if (t.joinable()) t.join();  // 等待线程安全退出
+    }
+}
+
 
 // Eigen::VectorXf BaseController::getAction(const Eigen::VectorXf& self_obs, const Eigen::VectorXf& raw_obs) {
 //     std::lock_guard<std::mutex> lock(register_mutex_);

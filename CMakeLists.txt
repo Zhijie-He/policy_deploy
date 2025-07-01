@@ -172,18 +172,11 @@ if (USE_TENSORRT)
 endif()
 
 # ===== 添加可执行文件 =====
-
-# MuJoCo 版本执行文件 For MacOS system
-if (NOT USE_UNITREE_SDK)
-    add_executable(deploy_mujoco exec/deploy_mujoco.cpp ${SRC_FILES})
-    target_link_libraries(deploy_mujoco ${COMMON_LIBS})
-endif()
+add_executable(g1 exec/g1.cpp ${SRC_FILES})
+target_link_libraries(g1 ${COMMON_LIBS})
 
 # 真机部署（仅在启用Unitree SDK时编译）
 if (USE_UNITREE_SDK)
-    add_executable(g1 exec/g1.cpp ${SRC_FILES})
-    target_link_libraries(g1 ${COMMON_LIBS})
-
     add_executable(simulate_robot exec/simulate_robot.cpp ${SRC_FILES})
     target_link_libraries(simulate_robot ${COMMON_LIBS})
 

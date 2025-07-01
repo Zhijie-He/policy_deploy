@@ -106,8 +106,7 @@ Contributions
 */
 
 
-#ifndef __CONIO4LINUX_H
-#define __CONIO4LINUX_H
+#pragma once
 
 #include <cstdio>
 #include <unistd.h>//necesario
@@ -368,31 +367,36 @@ public:
     }
 
 
-} ___CONIO_H;
+};
+
+inline __CONIO_H& get_conio() {
+    static __CONIO_H instance;
+    return instance;
+}
 
 #define cprintf printf
 #define cscanf scanf
 #define cgets gets
 
 
-#define gotoxy          ___CONIO_H.gotoxy
-#define clrscr          ___CONIO_H.clrscr
-#define textcolor       ___CONIO_H.textcolor
-#define textbackground  ___CONIO_H.textbackground
-#define wherex          ___CONIO_H.wherex
-#define wherey          ___CONIO_H.wherey
-#define ungetch         ___CONIO_H.ungetch
-#define getch           ___CONIO_H.getch
-#define getche          ___CONIO_H.getche
-#define kbhit           ___CONIO_H.kbhit
-#define putch           ___CONIO_H.putch
-#define putchar         ___CONIO_H.putch
-#define cputs           ___CONIO_H.cputs
-#define clreol          ___CONIO_H.clreol
-#define insline         ___CONIO_H.insline
-#define delline         ___CONIO_H.delline
-//#define getpass         ___CONIO_H.getpass
-// #define gettext         ___CONIO_H.gettext
+#define gotoxy          get_conio().gotoxy
+#define clrscr          get_conio().clrscr
+#define textcolor       get_conio().textcolor
+#define textbackground  get_conio().textbackground
+#define wherex          get_conio().wherex
+#define wherey          get_conio().wherey
+#define ungetch         get_conio().ungetch
+#define getch           get_conio().getch
+#define getche          get_conio().getche
+#define kbhit           get_conio().kbhit
+#define putch           get_conio().putch
+#define putchar         get_conio().putch
+#define cputs           get_conio().cputs
+#define clreol          get_conio().clreol
+#define insline         get_conio().insline
+#define delline         get_conio().delline
+//#define getpass         get_conio().getpass
+// #define gettext         get_conio().gettext
 
 
 //DEV C++ only have the next funtions (version: 4.9.9.2)
@@ -403,6 +407,3 @@ public:
 #define _kbhit          kbhit
 #define _putch          putch
 #define _ungetch        ungetch
-
-#endif
-

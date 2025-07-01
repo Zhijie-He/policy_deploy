@@ -5,9 +5,15 @@
 #include <unordered_map>
 #include <torch/torch.h>
 
+struct BaseTaskCfg {
+    virtual ~BaseTaskCfg() = default;
+};
+
 class BaseTask {
 public:
-    BaseTask(float dt, torch::Device device) : dt_(dt), device_(device), counter_(0), start_(false) {}
+     BaseTask(std::shared_ptr<BaseTaskCfg> cfg, float control_dt, torch::Device device)
+        : cfg_(cfg), control_dt_(control_dt), device_(device), counter_(0), start_(false) {}
+        
     virtual ~BaseTask() = default;
 
     virtual void resolveKeyboardInput(char key) = 0;
@@ -15,12 +21,13 @@ public:
         const Eigen::VectorXf& self_obs,
         const Eigen::VectorXf& raw_obs) = 0;
 
-    virtual Eigen::VectorXf getAction(const Eigen::VectorXf& self_obs, const Eigen::VectorXf& raw_obs) = 0;
+    Eigen::VectorXf getAction(const Eigen::VectorXf& self_obs, const Eigen::VectorXf& raw_obs){};
     virtual std::string getVisualization(const Eigen::VectorXf&, const Eigen::VectorXf&, const Eigen::VectorXf&) { return visualization_; }
     virtual void reset() { counter_ = 0; start_ = false; }
 
 protected:
-    float dt_;
+    std::shared_ptr<BaseTaskCfg> cfg_;
+    float control_dt_;
     torch::Device device_;
     int counter_;
     bool start_;

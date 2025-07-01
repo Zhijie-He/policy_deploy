@@ -3,7 +3,9 @@
 #include "controller/BaseController.h"
 #include "state_machine/StateMachine.h"
 #include "hardware/listener.h"
+#ifdef USE_UNITREE_SDK
 #include "sim2/real/g1_sim2real_env.h"
+#endif
 #include "sim2/simulator/g1_sim2mujoco_env.h"
 #include "utility/tools.h"
 #include "utility/cxxopts.hpp"
@@ -24,21 +26,22 @@ public:
                bool headless,
                const std::string& inference_engine_type,
                const std::string& precision)
-      : BaseController(registers, cfg, device),
-        mode_(mode) 
+      : BaseController(registers, cfg, device)
   {
     state_machine_ = std::make_shared<StateMachine>(cfg, config_name, device, inference_engine_type, precision);
     if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, state_machine_);
+#ifdef USE_UNITREE_SDK
     else if(mode == "sim2real") hu_env_ = std::make_shared<G1Sim2RealEnv>(net, cfg, state_machine_);
-    else throw std::runtime_error("Unsupported mode!");
-
+#endif 
+    else throw std::runtime_error("Unsupported mode: " + mode);
+    
     listener_ = std::make_shared<Listener>();
 
     hu_env_->setHeadless(headless); 
     hu_env_->setUserInputPtr(listener_, listener_->getKeyInputPtr(), nullptr);
     state_machine_->setInputPtr(listener_->getKeyInputPtr(), nullptr);
 
-    threads_.emplace_back([listener = listener_]() { listener->listenKeyboard(); });             // start keyboard listener    
+    // threads_.emplace_back([listener = listener_]() { listener->listenKeyboard(); });             // start keyboard listener    
     // threads_.emplace_back([&]() { state_machine_->run(); });                                  // start async policy
   }
 
@@ -62,18 +65,12 @@ public:
     if(state_machine_) state_machine_->stop();
     if(listener_) listener_->stop();
     if(hu_env_) hu_env_->stop();
-
-    for(auto& t : threads_){
-      if(t.joinable()) t.join();
-    }
   }
   
 private:
   std::shared_ptr<Listener> listener_ = nullptr;
   std::shared_ptr<StateMachine> state_machine_ = nullptr;
   std::shared_ptr<BaseEnv> hu_env_ = nullptr;
-  std::string mode_;
-  std::vector<std::thread> threads_;
 };
 
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;

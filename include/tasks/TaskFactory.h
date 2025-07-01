@@ -9,7 +9,7 @@
 class TaskFactory {
 public:
     static bool exists(const std::string& name);
-    static std::shared_ptr<BaseTask> create(const std::string& name, float dt, torch::Device device);
+    static std::shared_ptr<BaseTask> create(const std::string& name, float control_dt, torch::Device device);
     static void registerTask(const std::string& name,
         const std::function<std::shared_ptr<BaseTask>(float, torch::Device)>& ctor);
 static std::vector<std::string> getAvailableTaskNames();
