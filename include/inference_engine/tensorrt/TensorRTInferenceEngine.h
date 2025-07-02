@@ -42,7 +42,6 @@ public:
                             const std::string& precision);
     void loadModel();
     void warmUp(int rounds = 10) override;
-    void reset(const std::string& method_name = "") override;
     Eigen::VectorXf predict(const Eigen::VectorXf& observation) override;
 
 private:
@@ -72,7 +71,4 @@ private:
         if (!file) throw std::runtime_error("Failed to open engine file: " + path);
         return std::vector<char>(std::istreambuf_iterator<char>(file), {});
     }
-
-    Eigen::VectorXf prev_hidden_state_;
-    bool is_first_inference_ = true;
 };

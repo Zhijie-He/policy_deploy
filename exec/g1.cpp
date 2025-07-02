@@ -21,12 +21,11 @@ public:
                const std::vector<std::pair<std::string, char>>& registers,
                torch::Device device,
 
-               const std::string& config_name,
                bool headless,
                const std::string& inference_engine_type,
                const std::string& precision)
   {
-    state_machine_ = std::make_shared<StateMachine>(cfg, config_name, device, registers, inference_engine_type, precision);
+    state_machine_ = std::make_shared<StateMachine>(cfg, device, registers, inference_engine_type, precision);
     
     if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, state_machine_);
 #ifdef USE_UNITREE_SDK
@@ -96,7 +95,7 @@ int main(int argc, char** argv) {
     cxxopts::Options options(exec_name, "Run Mujoco-based simulation Or Real for Human Legged Robot");
     options.add_options()
       ("m,mode", "Mode: sim2mujoco or sim2real", cxxopts::value<std::string>())
-      ("c,config", "Config name: g1_unitree | g1_eman | h1 | h1_2", cxxopts::value<std::string>())
+      ("c,config", "Config name: g1_eman", cxxopts::value<std::string>())
       ("headless", "Run in headless mode (no GUI)", cxxopts::value<bool>()->default_value("false"))
       ("d,device", "Device to use: cpu or cuda", cxxopts::value<std::string>()->default_value("cpu"))
       ("n,net", "Network interface name for sim2real", cxxopts::value<std::string>()->default_value(""))
@@ -133,7 +132,7 @@ int main(int argc, char** argv) {
     }
 
     // 配置合法性检查
-    const std::vector<std::string> valid_configs = {"g1_unitree", "g1_eman", "h1", "h1_2"};
+    const std::vector<std::string> valid_configs = {"g1_eman"};
     if (std::find(valid_configs.begin(), valid_configs.end(), config_name) == valid_configs.end()) {
       std::ostringstream oss;
       oss << "Available config names: ";
@@ -206,7 +205,7 @@ int main(int argc, char** argv) {
     };
     
     controller = std::make_unique<G1Controller>(net, mode, cfg, registers, torchDevice, 
-                                                config_name, headless, inference_engine_type, precision);
+                                                headless, inference_engine_type, precision);
 
     // Enter the zero torque state, press the start key to continue executing
     controller->zero_torque_state();
@@ -217,7 +216,7 @@ int main(int argc, char** argv) {
 
     controller->run();
 
-    close_all_threads(404);
+    close_all_threads(200);
   } catch (const std::exception& e) {
       FRC_ERROR("Failed to construct G1Controller: " << e.what());
       return -1;

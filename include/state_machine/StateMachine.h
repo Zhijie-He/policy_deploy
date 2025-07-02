@@ -13,7 +13,6 @@
 class StateMachine {
 public:
     StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, 
-                 const std::string& config_name, 
                  torch::Device device,
                  const std::vector<std::pair<std::string, char>>& registers,
                  const std::string& inference_engine_type = "libtorch", 
@@ -35,6 +34,7 @@ protected:
     
     std::shared_ptr<const BaseRobotConfig> cfg_; 
     char* _keyState = nullptr;
+    std::mutex key_state_lock_;
     JoystickData* _jsStates = nullptr;
 
     int _jointNum;

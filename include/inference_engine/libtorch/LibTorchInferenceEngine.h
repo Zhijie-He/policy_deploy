@@ -12,7 +12,6 @@ public:
                             const std::string& precision);
     void loadModel();
     void warmUp(int rounds = 10) override;
-    void reset(const std::string& method_name = "") override;
     Eigen::VectorXf predict(const Eigen::VectorXf& observation) override;
 
 private:
@@ -21,7 +20,4 @@ private:
     torch::jit::Module module_;
     torch::Tensor obTorch, acTorch;
     std::vector<c10::IValue> obVector{}; 
-
-    Eigen::VectorXf prev_hidden_state_;  
-    int hiddenDim = 0; 
 };

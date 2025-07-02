@@ -34,7 +34,7 @@ Usage:
   g1 [OPTION...]
 
   -m, --mode arg       Mode: sim2mujoco or sim2real
-  -c, --config arg     Config name: g1_unitree | g1_eman | h1 | h1_2
+  -c, --config arg     Config name: g1_eman
       --headless       Run in headless mode (no GUI)
   -d, --device arg     Device to use: cpu or cuda (default: cpu)
   -n, --net arg        Network interface name for sim2real (default: "")
@@ -51,10 +51,7 @@ Deploys the trained policy into a MuJoCo-based simulated environment.
 `./g1 -m sim2mujoco -c g1_eman  -d cpu --headless `
 
 Available robot model options:
-- g1_unitree
 - g1_eman
-- h1
-- h1_2
 
 Mode 2: Sim2Real (Real Robot Deployment)
 
@@ -71,20 +68,4 @@ It is recommended to run simulate_robot alongside in this mode to simulate contr
 
 Simulates policy outputs and sends command data over DDS, typically used to test sim2real deployments without actual control code.
 `./simulate_robot`
-
-4. deploy_mujoco.cpp
-
-Quickly deploys a trained policy into a MuJoCo simulation for testing or visualization.
-```sh
-Usage:
-  deploy_mujoco [OPTION...]
-
-  -c, --config arg  Config name (e.g., g1_unitree, g1_eman, h1, h1_2)
-      --headless    Run in headless mode (no GUI)
-  -d, --device arg  Device to use: cpu or cuda (default: cpu)
-  -h, --help        Show help
-```
-
-Used for test in the non-linux system, e.g. MacOS.
-
 

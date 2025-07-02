@@ -7,15 +7,10 @@ LibTorchInferenceEngine::LibTorchInferenceEngine(std::shared_ptr<const BaseRobot
                                                  torch::Device device,
                                                  const std::string& precision)
     : BasePolicyInferenceEngine(cfg, device, precision),
-    hiddenDim(cfg->num_hidden),
     device_(device),
     precision_(tools::parseDtype(precision))
 {
     loadModel();
-    
-    if (hiddenDim > 0) {
-        prev_hidden_state_ = Eigen::VectorXf::Zero(hiddenDim);
-    }
 }
 
 void LibTorchInferenceEngine::loadModel(){
@@ -58,22 +53,6 @@ void LibTorchInferenceEngine::warmUp(int rounds) {
     }
 }
 
-void LibTorchInferenceEngine::reset(const std::string& method_name){
-    // 因为之后把中间态都外面维护了 所以可以不用reset了
-    // if(method_name.empty()) return;
-
-    // try{
-    //     FRC_INFO("[LibTorchInferenceEngine.reset] Calling reset method: " << method_name);
-    //     module_.get_method(method_name)({});
-    // }catch(const std::exception& e){
-    //     FRC_ERROR("[LibTorchInferenceEngine.reset] Failed to call reset method" << method_name <<":" << e.what());
-    // }
-    // 重置 C++ 侧隐藏状态缓存
-    if (hiddenDim > 0)
-        prev_hidden_state_.setZero();  // 确保 predict 中拼接的是全零
-
-}
-
 Eigen::VectorXf LibTorchInferenceEngine::predict(const Eigen::VectorXf& observation) {
     Eigen::VectorXf input(obDim + hiddenDim);    // 拼接输入
     input.head(obDim) = observation;
@@ -91,13 +70,9 @@ Eigen::VectorXf LibTorchInferenceEngine::predict(const Eigen::VectorXf& observat
     acTorch = module_.forward(obVector).toTensor().to(torch::kCPU, torch::kFloat32); // 推理完可转回 CPU
     
     // 安全方案：显式克隆，避免悬挂引用
-    torch::Tensor output_tensor = acTorch.clone();  // 必须 clone！
-
-    Eigen::VectorXf output = Eigen::Map<Eigen::VectorXf>(
-        output_tensor.data_ptr<float>(), output_tensor.size(1));
-
+    torch::Tensor output_tensor = acTorch.clone();  
+    Eigen::VectorXf output = Eigen::Map<Eigen::VectorXf>(output_tensor.data_ptr<float>(), output_tensor.size(1));
     Eigen::VectorXf action = output.head(acDim);
-
     if (hiddenDim > 0)
         prev_hidden_state_ = output.tail(hiddenDim);
 

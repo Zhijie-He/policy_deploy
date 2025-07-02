@@ -4,11 +4,8 @@
 #include "utility/timer.h"
 #include "utility/tools.h"
 #include "utility/logger.h"
-#include "policy_wrapper/UnitreePolicyWrapper.h"
-#include "policy_wrapper/EmanPolicyWrapper.h"
 
 StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, 
-                           const std::string& config_name, 
                            torch::Device device,
                            const std::vector<std::pair<std::string, char>>& registers,
                            const std::string& inference_engine_type,
@@ -79,6 +76,10 @@ void StateMachine::handleKeyboardInput(char c) {
         FRC_INFO("[StateMachine.handleKeyboardInput] Switched to task: " << current_task_);
         tasks_[current_task_]->reset();
       }
+      {
+        std::lock_guard<std::mutex> key_lock(key_state_lock_);
+        *_keyState = '\0';
+      }
       return;
     }
   }
@@ -93,19 +94,32 @@ void StateMachine::handleKeyboardInput(char c) {
       FRC_INFO("[StateMachine.handleKeyboardInput] Cycled to task: " << current_task_);
       tasks_[current_task_]->reset();
     }
+    {
+      std::lock_guard<std::mutex> key_lock(key_state_lock_);
+      *_keyState = '\0';
+    }
     return;
   }
 }
 
-void StateMachine::step(){
+void StateMachine::step() {
   getRawObs();
   {
     std::lock_guard<std::mutex> lock(task_lock_);
-    if(*_keyState != '\0'){
-      char key = *_keyState;
-      tasks_[current_task_]->resolveKeyboardInput(key, robotData);
-      *_keyState = '\0';
+    char key = '\0';
+
+    {
+      std::lock_guard<std::mutex> key_lock(key_state_lock_);
+      if (*_keyState != '\0') {
+        key = *_keyState;
+        *_keyState = '\0'; 
+      }
     }
+
+    if (key != '\0') {
+      tasks_[current_task_]->resolveKeyboardInput(key, robotData);
+    }
+
     robotAction = tasks_[current_task_]->getAction(robotData);
   }
   packJointAction();
@@ -144,5 +158,4 @@ void StateMachine::packJointAction(){
   memcpy(cmd.data.kd, robotAction.kD.data(), _jointNum * sizeof(float));
   _jointCMDBuffer->SetData(cmd);
 }
-
 

@@ -2,6 +2,7 @@
 #include "tasks/CmdTask.h"
 #include "utility/logger.h"
 #include "utility/tools.h"
+#include "types/cpp_types.h"
 
 CmdTask::CmdTask(std::shared_ptr<const BaseRobotConfig> cfg,
                  torch::Device device,

@@ -41,10 +41,8 @@ protected:
 
     Eigen::VectorXf _kP;
     Eigen::VectorXf _kD;
-
     Eigen::VectorXf observation;
     Eigen::VectorXf action, actionPrev;
-
     std::shared_ptr<BasePolicyInferenceEngine> engine_;
 };
 

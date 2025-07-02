@@ -1,4 +1,4 @@
-// inference_enginetensorrt/TensorRTInferenceEngine.cpp
+// inference_enginetensorrt/tensorrt/TensorRTInferenceEngine.cpp
 #include "inference_engine/tensorrt/TensorRTInferenceEngine.h"
 
 inline size_t getElementSize(nvinfer1::DataType dtype) {
@@ -62,7 +62,7 @@ void TensorRTInferenceEngine::loadModel(){
 
     inputSize_ = volume(inputDims) * getElementSize(input_dtype_);
     outputSize_ = volume(outputDims) * getElementSize(output_dtype_);
-    prev_hidden_state_ = Eigen::VectorXf::Zero(inputSize_ / getElementSize(input_dtype_) - obDim);
+    // prev_hidden_state_ = Eigen::VectorXf::Zero(inputSize_ / getElementSize(input_dtype_) - obDim);
 
     FRC_INFO("[TensorRTInferenceEngine.loadModel] Input Size: " << inputSize_ / getElementSize(input_dtype_) << " floats");
     FRC_INFO("[TensorRTInferenceEngine.loadModel] Hidden state Size: " << inputSize_ / getElementSize(input_dtype_) - obDim << " floats");
@@ -120,51 +120,16 @@ void TensorRTInferenceEngine::warmUp(int rounds) {
     }
 }
 
-void TensorRTInferenceEngine::reset(const std::string& method_name){
-    prev_hidden_state_.setZero();
-    FRC_INFO("[TensorRTInferenceEngine.Reset] Reset Hidden state");
-}
-
 Eigen::VectorXf TensorRTInferenceEngine::predict(const Eigen::VectorXf& observation) {
-    if (is_first_inference_) {
-        constexpr int chunk_size = 93;
-        constexpr int num_repeat = 31;
-        int expected_len = chunk_size * num_repeat;
-        if (observation.size() < chunk_size) {
-            throw std::runtime_error("Observation too short for initializing hidden state.");
-        }
+    Eigen::VectorXf input(obDim + hiddenDim);    // 拼接输入
+    input.head(obDim) = observation;
 
-        if (prev_hidden_state_.size() != expected_len) {
-            throw std::runtime_error("prev_hidden_state_ size mismatch!");
-        }
-
-        Eigen::VectorXf seed = observation.head(chunk_size);
-        for (int i = 0; i < num_repeat; ++i) {
-            prev_hidden_state_.segment(i * chunk_size, chunk_size) = seed;
-        }
-        is_first_inference_ = false;
-    }
-
-
-    Eigen::VectorXf input(observation.size() + prev_hidden_state_.size());
-    input << observation, prev_hidden_state_;
+    if (hiddenDim > 0)
+        input.tail(hiddenDim) = prev_hidden_state_;
 
     // === 输入处理 ===
     std::vector<float> input_data(input.data(), input.data() + input.size());
-    
-    if(input_dtype_ == DataType::kFLOAT){
-        cudaMemcpy(buffers_[inputIndex_], input.data(), inputSize_, cudaMemcpyHostToDevice);
-    } else if (input_dtype_ == DataType::kHALF) {
-        // FP16 输入需要转换
-        std::vector<__half> input_fp16(input.size());
-        for (int i = 0; i < input.size(); ++i) {
-            input_fp16[i] = __float2half(input[i]);
-        }
-        cudaMemcpy(buffers_[inputIndex_], input_fp16.data(), input_fp16.size() * sizeof(__half), cudaMemcpyHostToDevice);
-    }
-    else {
-        throw std::runtime_error("Unsupported input data type");
-    }
+    cudaMemcpy(buffers_[inputIndex_], input.data(), inputSize_, cudaMemcpyHostToDevice);
 
     // === 推理执行 ===
     context_->enqueueV2(buffers_, stream_, nullptr);
@@ -173,22 +138,12 @@ Eigen::VectorXf TensorRTInferenceEngine::predict(const Eigen::VectorXf& observat
    // --- 拷贝输出 ---
     const int total_output_len = outputSize_ / getElementSize(output_dtype_);
     std::vector<float> output_data(total_output_len);
-
-    if (output_dtype_ == nvinfer1::DataType::kFLOAT) {
-        cudaMemcpy(output_data.data(), buffers_[outputIndex_], outputSize_, cudaMemcpyDeviceToHost);
-    } else if (output_dtype_ == nvinfer1::DataType::kHALF) {
-        std::vector<__half> output_fp16(total_output_len);
-        cudaMemcpy(output_fp16.data(), buffers_[outputIndex_], output_fp16.size() * sizeof(__half), cudaMemcpyDeviceToHost);
-        for (int i = 0; i < total_output_len; ++i)
-            output_data[i] = __half2float(output_fp16[i]);
-    } else {
-        throw std::runtime_error("Unsupported output dtype");
-    }
+    cudaMemcpy(output_data.data(), buffers_[outputIndex_], outputSize_, cudaMemcpyDeviceToHost);
 
     // --- 拆分输出 ---
     Eigen::VectorXf output = Eigen::Map<Eigen::VectorXf>(output_data.data(), total_output_len);
     Eigen::VectorXf action = output.head(acDim);
-    prev_hidden_state_ = output.tail(output.size() - acDim);
-
+     if (hiddenDim > 0)
+        prev_hidden_state_ = output.tail(hiddenDim);
     return action;
 }

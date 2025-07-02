@@ -267,7 +267,7 @@ std::shared_ptr<BaseRobotConfig> cfg = nullptr;
 int main(int argc, char** argv) {
     cxxopts::Options options("check_G1Robot_input", "Check G1 robot input and visualize using Mujoco viewer");
     options.add_options()
-        ("c,config", "Config name (e.g., g1_unitree, g1_eman, h1, h1_2)", cxxopts::value<std::string>())
+        ("c,config", "Config name (e.g., g1_eman)", cxxopts::value<std::string>())
         ("h,help", "Print usage");
 
     auto result = options.parse(argc, argv);

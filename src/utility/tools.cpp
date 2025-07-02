@@ -9,18 +9,6 @@ namespace tools {
             return std::make_shared<UnitreeRobotConfig>(config_path);
     }
 
-    std::unique_ptr<BasePolicyWrapper> loadPolicyWrapper(const std::string& config_name, 
-                                                         std::shared_ptr<const BaseRobotConfig> cfg, 
-                                                         torch::Device device,
-                                                         const std::string& inference_engine_type,
-                                                         const std::string& precision)
-    {
-        if (config_name == "g1_eman")
-            return std::make_unique<EmanPolicyWrapper>(cfg, device, inference_engine_type, precision); 
-        else
-            return std::make_unique<UnitreePolicyWrapper>(cfg, device, inference_engine_type, precision);
-    }
-
     Eigen::VectorXf pd_control(const Eigen::VectorXf& target_q,
                                   const Eigen::VectorXf& q,
                                   const Eigen::VectorXf& kp,
