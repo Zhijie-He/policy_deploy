@@ -1,13 +1,14 @@
 // G1Sim2MujocoEnv.cpp
 #include "sim2/base_env.h"
+#include "utility/timer.h"
 
 BaseEnv::BaseEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-          std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-          std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr)
+          std::shared_ptr<StateMachine> state_machine)
     : cfg_(cfg),
-    jointCMDBufferPtr_(jointCMDBufferPtr),
-    robotStatusBufferPtr_(robotStatusBufferPtr),
-    control_dt_(cfg->getPolicyDt())
+      state_machine_(state_machine),
+      jointCMDBufferPtr_(state_machine->getJointCMDBufferPtr()),
+      robotStatusBufferPtr_(state_machine_->getRobotStatusBufferPtr()),
+      control_dt_(cfg->getPolicyDt())
 {   
 
 }
@@ -28,5 +29,48 @@ void BaseEnv::initState() {
 
   // ④ 力矩命令
   tauCmd.setZero(jointDim_); //	最终输出的控制力矩（全体）
+}
+
+void BaseEnv::runControlLoop() {
+    RateLimiter controlTimer(1.0 / control_dt_, "main loop");
+    
+    int print_interval = 200;
+    while (isRunning()) {
+        // == 状态机 step ==
+        if (state_machine_) {
+            auto t_start = std::chrono::high_resolution_clock::now();
+            state_machine_->step();
+            auto t_end = std::chrono::high_resolution_clock::now();
+
+            double dt = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+            run_sum_us += dt;
+            run_sum_sq_us += dt * dt;
+            ++run_count;
+
+            if (run_count % print_interval == 0) {
+                double avg = run_sum_us / run_count;
+                double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
+                FRC_INFO("[StateMachine.step] " << print_interval << " steps AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
+                // reset
+                run_sum_us = run_sum_sq_us = run_count = 0;
+            }
+        }
+
+        // == 等待动作 ==
+        auto actionPtr = jointCMDBufferPtr_->GetData();
+        while (!actionPtr) {
+            FRC_INFO("[BaseEnv.runControlLoop] Waiting For actions!");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            actionPtr = jointCMDBufferPtr_->GetData();
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(action_lock_);
+            const auto& cmd = *actionPtr;
+            applyAction(cmd);  // 委托子类执行
+        }
+
+        controlTimer.wait();
+    }
 }
 

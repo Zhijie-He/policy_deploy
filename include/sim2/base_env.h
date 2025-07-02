@@ -11,20 +11,25 @@
 class BaseEnv {
 public:
   BaseEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-          std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-          std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);
+          std::shared_ptr<StateMachine> state_machine);
+         
   virtual ~BaseEnv() = default;
   virtual void initState();
   virtual void stop() { running_ = false;}  
   virtual void setHeadless(bool) {}
   virtual void setUserInputPtr(std::shared_ptr<Listener> listener, char* key, JoystickData* joy) {listenerPtr_ = listener; keyPtr_ = key; joyPtr_ = joy;}
-  virtual void run() {}
 
+  virtual void run() {}
   virtual void zeroTorqueState() {}
   virtual void moveToDefaultPos() {}
   virtual void defaultPosState() {}
-  
+
+  virtual void applyAction(const jointCMD& cmd) = 0;  // 子类实现控制信号的应用（sim/real）
+  virtual bool isRunning() const { return running_; } // 可被 override
+  void runControlLoop(); // 公共控制主循环（供子类调用）
+
 protected:
+  std::shared_ptr<StateMachine> state_machine_ = nullptr;
   std::shared_ptr<const BaseRobotConfig> cfg_;
   std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr_;
   std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr_;
@@ -48,7 +53,7 @@ protected:
 
   std::string mode_;
 
-  int run_count=0;
-  double run_sum_us=0;
-  double run_sum_sq_us=0;
+  int run_count = 0;
+  double run_sum_us = 0;
+  double run_sum_sq_us = 0;
 };

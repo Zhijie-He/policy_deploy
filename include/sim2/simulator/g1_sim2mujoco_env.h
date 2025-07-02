@@ -10,7 +10,7 @@
 #include <vector>
 #include "types/system_defined.h"
 #include "sim2/base_env.h"
-#include "state_machine/StateMachine.h"
+
 
 class G1Sim2MujocoEnv : public BaseEnv {
 public:
@@ -28,9 +28,11 @@ public:
   void updateRobotState();
   void stop() override;
   void moveToDefaultPos() override;
+  
+  bool isRunning() const override; 
+  void applyAction(const jointCMD& cmd) override;  
 
 private:
-  std::shared_ptr<StateMachine> state_machine_ = nullptr;
   double lastx_ = 0, lasty_ = 0;
   std::string robotName_;
   float simulation_dt_ = 5e-4;

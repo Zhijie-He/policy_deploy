@@ -3,7 +3,7 @@
 #include <memory>
 #include "types/system_defined.h"
 #include "sim2/base_env.h"
-#include "state_machine/StateMachine.h"
+
 
 // unitree
 // DDS
@@ -41,12 +41,13 @@ public:
   void moveToDefaultPos() override;
   void defaultPosState() override;
   void run() override;
+  
+  bool isRunning() const override; 
+  void applyAction(const jointCMD& cmd) override;  
 
 private:
-  std::shared_ptr<StateMachine> state_machine_ = nullptr;
   std::string net_interface_;
-  int counter_ = 0;
-
+  
   // unitree sdk
   uint8_t mode_machine_;
   Mode mode_pr_;

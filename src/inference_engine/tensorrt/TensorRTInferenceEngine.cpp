@@ -143,6 +143,7 @@ Eigen::VectorXf TensorRTInferenceEngine::predict(const Eigen::VectorXf& observat
     // --- 拆分输出 ---
     Eigen::VectorXf output = Eigen::Map<Eigen::VectorXf>(output_data.data(), total_output_len);
     Eigen::VectorXf action = output.head(acDim);
+    
      if (hiddenDim > 0)
         prev_hidden_state_ = output.tail(hiddenDim);
     return action;
