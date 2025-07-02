@@ -76,6 +76,11 @@ Eigen::VectorXf LibTorchInferenceEngine::predict(const Eigen::VectorXf& observat
     Eigen::VectorXf action = output.head(acDim);
     if (hiddenDim > 0)
         prev_hidden_state_ = output.tail(hiddenDim);
+        
+    // FRC_INFO("[LibTorchInferenceEngine.predict] output_tensor shape: " << output_tensor.sizes());
+    // FRC_INFO("[LibTorchInferenceEngine.predict] total_dim = " << output_tensor.size(1)
+    //         << ", action_dim = " << acDim
+    //         << ", hidden_dim = " << hiddenDim);
 
     return action;
 }

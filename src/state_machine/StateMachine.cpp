@@ -44,7 +44,7 @@ void StateMachine::createTasks(const std::vector<std::pair<std::string, char>>& 
       FRC_ERROR(oss.str());
       throw std::runtime_error("Invalid task name: " + task_name);
     }
-    FRC_INFO("[StateMachine.createTasks] ==== Create task: " << task_name << "====");
+    FRC_HIGHLIGHT("[StateMachine.createTasks] Create task: " << task_name);
     auto task = TaskFactory::create(task_name, cfg_, device, inference_engine_type, precision);
     tasks_[task_name] = task;
     task_key_map_[task_name] = key;
@@ -54,7 +54,7 @@ void StateMachine::createTasks(const std::vector<std::pair<std::string, char>>& 
   // default activate the first task
   if (!task_name_list_.empty()) {
       current_task_ = task_name_list_.front();  
-      FRC_INFO("[StateMachine.createTasks] Current active task: " << current_task_);
+      FRC_HIGHLIGHT("[StateMachine.createTasks] Current active task: " << current_task_);
   } else {
       FRC_ERROR("[StateMachine.createTasks] No tasks registered in StateMachine");
       throw std::runtime_error("No  tasks registered in StateMachine.");
@@ -75,7 +75,7 @@ void StateMachine::handleKeyboardInput(char c) {
         std::lock_guard<std::mutex> lock(task_lock_);
         current_task_ = task_name;
         tasks_[current_task_]->reset();
-        FRC_WARN("[StateMachine.handleKeyboardInput] Switched to task: " << current_task_);
+        FRC_HIGHLIGHT("[StateMachine.handleKeyboardInput] Switched to task: " << current_task_);
       }
       {
         std::lock_guard<std::mutex> key_lock(key_state_lock_);
@@ -93,7 +93,7 @@ void StateMachine::handleKeyboardInput(char c) {
       size_t idx = (std::distance(task_name_list_.begin(), it) + 1) % task_name_list_.size();
       current_task_ = task_name_list_[idx];
       tasks_[current_task_]->reset();
-      FRC_WARN("[StateMachine.handleKeyboardInput] Cycled to task: " << current_task_);
+      FRC_HIGHLIGHT("[StateMachine.handleKeyboardInput] Cycled to task: " << current_task_);
     }
     {
       std::lock_guard<std::mutex> key_lock(key_state_lock_);

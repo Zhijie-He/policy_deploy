@@ -82,7 +82,6 @@ void TeleopTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
     // 1. cache index
     int cache_index = static_cast<int>((counter_ - count_offset_) * static_cast<float>(start_));
     cache_index = std::min(cache_index, motion_lib_cache_len_[motion_id_] - 1);
-
     // 2. 获取当前的 motion 数据块
     const auto& cache = motion_lib_cache_[cache_index];
     const auto& motion_obs = cache.teleop_obs[motion_id_];  // [timesteps][body_points]

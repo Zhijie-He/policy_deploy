@@ -199,9 +199,9 @@ int main(int argc, char** argv) {
   try {
     cfg = tools::loadConfig(config_name);
     std::vector<std::pair<std::string, char>> registers = {
-      // {"CmdTask", '1'},
-      {"TeleopTask", '2'}
-      // {"MocapTask", '3'}
+      {"CmdTask", '1'},
+      {"TeleopTask", '2'},
+      {"MocapTask", '3'}
     };
     
     controller = std::make_unique<G1Controller>(net, mode, cfg, registers, torchDevice, 

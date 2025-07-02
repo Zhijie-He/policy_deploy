@@ -34,7 +34,7 @@ void BaseEnv::initState() {
 void BaseEnv::runControlLoop() {
     RateLimiter controlTimer(1.0 / control_dt_, "main loop");
     
-    int print_interval = 500;
+    int print_interval = 300;
     while (isRunning()) {
         // == 状态机 step ==
         if (state_machine_) {
