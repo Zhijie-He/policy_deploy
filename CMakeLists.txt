@@ -55,13 +55,13 @@ else()
     color_message(FATAL_ERROR red "[ERROR] Unsupported platform: ${CMAKE_SYSTEM_NAME}")
 endif()
 
+option(USE_UNITREE_SDK "Enable Unitree SDK support (only for Linux)" ${USE_UNITREE_SDK_DEFAULT})
+if(USE_UNITREE_SDK)
+    add_definitions(-DUSE_UNITREE_SDK)
+endif()
 color_message(STATUS cyan "[INFO] System: ${CMAKE_SYSTEM_NAME}")
 color_message(STATUS cyan "[INFO] Detected platform: ${CURRENT_PLATFORM}")
-
-# 可以手动通过 -DUSE_UNITREE_SDK=ON/OFF 覆盖
-option(USE_UNITREE_SDK "Enable Unitree SDK support (only for Linux)" ${USE_UNITREE_SDK_DEFAULT})
 color_message(STATUS cyan "[INFO] USE_UNITREE_SDK: ${USE_UNITREE_SDK}")
-add_definitions(-DUSE_UNITREE_SDK)
 
 # === AddressSanitizer 选项（默认关闭）===
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
@@ -184,4 +184,5 @@ if (USE_UNITREE_SDK)
     add_executable(check_G1Robot_input exec/check_G1Robot_input.cpp ${SRC_FILES})
     target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
 endif()
+
 

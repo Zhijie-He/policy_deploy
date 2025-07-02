@@ -207,12 +207,12 @@ int main(int argc, char** argv) {
     controller = std::make_unique<G1Controller>(net, mode, cfg, registers, torchDevice, 
                                                 headless, inference_engine_type, precision);
 
-    // // Enter the zero torque state, press the start key to continue executing
-    // controller->zero_torque_state();
-    // // Move to the default position
-    // controller->move_to_default_pose();
-    // // Enter the default position state, press the A key to continue executing
-    // controller->default_pos_state();
+    // Enter the zero torque state, press the start key to continue executing
+    controller->zero_torque_state();
+    // Move to the default position
+    controller->move_to_default_pose();
+    // Enter the default position state, press the A key to continue executing
+    controller->default_pos_state();
 
     controller->run();
 
