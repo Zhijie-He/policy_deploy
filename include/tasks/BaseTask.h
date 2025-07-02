@@ -6,16 +6,24 @@
 #include <torch/torch.h>
 #include "types/CustomTypes.h"
 #include "config/BaseRobotConfig.h" 
-#include "inference_engine/BasePolicyInferenceEngine.h"
+// #include "inference_engine/BasePolicyInferenceEngine.h"
+
+class BasePolicyInferenceEngine;
 
 struct BaseTaskCfg {
     virtual ~BaseTaskCfg() = default;
+
+    virtual std::string getPolicyPath() const = 0;
+    virtual std::string getEnginePath() const = 0;
+    virtual int getNumActions() const = 0;
+    virtual int getNumObs() const = 0;
+    virtual int getNumHidden() const = 0;
 };
 
 class BaseTask {
 public:
      BaseTask(std::shared_ptr<const BaseRobotConfig> cfg,
-              std::shared_ptr<BaseTaskCfg> task_cfg, 
+              std::shared_ptr<const BaseTaskCfg> task_cfg, 
               torch::Device device,
               const std::string& inference_engine_type,
               const std::string& precision);
@@ -26,18 +34,18 @@ public:
     virtual void resolveObservation(const CustomTypes::RobotData& robotData) = 0;
     virtual void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) = 0;
     virtual std::string getVisualization(const Eigen::VectorXf&, const Eigen::VectorXf&, const Eigen::VectorXf&) { return visualization_; }
-    virtual void reset() { counter_ = 0; start_ = false; }
+    virtual void reset();
 
 protected:
+    void updateObservation(const CustomTypes::RobotData& robotData);
+    
     int obDim, acDim;
     std::shared_ptr<const BaseRobotConfig> cfg_;
-    std::shared_ptr<BaseTaskCfg> task_cfg_;
-    float control_dt_;
-    torch::Device device_;
+    std::shared_ptr<const BaseTaskCfg> task_cfg_;
     int counter_;
     bool start_;
+    
     std::string visualization_;
-
 
     Eigen::VectorXf _kP;
     Eigen::VectorXf _kD;

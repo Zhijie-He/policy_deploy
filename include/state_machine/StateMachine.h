@@ -17,6 +17,7 @@ public:
                  const std::vector<std::pair<std::string, char>>& registers,
                  const std::string& inference_engine_type = "libtorch", 
                  const std::string& precision = "fp32");
+                 
     void createTasks(const std::vector<std::pair<std::string, char>>& registers, 
                      torch::Device device, 
                      const std::string& inference_engine_type, 

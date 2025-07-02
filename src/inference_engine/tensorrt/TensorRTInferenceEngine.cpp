@@ -12,16 +12,17 @@ inline size_t getElementSize(nvinfer1::DataType dtype) {
 }
 
 TensorRTInferenceEngine::TensorRTInferenceEngine(std::shared_ptr<const BaseRobotConfig> cfg,
+                                                 std::shared_ptr<const BaseTaskCfg> task_cfg, 
                                                  torch::Device device,
                                                  const std::string& precision)
-    : BasePolicyInferenceEngine(cfg, device, precision)
+    : BasePolicyInferenceEngine(cfg, task_cfg, device, precision)
 {
     loadModel();
 }
 
 void TensorRTInferenceEngine::loadModel(){
-    std::vector<char> engineData = loadEngineFile(cfg_->engine_path);
-    FRC_INFO("[TensorRTInferenceEngine.loadModel] Load engine file:  " << cfg_->engine_path);
+    std::vector<char> engineData = loadEngineFile(engine_path_);
+    FRC_INFO("[TensorRTInferenceEngine.loadModel] Load engine file:  " << engine_path_);
 
     runtime_ = std::unique_ptr<IRuntime, TRTDestroyer<IRuntime>>(createInferRuntime(logger_));
     engine_ = std::unique_ptr<ICudaEngine, TRTDestroyer<ICudaEngine>>(runtime_->deserializeCudaEngine(engineData.data(), engineData.size()));

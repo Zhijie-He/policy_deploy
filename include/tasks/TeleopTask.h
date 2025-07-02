@@ -4,17 +4,67 @@
 #include "tasks/TaskFactory.h"
 
 struct TeleopTaskCfg : public BaseTaskCfg {
-    std::string actor = std::string(PROJECT_SOURCE_DIR) + "/resources/g1/actor.pt";
+    std::string policy_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.pt";
+    std::string engine_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.engine";
+    std::string motion_file = std::string(PROJECT_SOURCE_DIR) + "/resources/sample_data/fly";
+    std::string skeleton_file = std::string(PROJECT_SOURCE_DIR) + "/resources/robots/g1/g1_skeleton.xml";
+    std::string motion_json_file = std::string(PROJECT_SOURCE_DIR) + "/resources/sample_data/teleop_motion_lib_cache.json";
 
-    struct Obs {
-        int self_obs = 93;
-        int task_obs = 3;
-    } obs;
+    int num_obs = 574;       
+    int num_hidden = 5704;   
+    int num_actions = 29;
 
-    Eigen::Vector3f max_cmd = {0.8f, 0.5f, 1.57f};
-    Eigen::Vector3f obs_scale = {2.0f, 2.0f, 0.25f};
+    float obs_scale_heading = 0.5f;
+    int num_motions = 1;
+    int num_samples = 9;
+    float sample_timestep_inv = 30.0f;
+    std::string humanoid_type = "g1_29dof";
+
+    std::vector<std::string> track_keypoints_names = {
+        "pelvis",
+        "left_knee_link", "left_ankle_roll_link", "right_knee_link", "right_ankle_roll_link",
+        "left_elbow_link","left_wrist_yaw_link", "right_elbow_link","right_wrist_yaw_link"
+    };
+
+    std::vector<std::string> BODY_NAMES = {
+        "pelvis",
+        "left_hip_pitch_link","right_hip_pitch_link","waist_yaw_link",
+        "left_hip_roll_link", "right_hip_roll_link", "waist_roll_link",
+        "left_hip_yaw_link", "right_hip_yaw_link", "torso_link",
+        "left_knee_link", "right_knee_link", "left_shoulder_pitch_link", "right_shoulder_pitch_link",
+        "left_ankle_pitch_link", "right_ankle_pitch_link", "left_shoulder_roll_link", "right_shoulder_roll_link",
+        "left_ankle_roll_link", "right_ankle_roll_link", "left_shoulder_yaw_link", "right_shoulder_yaw_link",
+        "left_elbow_link", "right_elbow_link",
+        "left_wrist_roll_link", "right_wrist_roll_link",
+        "left_wrist_pitch_link", "right_wrist_pitch_link",
+        "left_wrist_yaw_link", "right_wrist_yaw_link"
+    };
+
+    std::string getPolicyPath() const override{
+        return policy_path;
+    }
+
+    std::string getEnginePath() const override{
+        return engine_path;
+    }
+    
+    int getNumActions() const override{
+        return num_actions;
+    }
+
+    int getNumObs() const override{
+        return num_obs;
+    }
+
+    int getNumHidden() const override{
+        return num_hidden;
+    }
 };
 
+struct MotionCache {
+    std::vector<std::vector<std::vector<Eigen::Vector3f>>> teleop_obs;
+    std::vector<std::vector<Eigen::VectorXf>> body_pos;
+};
 
 class TeleopTask : public BaseTask {
 public:
@@ -25,6 +75,18 @@ public:
 
     void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
     void resolveObservation(const CustomTypes::RobotData& robotData) override;
+    void reset() override;
+    void loadMotion();
+    
+private:
+    TeleopTaskCfg task_cfg_;
+    float obs_scale_heading_;
+    std::vector<int> track_keypoints_indices_;
+    Eigen::VectorXf mask_;
+    int motion_id_;
+    int count_offset_;
+    std::vector<int> motion_lib_cache_len_;
+    std::vector<MotionCache> motion_lib_cache_;
 };
 
 
@@ -41,3 +103,4 @@ bool registered = []() {
     return true;
 }();
 }
+

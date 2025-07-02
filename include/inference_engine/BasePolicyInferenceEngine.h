@@ -6,11 +6,15 @@
 #include <string>
 #include <stdexcept>
 #include "config/BaseRobotConfig.h" 
+// #include "tasks/BaseTask.h" 
+
+struct BaseTaskCfg;
 
 // 推理引擎的通用接口
 class BasePolicyInferenceEngine {
 public:
     BasePolicyInferenceEngine(std::shared_ptr<const BaseRobotConfig> cfg, 
+                              std::shared_ptr<const BaseTaskCfg> task_cfg, 
                               torch::Device device, 
                               const std::string& precision);
 
@@ -26,4 +30,7 @@ protected:
     
     std::string precision_str_;
     std::shared_ptr<const BaseRobotConfig> cfg_; 
+    std::shared_ptr<const BaseTaskCfg> task_cfg_;
+    std::string policy_path_;
+    std::string engine_path_;
 };

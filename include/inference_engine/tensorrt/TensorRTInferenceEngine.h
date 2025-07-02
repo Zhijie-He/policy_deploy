@@ -38,8 +38,9 @@ public:
 class TensorRTInferenceEngine : public BasePolicyInferenceEngine {
 public:
     explicit TensorRTInferenceEngine(std::shared_ptr<const BaseRobotConfig> cfg,
-                            torch::Device device,
-                            const std::string& precision);
+                                     std::shared_ptr<const BaseTaskCfg> task_cfg, 
+                                     torch::Device device,
+                                     const std::string& precision);
     void loadModel();
     void warmUp(int rounds = 10) override;
     Eigen::VectorXf predict(const Eigen::VectorXf& observation) override;

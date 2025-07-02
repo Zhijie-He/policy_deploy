@@ -16,15 +16,16 @@ public:
     static std::shared_ptr<BasePolicyInferenceEngine> create(
         const std::string& backend,  
         std::shared_ptr<const BaseRobotConfig> cfg,
+        std::shared_ptr<const BaseTaskCfg> task_cfg, 
         const torch::Device& device,
         const std::string& precision = "fp32"
     ) {
         if (backend == "libtorch") {
-            return std::make_shared<LibTorchInferenceEngine>(cfg, device, precision);
+            return std::make_shared<LibTorchInferenceEngine>(cfg, task_cfg, device, precision);
         }
 #ifdef USE_TENSORRT
         else if (backend == "tensorrt") {
-            return std::make_shared<TensorRTInferenceEngine>(cfg, device, precision);
+            return std::make_shared<TensorRTInferenceEngine>(cfg, task_cfg, device, precision);
         }
 #endif
         else {

@@ -44,6 +44,7 @@ void StateMachine::createTasks(const std::vector<std::pair<std::string, char>>& 
       FRC_ERROR(oss.str());
       throw std::runtime_error("Invalid task name: " + task_name);
     }
+    FRC_INFO("[StateMachine.createTasks] ==== Create task: " << task_name << "====");
     auto task = TaskFactory::create(task_name, cfg_, device, inference_engine_type, precision);
     tasks_[task_name] = task;
     task_key_map_[task_name] = key;
@@ -73,8 +74,8 @@ void StateMachine::handleKeyboardInput(char c) {
       {
         std::lock_guard<std::mutex> lock(task_lock_);
         current_task_ = task_name;
-        FRC_INFO("[StateMachine.handleKeyboardInput] Switched to task: " << current_task_);
         tasks_[current_task_]->reset();
+        FRC_WARN("[StateMachine.handleKeyboardInput] Switched to task: " << current_task_);
       }
       {
         std::lock_guard<std::mutex> key_lock(key_state_lock_);
@@ -91,8 +92,8 @@ void StateMachine::handleKeyboardInput(char c) {
     if (it != task_name_list_.end()) {
       size_t idx = (std::distance(task_name_list_.begin(), it) + 1) % task_name_list_.size();
       current_task_ = task_name_list_[idx];
-      FRC_INFO("[StateMachine.handleKeyboardInput] Cycled to task: " << current_task_);
       tasks_[current_task_]->reset();
+      FRC_WARN("[StateMachine.handleKeyboardInput] Cycled to task: " << current_task_);
     }
     {
       std::lock_guard<std::mutex> key_lock(key_state_lock_);
@@ -117,9 +118,10 @@ void StateMachine::step() {
     }
 
     if (key != '\0') {
+      FRC_INFO("[StateMachine.step] Current Task: " << current_task_);
       tasks_[current_task_]->resolveKeyboardInput(key, robotData);
     }
-
+    
     robotAction = tasks_[current_task_]->getAction(robotData);
   }
   packJointAction();

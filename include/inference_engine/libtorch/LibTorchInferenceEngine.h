@@ -8,6 +8,7 @@
 class LibTorchInferenceEngine : public BasePolicyInferenceEngine {
 public:
     LibTorchInferenceEngine(std::shared_ptr<const BaseRobotConfig> cfg,
+                            std::shared_ptr<const BaseTaskCfg> task_cfg, 
                             torch::Device device,
                             const std::string& precision);
     void loadModel();

@@ -1,11 +1,11 @@
 // G1Sim2MujocoEnv.cpp
+#include <cstring>
+#include <cmath>
+#include <thread>
 #include "sim2/simulator/g1_sim2mujoco_env.h"
 #include "utility/logger.h"
 #include "utility/timer.h"
 #include "utility/tools.h"
-#include <cstring>
-#include <cmath>
-#include <thread>
 
 G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
                                  std::shared_ptr<StateMachine> state_machine)

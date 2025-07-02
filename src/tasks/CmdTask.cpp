@@ -9,15 +9,17 @@ CmdTask::CmdTask(std::shared_ptr<const BaseRobotConfig> cfg,
                  const std::string& inference_engine_type,
                  const std::string& precision)
     : BaseTask(cfg, std::make_shared<CmdTaskCfg>(), device, inference_engine_type, precision), 
-      task_cfg_()  // 默认构造即可
+      task_cfg_() 
 {
-    FRC_INFO("[CmdTask.Const] Created on " << device << ", control_dt=" << control_dt_);
-    if (!cfg_->cmd_init.isZero()) {
-        cmd_states_ = cfg_->cmd_init;
-        FRC_INFO("[CmdTask.Const] Initial target cmd: " << cmd_states_.transpose()); 
-    } else {
-        cmd_states_.setZero();  
-    }
+    FRC_INFO("[CmdTask.Const] Created!");
+    // if (!cfg_->cmd_init.isZero()) {
+    //     cmd_states_ = cfg_->cmd_init;
+    //     FRC_INFO("[CmdTask.Const] Initial target cmd: " << cmd_states_.transpose()); 
+    // } else {
+    //     cmd_states_.setZero();  
+    // }
+
+    cmd_states_.setZero();  
     max_cmd_ = task_cfg_.max_cmd;
     cmd_obs_scale_ = task_cfg_.obs_scale;
 }
@@ -37,7 +39,7 @@ void CmdTask::resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) 
     if (key == 'q') deltaYaw = kYawStep;
     if (key == 'e') deltaYaw = -kYawStep;
 
-    std::lock_guard<std::mutex> lock(cmd_states_mutex_);
+    std::lock_guard<std::mutex> lock(cmd_states_lock_);
 
     // 更新线速度
     if (deltaVel.norm() > kThresh) {
@@ -61,29 +63,21 @@ void CmdTask::resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) 
 }
 
 void CmdTask::resolveObservation(const CustomTypes::RobotData& raw_obs) {
-    Eigen::Vector3f projected_gravity_b = tools::quat_rotate_inverse_on_gravity(raw_obs.root_rot * cfg_->obs_scale_projected_gravity_b);
-    Eigen::Vector3f root_ang_vel_b = raw_obs.root_ang_vel * cfg_->ang_vel_scale;
-    Eigen::VectorXf joint_pos = (raw_obs.joint_pos - cfg_->default_angles) * cfg_->dof_pos_scale;
-    Eigen::VectorXf joint_vel = raw_obs.joint_vel * cfg_->dof_vel_scale;
-    Eigen::VectorXf last_action = actionPrev * cfg_->action_scale;
+    updateObservation(raw_obs);
 
-    Vec3f scaled_cmd;
+    Vec3f task_obs;
     {
-        std::lock_guard<std::mutex> lock(cmd_states_mutex_);
-        scaled_cmd = cmd_states_.cwiseProduct(cfg_->cmd_scale);
+        std::lock_guard<std::mutex> lock(cmd_states_lock_);
+        task_obs = cmd_states_.cwiseProduct(cmd_obs_scale_);
     }
-
-    observation.segment(0, 3)                  = projected_gravity_b;
-    observation.segment(3, 3)                  = root_ang_vel_b;
-    observation.segment(6, acDim)              = joint_pos(cfg_->env2actor);
-    observation.segment(6 + acDim, acDim)      = joint_vel(cfg_->env2actor);
-    observation.segment(6 + 2 * acDim, acDim)  = actionPrev;
-    observation.segment(6 + 3 * acDim, 3)      = scaled_cmd;
+    
+    observation.segment(6 + 3 * acDim, 3)      = task_obs;
 }
 
 void CmdTask::reset() {
     BaseTask::reset();
-    std::lock_guard<std::mutex> lock(cmd_states_mutex_);
+    std::lock_guard<std::mutex> lock(cmd_states_lock_);
     cmd_states_.setZero();
+    FRC_INFO("[CmdTask.reset] Reset called. cmd_states_ set zero");
 }
 

@@ -4,9 +4,10 @@
 #include "utility/tools.h"
 
 LibTorchInferenceEngine::LibTorchInferenceEngine(std::shared_ptr<const BaseRobotConfig> cfg,
+                                                 std::shared_ptr<const BaseTaskCfg> task_cfg, 
                                                  torch::Device device,
                                                  const std::string& precision)
-    : BasePolicyInferenceEngine(cfg, device, precision),
+    : BasePolicyInferenceEngine(cfg, task_cfg, device, precision),
     device_(device),
     precision_(tools::parseDtype(precision))
 {
@@ -15,10 +16,10 @@ LibTorchInferenceEngine::LibTorchInferenceEngine(std::shared_ptr<const BaseRobot
 
 void LibTorchInferenceEngine::loadModel(){
     try {
-        module_ = torch::jit::load(cfg_->policy_path);
+        module_ = torch::jit::load(policy_path_);
         module_.to(device_);
         module_.eval();
-        FRC_INFO("[LibTorchInferenceEngine.loadModel] model loaded: " << cfg_->policy_path);
+        FRC_INFO("[LibTorchInferenceEngine.loadModel] model loaded: " << policy_path_);
     } catch (const std::exception& e) {
         FRC_ERROR("[LibTorchInferenceEngine.loadModel] Failed to load model: " << e.what());
         std::exit(EXIT_FAILURE);

@@ -178,11 +178,11 @@ target_link_libraries(g1 ${COMMON_LIBS})
 
 # 真机部署（仅在启用Unitree SDK时编译）
 if (USE_UNITREE_SDK)
-    add_executable(simulate_robot exec/simulate_robot.cpp ${SRC_FILES})
-    target_link_libraries(simulate_robot ${COMMON_LIBS})
+    # add_executable(simulate_robot exec/simulate_robot.cpp ${SRC_FILES})
+    # target_link_libraries(simulate_robot ${COMMON_LIBS})
 
-    add_executable(check_G1Robot_input exec/check_G1Robot_input.cpp ${SRC_FILES})
-    target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
+    # add_executable(check_G1Robot_input exec/check_G1Robot_input.cpp ${SRC_FILES})
+    # target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
 endif()
 
 
