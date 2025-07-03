@@ -2,6 +2,9 @@
 #pragma once
 #include "tasks/BaseTask.h"
 #include "tasks/TaskFactory.h"
+#include "utility/json.hpp"
+
+using json = nlohmann::json;
 
 struct TeleopTaskCfg : public BaseTaskCfg {
     std::string policy_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.pt";
@@ -16,7 +19,7 @@ struct TeleopTaskCfg : public BaseTaskCfg {
     int num_actions = 29;    
 
     float obs_scale_heading = 0.5f;
-    int num_motions = 1;
+    int num_motions = 10;
     int num_samples = 1 + 8;
     float sample_timestep_inv = 30.0f;
     std::string humanoid_type = "g1_29dof";
@@ -62,10 +65,6 @@ struct TeleopTaskCfg : public BaseTaskCfg {
     }
 };
 
-struct MotionCache {
-    std::vector<std::vector<std::vector<Eigen::Vector3f>>> teleop_obs;
-    std::vector<std::vector<Eigen::VectorXf>> body_pos;
-};
 
 class TeleopTask : public BaseTask {
 public:
@@ -87,7 +86,7 @@ private:
     int motion_id_;
     int count_offset_;
     std::vector<int> motion_lib_cache_len_;
-    std::vector<MotionCache> motion_lib_cache_;
+    json motion_lib_cache_;
 };
 
 

@@ -4,9 +4,7 @@
 #include "tasks/TeleopTask.h"
 #include "utility/logger.h"
 #include "utility/tools.h"
-#include "utility/json.hpp"
 
-using json = nlohmann::json;
 
 TeleopTask::TeleopTask(std::shared_ptr<const BaseRobotConfig> cfg,
                        torch::Device device,
@@ -67,25 +65,21 @@ void TeleopTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
     // 1. cache index
     int cache_index = static_cast<int>((counter_ - count_offset_) * static_cast<float>(start_));
     cache_index = std::min(cache_index, motion_lib_cache_len_[motion_id_] - 1);
-    // 2. 获取当前的 motion 数据块
-    const auto& cache = motion_lib_cache_[cache_index];
-    const auto& motion_obs = cache.teleop_obs[motion_id_];  // [timesteps][body_points]
 
-    // 3. 构造 task_obs
-    const auto& first_frame = motion_obs[0];  // std::vector<Eigen::Vector3f>
-    Eigen::VectorXf task_obs(first_frame.size() * 3);
-    for (size_t i = 0; i < first_frame.size(); ++i) {
-        task_obs.segment<3>(i * 3) = first_frame[i];
+    // 2. 获取当前 teleop_obs [当前帧][动作编号]
+    const auto& cache = motion_lib_cache_[cache_index]["teleop_obs"][motion_id_];
+
+    // 3. 构造 task_obs（当前帧）
+    Eigen::VectorXf task_obs(cache[0].size());
+    for (size_t i = 0; i < cache[0].size(); ++i) {
+        task_obs[i] = cache[0][i].get<float>();
     }
 
-    // 4. 构造 task_next_obs
-    int num_next = static_cast<int>(task_cfg_.num_samples - 1);
-    int obs_dim = static_cast<int>(first_frame.size() * 3);
-    Eigen::MatrixXf task_next_obs(num_next, obs_dim);
-    for (int t = 0; t < num_next; ++t) {
-        const auto& frame = motion_obs[t + 1];
-        for (size_t i = 0; i < frame.size(); ++i) {
-            task_next_obs.block(t, i * 3, 1, 3) = frame[i].transpose();
+    // 4. 构造 task_next_obs（剩下 8 帧）
+    Eigen::VectorXf task_next_obs((task_cfg_.num_samples - 1) * cache[0].size());
+    for (int i = 1; i < task_cfg_.num_samples; ++i) {
+        for (size_t j = 0; j < cache[i].size(); ++j) {
+            task_next_obs[(i - 1) * cache[i].size() + j] = cache[i][j].get<float>();
         }
     }
 
@@ -116,7 +110,7 @@ void TeleopTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
     // 8. 填充 observation
     // observation.head(self_obs_len) = observation_self_; // 来自 updateObservation()
     observation.segment(self_obs_len, final_task_obs.size()) = final_task_obs;
-    observation.segment(self_obs_len + final_task_obs.size(), task_next_obs.size()) = Eigen::Map<const Eigen::VectorXf>(task_next_obs.data(), task_next_obs.size());
+    observation.segment(self_obs_len + final_task_obs.size(), task_next_obs.size()) = task_next_obs;
     observation.tail(mask_.size()) = mask_;
 }
 
@@ -125,63 +119,24 @@ void TeleopTask::loadMotion() {
     if (!file.is_open()) {
         throw std::runtime_error("[TeleopTask.loadMotion] Failed to open: " + task_cfg_.motion_json_file);
     }
+    json data;
+    file >> data;
 
-    json j;
-    file >> j;
-
-    // 1. 加载 motion_lib_cache_len_
-    motion_lib_cache_len_ = j["motion_lib_cache_len"].get<std::vector<int>>();
-
-    // 2. 加载 motion_lib_cache_
-    motion_lib_cache_.clear();
-    for (const auto& cache_entry : j["motion_lib_cache"]) {
-        MotionCache cache;
-
-        // 2.1 teleop_obs: [motion][timestep][body_point(xyz)]
-        const auto& obs_array = cache_entry["teleop_obs"];
-        std::vector<std::vector<std::vector<Eigen::Vector3f>>> teleop_obs_all;
-
-        for (const auto& motion_data : obs_array) {
-            std::vector<std::vector<Eigen::Vector3f>> motion_sequence;
-            for (const auto& timestep_data : motion_data) {
-                std::vector<Eigen::Vector3f> frame;
-                for (const auto& point_xyz : timestep_data) {
-                    if (point_xyz.size() != 3) {
-                        throw std::runtime_error("[loadMotion] teleop_obs: point must be length 3");
-                    }
-                    Eigen::Vector3f vec;
-                    for (int i = 0; i < 3; ++i) {
-                        vec[i] = static_cast<float>(point_xyz[i]);
-                    }
-                    frame.push_back(vec);
-                }
-                motion_sequence.push_back(frame);
-            }
-            teleop_obs_all.push_back(motion_sequence);
-        }
-        cache.teleop_obs = std::move(teleop_obs_all);
-
-        // 2.2 motion_state > body_pos: [motion][timestep][features]
-        // const auto& pos_array = cache_entry["motion_state"]["body_pos"];
-        // std::vector<std::vector<Eigen::VectorXf>> body_positions;
-
-        // for (const auto& motion_list : pos_array) {
-        //     std::vector<Eigen::VectorXf> points;
-        //     for (const auto& point : motion_list) {
-        //         Eigen::VectorXf vec(point.size());
-        //         for (int i = 0; i < point.size(); ++i) {
-        //             vec[i] = static_cast<float>(point[i]);
-        //         }
-        //         points.push_back(vec);
-        //     }
-        //     body_positions.push_back(points);
-        // }
-        // cache.body_pos = std::move(body_positions);
-
-        motion_lib_cache_.push_back(std::move(cache));
+    // 读取 motion_lib_cache_len_
+    for (const auto& val : data["motion_lib_cache_len"]) {
+        motion_lib_cache_len_.push_back(val.get<int>());
     }
 
-    FRC_INFO("[TeleopTask.loadMotion] Loaded " << motion_lib_cache_.size() << " entries.");
+    // 读取 motion_lib_cache_
+    motion_lib_cache_ = data["motion_lib_cache"];
+
+    size_t total_frames = motion_lib_cache_.size(); 
+    const auto& sample = motion_lib_cache_[0]["teleop_obs"];
+    size_t motions = sample.size();             
+    size_t frames_per_motion = sample[0].size(); 
+    size_t features_per_frame = sample[0][0].size();
+
+    FRC_INFO("[TeleopTask.loadMotion] motion_lib_cache_[teleop_obs] shape = [" << total_frames << ", " << motions << ", " << frames_per_motion << ", " << features_per_frame << "]");
 }
 
 void TeleopTask::reset() {
@@ -189,3 +144,4 @@ void TeleopTask::reset() {
     count_offset_ = 0;
     FRC_INFO("[TeleopTask.reset] Reset called. motion_id: " << motion_id_);
 }
+
