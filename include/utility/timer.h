@@ -87,13 +87,21 @@ public:
 
     void wait() {
         auto now = clock::now();
-        if (now < next_time_) {
+        if (now <= next_time_) {
             std::this_thread::sleep_until(next_time_);
-        } else if (warn_) {
-            auto late_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - next_time_).count();
-            FRC_WARN("[RateLimiter] [" << name_ << "] is late by " << late_ms << " [ms]");
+            next_time_ += period_ns_;
+        } else {
+            if (warn_) {
+              auto late_us = std::chrono::duration_cast<std::chrono::microseconds>(now - next_time_).count();
+              if (warn_ && late_us > 0) {
+                  double late_ms = late_us / 1000.0;
+                  std::stringstream ss;
+                  ss << std::fixed << std::setprecision(1) << late_ms;
+                  FRC_WARN("[RateLimiter] [" << name_ << "] is late by " << ss.str() << " [ms]");
+              }
+            }
+            next_time_ = now + period_ns_;  // 修正延迟积累
         }
-        next_time_ += period_ns_;
     }
 
     double timeSinceStartMs() const {
