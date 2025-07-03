@@ -75,6 +75,8 @@ public:
               const std::string& precision);
     void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
     void resolveObservation(const CustomTypes::RobotData& robotData) override;
+    void getMocap();
+    void reset() override;
 
 private:
     MocapTaskCfg task_cfg_;

@@ -1,25 +1,10 @@
 // tasks/TeleopTask.cpp
 #include <fstream>
+#include <cmath>
 #include "tasks/TeleopTask.h"
 #include "utility/logger.h"
 #include "utility/tools.h"
 #include "utility/json.hpp"
-
-#include <Eigen/Dense>
-#include <cmath>
-
-// 输入四元数格式：[w, x, y, z]
-float getHeadingFromQuat(const Eigen::Vector4f& quat) {
-    Eigen::Vector3f vec(1.0f, 0.0f, 0.0f);  // 初始方向向量 (x-axis)
-    float w = quat[0];
-    Eigen::Vector3f xyz = quat.tail<3>();  // 提取 x, y, z
-
-    Eigen::Vector3f t = 2.0f * xyz.cross(vec);
-    Eigen::Vector3f forward = vec + w * t + xyz.cross(t);
-
-    float heading = std::atan2(forward[1], forward[0]);  // atan2(y, x)
-    return heading;
-}
 
 using json = nlohmann::json;
 
@@ -105,7 +90,7 @@ void TeleopTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
     }
 
     // 5. heading
-    float heading = getHeadingFromQuat(raw_obs.root_rot);
+    float heading = tools::getHeadingFromQuat(raw_obs.root_rot);
     float scaled_heading = heading * obs_scale_heading_;
 
     // 6. 拼接 heading + task_obs
@@ -133,12 +118,6 @@ void TeleopTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
     observation.segment(self_obs_len, final_task_obs.size()) = final_task_obs;
     observation.segment(self_obs_len + final_task_obs.size(), task_next_obs.size()) = Eigen::Map<const Eigen::VectorXf>(task_next_obs.data(), task_next_obs.size());
     observation.tail(mask_.size()) = mask_;
-}
-
-void TeleopTask::reset() {
-    BaseTask::reset();
-    count_offset_ = 0;
-    FRC_INFO("[TeleopTask.reset] Reset called. motion_id: " << motion_id_);
 }
 
 void TeleopTask::loadMotion() {
@@ -205,3 +184,8 @@ void TeleopTask::loadMotion() {
     FRC_INFO("[TeleopTask.loadMotion] Loaded " << motion_lib_cache_.size() << " entries.");
 }
 
+void TeleopTask::reset() {
+    BaseTask::reset();
+    count_offset_ = 0;
+    FRC_INFO("[TeleopTask.reset] Reset called. motion_id: " << motion_id_);
+}

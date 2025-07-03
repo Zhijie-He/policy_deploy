@@ -75,6 +75,17 @@ namespace tools {
         return a - b + c;
     }
 
+    // 输入四元数格式：[w, x, y, z]
+    float getHeadingFromQuat(const Eigen::Vector4f& quat) {
+        Eigen::Vector3f vec(1.0f, 0.0f, 0.0f);  // 初始方向向量 (x-axis)
+        float w = quat[0];
+        Eigen::Vector3f xyz = quat.tail<3>();  // 提取 x, y, z
 
+        Eigen::Vector3f t = 2.0f * xyz.cross(vec);
+        Eigen::Vector3f forward = vec + w * t + xyz.cross(t);
+
+        float heading = std::atan2(forward[1], forward[0]);  // atan2(y, x)
+        return heading;
+    }
 }
 

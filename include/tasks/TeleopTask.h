@@ -6,13 +6,14 @@
 struct TeleopTaskCfg : public BaseTaskCfg {
     std::string policy_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.pt";
     std::string engine_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.engine";
+
     std::string motion_file = std::string(PROJECT_SOURCE_DIR) + "/resources/sample_data/fly";
     std::string skeleton_file = std::string(PROJECT_SOURCE_DIR) + "/resources/robots/g1/g1_skeleton.xml";
     std::string motion_json_file = std::string(PROJECT_SOURCE_DIR) + "/resources/sample_data/teleop_motion_lib_cache.json";
 
-    int num_obs = 934;       // 934是对的 根据.json计算    但是返回的纬度不对 返回5733 但是这个时候的hidden_dim不应该是5344 而是5704   //   574是根据tensorrt倒推
-    int num_hidden = 5344;   //  5704 根据 5733 - 29
-    int num_actions = 29;   
+    int num_obs = 934;       // 93 + 91 + 8x90 + 30
+    int num_hidden = 5704;   //  5704  = 31 x(91 + 93)
+    int num_actions = 29;    
 
     float obs_scale_heading = 0.5f;
     int num_motions = 1;
@@ -75,9 +76,9 @@ public:
 
     void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
     void resolveObservation(const CustomTypes::RobotData& robotData) override;
-    void reset() override;
     void loadMotion();
-    
+    void reset() override;
+
 private:
     TeleopTaskCfg task_cfg_;
     float obs_scale_heading_;

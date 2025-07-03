@@ -22,6 +22,7 @@ namespace tools {
     torch::Dtype parseDtype(const std::string& precision);
     Eigen::Vector3f get_gravity_orientation(const Eigen::Vector4f& q);
     Eigen::Vector3f quat_rotate_inverse_on_gravity(const Eigen::Vector4f& q);
+    float getHeadingFromQuat(const Eigen::Vector4f& quat);
 }
 
 

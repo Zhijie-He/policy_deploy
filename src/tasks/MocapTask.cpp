@@ -43,3 +43,11 @@ void MocapTask::resolveKeyboardInput(char key, CustomTypes::RobotData &robotData
 void MocapTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
     updateObservation(raw_obs);
 }
+
+void MocapTask::getMocap() {
+    FRC_INFO("[MocapTask.getMocap]");
+}
+
+void MocapTask::reset() {
+    BaseTask::reset();
+}
