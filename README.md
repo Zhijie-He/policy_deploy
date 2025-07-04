@@ -34,7 +34,7 @@ Usage:
   g1 [OPTION...]
 
   -m, --mode arg       Mode: sim2mujoco or sim2real
-  -c, --config arg     Config name: g1_unitree | g1_eman | h1 | h1_2
+  -c, --config arg     Config name: g1_unitree | g1_eman | mdl
       --headless       Run in headless mode (no GUI)
   -d, --device arg     Device to use: cpu or cuda (default: cpu)
   -n, --net arg        Network interface name for sim2real (default: "")
@@ -53,8 +53,7 @@ Deploys the trained policy into a MuJoCo-based simulated environment.
 Available robot model options:
 - g1_unitree
 - g1_eman
-- h1
-- h1_2
+- mdl
 
 Mode 2: Sim2Real (Real Robot Deployment)
 

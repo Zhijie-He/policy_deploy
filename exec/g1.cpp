@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
     cxxopts::Options options(exec_name, "Run Mujoco-based simulation Or Real for Human Legged Robot");
     options.add_options()
       ("m,mode", "Mode: sim2mujoco or sim2real", cxxopts::value<std::string>())
-      ("c,config", "Config name: g1_unitree | g1_eman | h1 | h1_2", cxxopts::value<std::string>())
+      ("c,config", "Config name: g1_unitree | g1_eman | mdl", cxxopts::value<std::string>())
       ("headless", "Run in headless mode (no GUI)", cxxopts::value<bool>()->default_value("false"))
       ("d,device", "Device to use: cpu or cuda", cxxopts::value<std::string>()->default_value("cpu"))
       ("n,net", "Network interface name for sim2real", cxxopts::value<std::string>()->default_value(""))
@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
     }
 
     // 配置合法性检查
-    const std::vector<std::string> valid_configs = {"g1_unitree", "g1_eman", "h1", "h1_2"};
+    const std::vector<std::string> valid_configs = {"g1_unitree", "g1_eman", "mdl"};
     if (std::find(valid_configs.begin(), valid_configs.end(), config_name) == valid_configs.end()) {
       std::ostringstream oss;
       oss << "Available config names: ";
