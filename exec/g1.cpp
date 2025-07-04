@@ -2,7 +2,9 @@
 #include <csignal>
 #include "state_machine/StateMachine.h"
 #include "hardware/listener.h"
+#ifdef USE_UNITREE_SDK
 #include "sim2/real/g1_sim2real_env.h"
+#endif
 #include "sim2/simulator/g1_sim2mujoco_env.h"
 #include "utility/tools.h"
 #include "utility/cxxopts.hpp"
@@ -21,18 +23,16 @@ public:
                bool headless,
                torch::Device device,
                const std::string& inference_engine_type,
-               const std::string& precision,
-            
-               const std::string& track,
-               const std::vector<std::string>& track_list,
-               std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg,
-               std::shared_ptr<CustomTypes::VlaConfig> vla_cfg)
-      : cfg_(cfg), mode_(mode), track_(track), track_list_(track_list) ,mocap_cfg_(mocap_cfg), vla_cfg_(vla_cfg){
+               const std::string& precision)
+      : cfg_(cfg), 
+        mode_(mode)
+  {
         state_machine_ = std::make_shared<StateMachine>(cfg, config_name, device, inference_engine_type, precision);
-
         if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, state_machine_);
+#ifdef USE_UNITREE_SDK
         else if(mode == "sim2real") hu_env_ = std::make_shared<G1Sim2RealEnv>(net, cfg, state_machine_);
-        else throw std::runtime_error("Unsupported mode!");
+#endif
+        else throw std::runtime_error("Unsupported mode: " + mode);
 
         listener_ = std::make_shared<Listener>();
         hu_env_->setHeadless(headless); 
@@ -75,13 +75,7 @@ public:
 
 private:
   std::shared_ptr<BaseRobotConfig> cfg_ = nullptr;
-
   std::string mode_;
-  std::string track_;
-  std::vector<std::string> track_list_;
-  std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg_;
-  std::shared_ptr<CustomTypes::VlaConfig> vla_cfg_;
-
   std::vector<std::thread> threads_;
 };
 
@@ -210,23 +204,10 @@ int main(int argc, char** argv) {
   signal(SIGINT, close_all_threads);
 
   // mode: sim2mujoco, sim2real
-  // track: cmd, fpos, mocap, vla
-  std::string track = "cmd";
-  std::vector<std::string> track_list = {"cmd"};
-  std::shared_ptr<CustomTypes::MocapConfig> mocap_cfg = nullptr;
-  std::shared_ptr<CustomTypes::VlaConfig> vla_cfg = nullptr;
-
-  // std::vector<std::string> track_list = {"cmd", "mocap"};
-  // auto mocap_cfg = std::make_shared<CustomTypes::MocapConfig>("192.168.123.111", 7003, 30);
-
-  // std::vector<std::string> track_list = {"cmd", "vla"};
-  // auto vla_cfg = std::make_shared<CustomTypes::VlaConfig>("example_data.pkl");
-
   try {
     cfg = tools::loadConfig(config_name);
     
-    controller = std::make_unique<G1Controller>(net, mode, cfg, config_name, headless, torchDevice, inference_engine_type, precision, 
-                                                track, track_list, mocap_cfg, vla_cfg);
+    controller = std::make_unique<G1Controller>(net, mode, cfg, config_name, headless, torchDevice, inference_engine_type, precision);
 
     // Enter the zero torque state, press the start key to continue executing
     controller->zero_torque_state();
