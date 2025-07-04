@@ -2,8 +2,7 @@
 policy_path: "resources/policies/g1/policy_lstm_1.pt"
 engine_path: "resources/policies/g1/policy_lstm_1.engine"
 xml_path: "resources/robots/g1_description/scene.xml"
-# Total simulation time
-simulation_duration: 60.0
+
 # Simulation time step
 simulation_dt: 0.002
 # Controller update frequency (meets the requirement of simulation_dt * controll_decimation=0.02; 50Hz)

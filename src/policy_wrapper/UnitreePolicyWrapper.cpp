@@ -47,9 +47,9 @@ void UnitreePolicyWrapper::updateObservation(const CustomTypes::RobotData &raw_o
     observation.segment(9, acDim) = qj;
     observation.segment(9 + acDim, acDim) = dqj;
     observation.segment(9 + 2 * acDim, acDim) = actionPrev;
-    observation(9 + 3 * acDim) = sin_phase;
-    observation(9 + 3 * acDim + 1) = cos_phase;
-    observation.segment(9 + 3 * acDim, 2) << sin_phase, cos_phase;
+    // observation(9 + 3 * acDim) = sin_phase;
+    // observation(9 + 3 * acDim + 1) = cos_phase;
+    // observation.segment(9 + 3 * acDim, 2) << sin_phase, cos_phase;
 }
 
 CustomTypes::Action UnitreePolicyWrapper::getControlAction(const CustomTypes::RobotData &robotData) {
