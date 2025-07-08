@@ -9,9 +9,6 @@ using json = nlohmann::json;
 struct TeleopTaskCfg : public BaseTaskCfg {
     std::string policy_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.pt";
     std::string engine_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.engine";
-
-    std::string motion_file = std::string(PROJECT_SOURCE_DIR) + "/resources/sample_data/fly";
-    std::string skeleton_file = std::string(PROJECT_SOURCE_DIR) + "/resources/robots/g1/g1_skeleton.xml";
     std::string motion_json_file = std::string(PROJECT_SOURCE_DIR) + "/resources/sample_data/teleop_motion_lib_cache.json";
 
     int num_obs = 934;       // 93 + 91 + 8x90 + 30
@@ -19,10 +16,9 @@ struct TeleopTaskCfg : public BaseTaskCfg {
     int num_actions = 29;    
 
     float obs_scale_heading = 0.5f;
-    int num_motions = 10;
+    int num_motions = 2;
     int num_samples = 1 + 8;
     float sample_timestep_inv = 30.0f;
-    std::string humanoid_type = "g1_29dof";
 
     std::vector<std::string> track_keypoints_names = {
         "pelvis",

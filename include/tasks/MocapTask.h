@@ -2,27 +2,28 @@
 #pragma once
 #include "tasks/BaseTask.h"
 #include "tasks/TaskFactory.h"
+#include "tasks/utils/mocap/MocapMsgSubscriber.hpp"
+
+#include "utility/json.hpp"
+#include <fstream>
+using json = nlohmann::json;
 
 struct MocapTaskCfg : public BaseTaskCfg {
-    std::string policy_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/cmdTask.pt";
-    std::string engine_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/cmdTask.engine";
-    
+    std::string policy_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.pt";
+    std::string engine_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.engine";
+    std::string motion_json_file = std::string(PROJECT_SOURCE_DIR) + "/resources/sample_data/teleop_motion_lib_cache.json";
+
     // 模型参数
-    int num_obs = 96;         // 93 self_obs + 3 command
-    int num_actions = 29;
-    int num_hidden = 2883;    // e.g., 32 x 93 + 3 - 96
+    int num_obs = 934;       // 93 + 91 + 8x90 + 30
+    int num_hidden = 5704;   //  5704  = 31 x(91 + 93)
+    int num_actions = 29;    
 
-    // 指令限制与缩放因子
-    Eigen::Vector3f max_cmd = {0.8f, 0.5f, 1.57f};
-    Eigen::Vector3f obs_scale = {2.0f, 2.0f, 0.25f};
-
-    float obs_scale_heading = 0.5f;
-  
-     // 远程设置（如果需要结构化建议换成 struct 或 json 配置）
+    // 远程设置
     std::string remote_host = "192.168.123.111";
     int remote_port = 7003;
-
-    // 轨迹采样设置
+    
+    float obs_scale_heading = 0.5f;
+    int num_motions = 2;
     int num_samples = 9;                // 1 current + 8 next
     float sample_timestep_inv = 30.0f;
 
@@ -75,7 +76,7 @@ public:
               const std::string& precision);
     void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
     void resolveObservation(const CustomTypes::RobotData& robotData) override;
-    void getMocap();
+    MocapResult getMocap();
     void reset() override;
 
 private:
@@ -83,6 +84,7 @@ private:
     float obs_scale_heading_;
     std::vector<int> track_keypoints_indices_;
     Eigen::VectorXf mask_;
+    std::unique_ptr<MocapMsgSubscriber> mocap_receiver_;
 };
 
 

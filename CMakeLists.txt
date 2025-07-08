@@ -96,7 +96,7 @@ pkg_check_modules(YAMLCPP REQUIRED yaml-cpp)
 pkg_check_modules(GLFW REQUIRED glfw3) 
 
 # 递归收集所有 .cpp 文件
-file(GLOB_RECURSE ALL_SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp)
+file(GLOB_RECURSE ALL_SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp ${CMAKE_SOURCE_DIR}/src/*.c) 
 
 # 条件排除目录
 if (NOT USE_UNITREE_SDK)
@@ -177,12 +177,20 @@ add_executable(g1 exec/g1.cpp ${SRC_FILES})
 target_link_libraries(g1 ${COMMON_LIBS})
 
 # 真机部署（仅在启用Unitree SDK时编译）
-if (USE_UNITREE_SDK)
-    add_executable(simulate_robot exec/simulate_robot.cpp ${SRC_FILES})
-    target_link_libraries(simulate_robot ${COMMON_LIBS})
+# if (USE_UNITREE_SDK)
+#     add_executable(simulate_robot exec/simulate_robot.cpp ${SRC_FILES})
+#     target_link_libraries(simulate_robot ${COMMON_LIBS})
 
-    add_executable(check_G1Robot_input exec/check_G1Robot_input.cpp ${SRC_FILES})
-    target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
-endif()
+#     add_executable(check_G1Robot_input exec/check_G1Robot_input.cpp ${SRC_FILES})
+#     target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
+# endif()
 
+add_executable(subscriber exec/subscriber_dds.cpp ${SRC_FILES})
+target_link_libraries(subscriber ${COMMON_LIBS})
+
+add_executable(subscriber_class exec/subscriber_dds_class.cpp ${SRC_FILES})
+target_link_libraries(subscriber_class ${COMMON_LIBS})
+
+add_executable(publisher exec/publisher_dds.cpp ${SRC_FILES})
+target_link_libraries(publisher ${COMMON_LIBS})
 

@@ -1,0 +1,20 @@
+// MocapMsg.idl
+
+struct MocapMsg {
+  float fps;
+  float root_rot[4];
+  float box_rot[8];             // 2*4
+  float key_points[27];        // 9*3
+
+  octet hands;                 // uint8
+  float left_hand_pos[21];     // 7*3
+  float right_hand_pos[21];    // 7*3
+  float left_wrist_rot[4];
+  float right_wrist_rot[4];
+
+  octet retarget;              // uint8
+  float hands_joints[14];      // 2*7
+  float left_wrist_joints[3];
+  float right_wrist_joints[3];
+};
+

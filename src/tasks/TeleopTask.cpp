@@ -14,6 +14,9 @@ TeleopTask::TeleopTask(std::shared_ptr<const BaseRobotConfig> cfg,
        task_cfg_() 
 {
     FRC_INFO("[TeleopTask.Const] Created!");
+    // overwrite cfg from model cfg
+    // task_cfg_.num_samples = 1 + self.actor.cfg["task_next_obs"]["shape"][0]
+
     obs_scale_heading_ = task_cfg_.obs_scale_heading;
 
     // 1. 提取 track_keypoints 对应的下标索引
@@ -52,6 +55,7 @@ void TeleopTask::resolveKeyboardInput(char key, CustomTypes::RobotData &robotDat
         start_ = false;
         count_offset_ = counter_;
         motion_id_ = (motion_id_ + 1) % task_cfg_.num_motions; 
+        FRC_HIGHLIGHT("motion_id_" << motion_id_ << "motion_id_ + 1" << motion_id_ + 1 << "num_motions" << task_cfg_.num_motions);
     }
 
     FRC_INFO("[TeleopTask.resolveKeyboardInput] TeleopTask motion_id: " << motion_id_);   
