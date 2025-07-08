@@ -18,15 +18,21 @@
 #include "robot_message/msg/motor_state_data.hpp" 	// 引入自定义消息头文件
 #include "robot_message/msg/motor_control.hpp" 	// 引入自定义消息头文件
 
+#include "motor_low_communication.h"
 
 //  public MotorLowCommunicatio
-class MotorManagerNode : public rclcpp::Node {
+class MotorManagerNode : public rclcpp::Node{
 
 public:
 	MotorManagerNode(const std::string &node_name);
     ~MotorManagerNode();
 
 private:
+	void Timer_Callback(void);
+	
+	//MotorControl消息订阅回调函数
+	void Motor_Control_Message_Callback(const robot_message::msg::MotorControl::SharedPtr msg);
+
 	// 发布者对象，发布消息到 "motor_status" 话题
 	rclcpp::Publisher<robot_message::msg::MotorStateData>::SharedPtr motor_state_publisher_;
 	// 订阅者对象，订阅 "motor_control" 话题

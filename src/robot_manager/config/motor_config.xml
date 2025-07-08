@@ -1,0 +1,58 @@
+<motor_configurations>
+    <motor id="0">
+        <offset>1.05</offset>
+        <polarity>-1.0</polarity>
+    </motor>
+    <motor id="1">
+        <offset>0.174</offset>
+        <polarity>1.0</polarity>
+    </motor>
+    <motor id="2">
+        <offset>0.349</offset>
+        <polarity>-1.0</polarity>
+    </motor>
+    <motor id="3">
+        <offset>1.57</offset>
+        <polarity>1.0</polarity>
+    </motor>
+    <motor id="4">
+        <offset>2.54</offset>
+        <polarity>-1.0</polarity>
+    </motor>
+    <motor id="5">
+        <offset>0.0</offset>
+        <polarity>-1.0</polarity>
+    </motor>
+    <motor id="6">
+        <offset>0.0</offset>
+        <polarity>1.0</polarity>
+    </motor>
+    <motor id="7">
+        <offset>0.174</offset>
+        <polarity>1.0</polarity>
+    </motor>
+    <motor id="8">
+        <offset>0.349</offset>
+        <polarity>-1.0</polarity>
+    </motor>
+    <motor id="9">
+        <offset>0.873</offset>
+        <polarity>-1.0</polarity>
+    </motor>
+    <motor id="10">
+        <offset>-0.0997</offset>
+        <polarity>1.0</polarity>
+    </motor>
+    <motor id="11">
+        <offset>0.0</offset>
+        <polarity>1.0</polarity>
+    </motor>
+    <motor id="12">
+        <offset>0.0</offset>
+        <polarity>-1.0</polarity>
+    </motor>
+    <motor id="13">
+        <offset>-0.052</offset>
+        <polarity>1.0</polarity>
+    </motor>
+</motor_configurations>

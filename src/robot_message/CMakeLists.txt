@@ -26,7 +26,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 )
 
 # 导出依赖（让其他包可以使用） 把生成后的接口暴露给其他依赖你的包（如 import robot_message.msg）。
-ament_export_dependencies(rosidl_default_runtime)
+# ament_export_dependencies(rosidl_default_runtime)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

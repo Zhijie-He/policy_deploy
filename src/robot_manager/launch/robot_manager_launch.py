@@ -10,7 +10,18 @@ def generate_launch_description():
             name='motor_manager_node',  # 节点名称
             output='screen',  # 输出到屏幕
         ),
-        
+        Node(
+            package='robot_manager',
+            executable='joint_dispose',
+            name='joint_dispose_node',
+            output='screen',
+        ),
+        Node(
+            package='robot_manager',
+            executable='imu_manager',
+            name='imu_manager_node',
+            output='screen',
+        ),
         Node(
             package='joy',  # 指定 ROS 2 包名
             executable='joy_node',  # 可执行文件名
