@@ -203,7 +203,7 @@ MocapResult MocapTask::getMocap() {
     int num_keypoints = 30;
     int track_num = track_keypoints_indices_.size();
 
-    Eigen::MatrixXf mocap_state = Eigen::MatrixXf::Zero(num_samples, num_keypoints*3);
+    Eigen::MatrixXf mocap_state = Eigen::MatrixXf::Zero(num_samples, num_keypoints * 3);
 
     for(int t = 0; t < num_samples; ++t){
         for (size_t j = 0; j < track_num; ++j){

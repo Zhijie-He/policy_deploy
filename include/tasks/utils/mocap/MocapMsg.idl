@@ -6,6 +6,9 @@ struct MocapMsg {
   float box_rot[8];             // 2*4
   float key_points[27];        // 9*3
 
+  octet teleop;                // uint8
+  float teleop_obs[90];        // 30*3
+  
   octet hands;                 // uint8
   float left_hand_pos[21];     // 7*3
   float right_hand_pos[21];    // 7*3

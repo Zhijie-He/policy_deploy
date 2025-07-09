@@ -15,7 +15,8 @@
 class G1Sim2MujocoEnv : public BaseEnv {
 public:
   G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-                std::shared_ptr<StateMachine> state_machine);
+                  const std::string& hands,
+                  std::shared_ptr<StateMachine> state_machine);
 
   ~G1Sim2MujocoEnv();
 

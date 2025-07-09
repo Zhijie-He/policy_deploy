@@ -69,6 +69,11 @@ int main() {
                 std::cout << "  - Msg[" << i << "] FPS: " << msg.fps << "\n";
                 std::cout << "Root Rot: [";
                 for (int i = 0; i < 4; ++i) std::cout << msg.root_rot[i] << (i < 3 ? ", " : "]\n");
+
+                std::cout << "Teleop: " << static_cast<int>(msg.teleop) << "\n";
+
+                std::cout << "Teleop Obs (30x3): [";
+                for (int i = 0; i < 21; ++i) std::cout << msg.teleop_obs[i] << (i < 20 ? ", " : "]\n");
             }
         } else {
             std::cout << "（暂无新消息）\n";
@@ -101,6 +106,11 @@ int main() {
 
             std::cout << "Key Points (9x3): [";
             for (int i = 0; i < 27; ++i) std::cout << msg.key_points[i] << (i < 26 ? ", " : "]\n");
+
+            std::cout << "Teleop: " << static_cast<int>(msg.teleop) << "\n";
+
+            std::cout << "Teleop Obs (30x3): [";
+            for (int i = 0; i < 21; ++i) std::cout << msg.teleop_obs[i] << (i < 20 ? ", " : "]\n");
 
             std::cout << "Hands: " << static_cast<int>(msg.hands) << "\n";
 

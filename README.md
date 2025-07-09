@@ -48,7 +48,7 @@ Usage:
 Mode 1: Sim2Mujoco (Simulation Deployment)
 
 Deploys the trained policy into a MuJoCo-based simulated environment.
-`./g1 -m sim2mujoco -c g1_eman  -d cpu --headless `
+`./g1 -m sim2mujoco -c g1_eman -d cpu --headless `
 
 Available robot model options:
 - g1_eman

@@ -1,15 +1,25 @@
 // ===== include/config/BaseRobotConfig.h =====
 #pragma once
 
-#include <Eigen/Dense>
 #include <string>
+#include <unordered_map>
+#include <Eigen/Dense>
+
+struct HandConfig {
+    Eigen::VectorXf kp_left, kp_right;
+    Eigen::VectorXf kd_left, kd_right;
+
+    std::string left_cmd_topic = "";
+    std::string right_cmd_topic = "";
+    std::string left_state_topic = "";
+    std::string right_state_topic = "";
+};
+
 
 class BaseRobotConfig {
 public:
     virtual ~BaseRobotConfig() = default;
     int num_actions;
-    int num_obs;
-    int num_hidden;
     float simulation_dt;
     float policy_dt;
     int control_decimation;
@@ -26,9 +36,7 @@ public:
     float dof_pos_scale;
     float dof_vel_scale;
     float action_scale;
-
-    std::string policy_path;
-    std::string engine_path;
+    
     std::string xml_path;
     std::string robot_name;
     virtual float getPolicyDt() const = 0;
@@ -44,4 +52,6 @@ public:
     std::vector<int> actor2env;
     std::vector<int> env2actor;
 
+    // hands
+    std::unordered_map<std::string, HandConfig> hand_map;
 };

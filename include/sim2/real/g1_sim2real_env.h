@@ -28,6 +28,7 @@ class G1Sim2RealEnv : public BaseEnv {
 public:
   G1Sim2RealEnv(const std::string& net_interface,
             std::shared_ptr<const BaseRobotConfig> cfg,
+            const std::string& hands,
             std::shared_ptr<StateMachine> state_machine);   
 
   void initWorld();

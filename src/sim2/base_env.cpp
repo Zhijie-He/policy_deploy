@@ -3,14 +3,19 @@
 #include "utility/timer.h"
 
 BaseEnv::BaseEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-          std::shared_ptr<StateMachine> state_machine)
+                 const std::string& hands,
+                 std::shared_ptr<StateMachine> state_machine)
     : cfg_(cfg),
+      hands_(hands),
       state_machine_(state_machine),
       jointCMDBufferPtr_(state_machine->getJointCMDBufferPtr()),
       robotStatusBufferPtr_(state_machine_->getRobotStatusBufferPtr()),
       control_dt_(cfg->getPolicyDt())
 {   
-
+    FRC_INFO("[BaseEnv.Const] Using hands: " << hands);
+    if(hands != "box" && hands != "dex3"){
+        throw std::runtime_error("Only support dex3 hands now");
+    }
 }
 
 void BaseEnv::initState() {

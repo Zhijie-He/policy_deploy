@@ -8,8 +8,9 @@
 #include "utility/tools.h"
 
 G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
+                                 const std::string& hands,
                                  std::shared_ptr<StateMachine> state_machine)
-    : BaseEnv(cfg, state_machine),
+    : BaseEnv(cfg, hands, state_machine),
       robotName_(cfg->robot_name),
       simulation_dt_(cfg->simulation_dt)
 {

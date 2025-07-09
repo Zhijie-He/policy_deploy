@@ -48,6 +48,10 @@ int main() {
     for (int i = 0; i < 4; ++i) msg.root_rot[i] = (i == 0) ? 1.0f : 0.0f;
     for (int i = 0; i < 8; ++i) msg.box_rot[i] = i;
     for (int i = 0; i < 27; ++i) msg.key_points[i] = float(i);
+    msg.teleop = 1;
+    for (int i = 0; i < 90; ++i) {
+        msg.teleop_obs[i] = 0.1f * i;
+    }
     msg.hands = 1;
     for (int i = 0; i < 21; ++i) {
         msg.left_hand_pos[i] = 0.1f * i;

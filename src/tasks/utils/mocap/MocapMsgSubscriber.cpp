@@ -45,18 +45,21 @@ MocapMsgSubscriber::MocapMsgSubscriber(float fps, int length)
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    // 等待至少一条消息
-    MocapMsg sample;
-    void* samples[1] = { &sample };
-    dds_sample_info_t infos[1];
+    // at least qos 50 messages
+    MocapMsg samples[MAX_SAMPLES];
+    void* samples_void[MAX_SAMPLES];
+    dds_sample_info_t infos[MAX_SAMPLES];
+    for (int i = 0; i < MAX_SAMPLES; ++i) samples_void[i] = &samples[i];
+
     int ret;
     do {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        ret = dds_read(reader_, samples, infos, 1, 1);
-    } while (ret <= 0);
+        ret = dds_read(reader_, samples_void, infos, MAX_SAMPLES, MAX_SAMPLES);
+    } while (ret < MAX_SAMPLES);
 
-    msg_fps_ = sample.fps;
-    msg_hands_ = sample.hands;
+    msg_fps_ = samples[0].fps;
+    msg_hands_ = samples[0].hands;
+    FRC_INFO("[MocapMsgSubscriber.Const] msg_fps_: "<< msg_fps_ << ", msg_hands_: " << msg_hands_);
     FRC_INFO("[MocapMsgSubscriber.Const] created!");
 }
 
@@ -75,7 +78,7 @@ MocapData MocapMsgSubscriber::subscribe() {
         return result;
     }
     
-    FRC_HIGHLIGHT("[MocapMsgSubscriber.subscribe] 本轮收到了 " << ret << " 条消息");
+    // FRC_HIGHLIGHT("[MocapMsgSubscriber.subscribe] 本轮收到了 " << ret << " 条消息");
     for (int i = 1; i <= length_; ++i) {
         int idx = ret - 1 - static_cast<int>(i * (1.0 / fps_) * msg_fps_);
         if (idx < 0 || idx >= ret || !infos[idx].valid_data) {

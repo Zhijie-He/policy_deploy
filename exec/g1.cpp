@@ -17,8 +17,9 @@ class G1Controller {
 public:
   G1Controller(const std::string& net,
                const std::string& mode,
-               std::shared_ptr<BaseRobotConfig> cfg,
                const std::vector<std::pair<std::string, char>>& registers,
+               std::shared_ptr<BaseRobotConfig> cfg,
+               const std::string& hands,
                torch::Device device,
 
                bool headless,
@@ -27,11 +28,11 @@ public:
   {
     state_machine_ = std::make_shared<StateMachine>(cfg, device, registers, inference_engine_type, precision);
     
-    if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, state_machine_);
+    if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, hands, state_machine_);
 #ifdef USE_UNITREE_SDK
-    else if(mode == "sim2real") hu_env_ = std::make_shared<G1Sim2RealEnv>(net, cfg, state_machine_);
+    else if(mode == "sim2real") hu_env_ = std::make_shared<G1Sim2RealEnv>(net, cfg, hands, state_machine_);
 #endif 
-    else throw std::runtime_error("Unsupported mode: " + mode);
+    else throw std::runtime_error("Invalid mode: " + mode);
     
     listener_ = std::make_shared<Listener>();
     listener_->setKeyboardCallback(std::bind(&StateMachine::handleKeyboardInput, state_machine_.get(), std::placeholders::_1));
@@ -72,7 +73,7 @@ private:
   std::shared_ptr<BaseEnv> hu_env_ = nullptr;
 };
 
-std::shared_ptr<BaseRobotConfig> cfg = nullptr;
+std::shared_ptr<BaseRobotConfig> config = nullptr;
 std::unique_ptr<G1Controller> controller = nullptr;
 
 void close_all_threads(int signum) {
@@ -87,9 +88,10 @@ int main(int argc, char** argv) {
   std::string config_name;
   bool headless = false;
   std::string net;
-  torch::Device torchDevice = torch::kCPU;
+  torch::Device device = torch::kCPU;
   std::string inference_engine_type = "libtorch";
   std::string precision = "fp32";
+  std::string hands = "box";
   
   try {
     cxxopts::Options options(exec_name, "Run Mujoco-based simulation Or Real for Human Legged Robot");
@@ -101,6 +103,7 @@ int main(int argc, char** argv) {
       ("n,net", "Network interface name for sim2real", cxxopts::value<std::string>()->default_value(""))
       ("engine", "Inference engine type: libtorch | tensorrt", cxxopts::value<std::string>()->default_value("libtorch"))
       ("precision", "Inference precision: fp32 | fp16 | int8", cxxopts::value<std::string>()->default_value("fp32"))
+      ("hands", "hands type: box | dex3", cxxopts::value<std::string>()->default_value("box"))
       ("h,help", "Show help");
 
     auto result = options.parse(argc, argv);
@@ -117,12 +120,14 @@ int main(int argc, char** argv) {
     net = result["net"].as<std::string>();
     inference_engine_type = result["engine"].as<std::string>();
     precision = result["precision"].as<std::string>();
+    hands = result["hands"].as<std::string>();
 
     std::string device_str = result["device"].as<std::string>();
     std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
     std::transform(device_str.begin(), device_str.end(), device_str.begin(), ::tolower);
     std::transform(inference_engine_type.begin(), inference_engine_type.end(), inference_engine_type.begin(), ::tolower);
     std::transform(precision.begin(), precision.end(), precision.begin(), ::tolower);
+    std::transform(hands.begin(), hands.end(), hands.begin(), ::tolower);
 
     // 模式合法性检查
     if (mode != "sim2mujoco" && mode != "sim2real") {
@@ -181,10 +186,18 @@ int main(int argc, char** argv) {
       return -1;
     }
 
+    // hands type check
+    const std::vector<std::string> valid_hands = {"box", "dex3"};
+    if (std::find(valid_hands.begin(), valid_hands.end(), hands) == valid_hands.end()) {
+      FRC_ERROR("Invalid hands type: " << hands);
+      FRC_ERROR("Available types: box | dex3");
+      return -1;
+    }
+
     // select device
     if (device_str == "cuda") {
-      torchDevice = tools::getDefaultDevice();
-      if (torchDevice.type() != torch::kCUDA) {
+      device = tools::getDefaultDevice();
+      if (device.type() != torch::kCUDA) {
         FRC_WARN("CUDA requested, but not available. Falling back to CPU.");
         device_str = "cpu";
       }
@@ -197,16 +210,18 @@ int main(int argc, char** argv) {
   signal(SIGINT, close_all_threads);
 
   try {
-    cfg = tools::loadConfig(config_name);
+    config = tools::loadConfig(config_name);
+    // FRC_INFO(config->hand_map[hands].left_cmd_topic);
+
     std::vector<std::pair<std::string, char>> registers = {
       {"CmdTask", '1'},
       {"TeleopTask", '2'},
-      {"MocapTask", '3'}
+      // {"MocapTask", '3'}
     };
     
-    controller = std::make_unique<G1Controller>(net, mode, cfg, registers, torchDevice, 
+    controller = std::make_unique<G1Controller>(net, mode, registers, config, hands, device, 
                                                 headless, inference_engine_type, precision);
-
+                                                
     // Enter the zero torque state, press the start key to continue executing
     controller->zero_torque_state();
     // Move to the default position
