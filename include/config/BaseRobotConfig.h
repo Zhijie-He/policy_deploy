@@ -38,6 +38,7 @@ public:
     float action_scale;
     
     std::string xml_path;
+    std::string xml_with_hand_path;
     std::string robot_name;
     virtual float getPolicyDt() const = 0;
 

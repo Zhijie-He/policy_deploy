@@ -52,9 +52,9 @@ void create_zero_cmd(LowCmd_& cmd) {
 
 G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
             std::shared_ptr<const BaseRobotConfig> cfg,
-            const std::string& hands,
+            const std::string& hands_type,
             std::shared_ptr<StateMachine> state_machine)
-    : BaseEnv(cfg, hands, state_machine),
+    : BaseEnv(cfg, hands_type, state_machine),
       net_interface_(net_interface),
       mode_pr_(Mode::PR),
       mode_machine_(0)

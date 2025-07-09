@@ -8,9 +8,9 @@
 #include "utility/tools.h"
 
 G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-                                 const std::string& hands,
+                                 const std::string& hands_type,
                                  std::shared_ptr<StateMachine> state_machine)
-    : BaseEnv(cfg, hands, state_machine),
+    : BaseEnv(cfg, hands_type, state_machine),
       robotName_(cfg->robot_name),
       simulation_dt_(cfg->simulation_dt)
 {
@@ -23,7 +23,12 @@ G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
 
 void G1Sim2MujocoEnv::initWorld() {
   char error[1000] = "";
-  mj_model_ = mj_loadXML(cfg_->xml_path.c_str(), nullptr, error, 1000);
+  if(hands_type_ == "dex3"){
+    mj_model_ = mj_loadXML(cfg_->xml_with_hand_path.c_str(), nullptr, error, 1000);
+  }else{
+    mj_model_ = mj_loadXML(cfg_->xml_path.c_str(), nullptr, error, 1000);
+  }
+
   if (!mj_model_) {
     FRC_ERROR("[G1Sim2MujocoEnv.initWorld] Failed to load "<< cfg_->xml_path.c_str() << ", " << error);
     std::exit(1);
@@ -44,6 +49,47 @@ void G1Sim2MujocoEnv::initWorld() {
   for (int i = 0; i < gcDim_; ++i)
     oss << mj_data_->qpos[i] << " ";
   FRC_INFO("[G1Sim2MujocoEnv.initWorld] Initial qpos from XML: " <<oss.str());
+
+  // add hands logical
+  left_hand_num_dof_ = cfg_->hand_map.at(hands_type_).kp_left.size();
+  right_hand_num_dof_ = cfg_->hand_map.at(hands_type_).kp_right.size();
+
+  // FRC_CRITICAL(left_hand_num_dof_ << " " << right_hand_num_dof_);
+  int size = 6 + 6 + 3 + 7 + left_hand_num_dof_ + 7 + right_hand_num_dof_;
+  joint_concat_index_.resize(size);
+  int idx = 0;
+  for (int i = 0; i < 6; ++i) joint_concat_index_(idx++) = i;   // [0,6)
+  for (int i = 6; i < 12; ++i) joint_concat_index_(idx++) = i;  // [6,12)
+  for (int i = 12; i < 15; ++i) joint_concat_index_(idx++) = i; // [12,15)
+  for (int i = 15; i < 22; ++i) joint_concat_index_(idx++) = i; // [15,22)
+  for (int i = 29; i < 29 + left_hand_num_dof_; ++i) joint_concat_index_(idx++) = i;   // [29,29+L)
+  for (int i = 22; i < 29; ++i) joint_concat_index_(idx++) = i;   // [22,29)
+  for (int i = 29 + left_hand_num_dof_; i < 29 + left_hand_num_dof_ + right_hand_num_dof_; ++i)   // [29+L,29+L+R)
+      joint_concat_index_(idx++) = i;
+  FRC_CRITICAL(joint_concat_index_.transpose());
+
+  // 构建 skeleton 下标
+  std::vector<int> skeleton_vec;
+  for (int i = 0; i < 6; ++i) skeleton_vec.push_back(i);
+  for (int i = 6; i < 12; ++i) skeleton_vec.push_back(i);
+  for (int i = 12; i < 15; ++i) skeleton_vec.push_back(i);
+  for (int i = 15; i < 22; ++i) skeleton_vec.push_back(i);
+  for (int i = 22 + left_hand_num_dof_; i < 22 + left_hand_num_dof_ + 7; ++i)
+      skeleton_vec.push_back(i);
+
+  // 构建 hands 下标
+  std::vector<int> hands_vec;
+  for (int i = 22; i < 22 + left_hand_num_dof_; ++i)
+      hands_vec.push_back(i);
+  for (int i = 22 + left_hand_num_dof_ + 7; i < 22 + left_hand_num_dof_ + 7 + right_hand_num_dof_; ++i)
+      hands_vec.push_back(i);
+
+  // 转为 Eigen::VectorXi
+  joint_split_index_["skeleton"] = Eigen::Map<Eigen::VectorXi>(skeleton_vec.data(), skeleton_vec.size());
+  joint_split_index_["hands"]    = Eigen::Map<Eigen::VectorXi>(hands_vec.data(), hands_vec.size());
+  FRC_CRITICAL(joint_split_index_["skeleton"].transpose());
+  FRC_CRITICAL(joint_split_index_["hands"].transpose());
+  FRC_INFO("[G1Sim2MujocoEnv.initWorld] Add hands logical");
 }
 
 void G1Sim2MujocoEnv::launchServer() {

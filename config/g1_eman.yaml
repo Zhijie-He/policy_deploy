@@ -94,5 +94,7 @@ simulation_dt: 0.00125
 control_decimation: 16
 cmd_init: [0, 0, 0]
 xml_path: "resources/robots/g1/scene_29dof.xml"
+xml_with_hand_path: "resources/robots/g1/scene_29dof_dex3.xml"
+
 
 

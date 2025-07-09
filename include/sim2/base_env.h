@@ -11,7 +11,7 @@
 class BaseEnv {
 public:
   BaseEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-          const std::string& hands,
+          const std::string& hands_type,
           std::shared_ptr<StateMachine> state_machine);
          
   virtual ~BaseEnv() = default;
@@ -34,7 +34,7 @@ protected:
   std::shared_ptr<const BaseRobotConfig> cfg_;
   std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr_;
   std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr_;
-  std::string hands_;
+  std::string hands_type_;
 
   float control_dt_;
   bool running_ = true;

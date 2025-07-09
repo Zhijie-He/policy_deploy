@@ -74,8 +74,8 @@ EmanRobotConfig::EmanRobotConfig(const std::string& yaml_path)
 
     // ========== 路径信息 ==========
     std::string project_source_dir = PROJECT_SOURCE_DIR;
-    xml_path    = project_source_dir + "/" + root_["xml_path"].as<std::string>();
-
+    xml_path = project_source_dir + "/" + root_["xml_path"].as<std::string>();
+    xml_with_hand_path = project_source_dir + "/" + root_["xml_with_hand_path"].as<std::string>();
     // ========== 自定义参数 ==========
     robot_name = root_["robot_name"].as<std::string>();
     

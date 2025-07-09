@@ -19,7 +19,7 @@ public:
                const std::string& mode,
                const std::vector<std::pair<std::string, char>>& registers,
                std::shared_ptr<BaseRobotConfig> cfg,
-               const std::string& hands,
+               const std::string& hands_type,
                torch::Device device,
 
                bool headless,
@@ -28,9 +28,9 @@ public:
   {
     state_machine_ = std::make_shared<StateMachine>(cfg, device, registers, inference_engine_type, precision);
     
-    if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, hands, state_machine_);
+    if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, hands_type, state_machine_);
 #ifdef USE_UNITREE_SDK
-    else if(mode == "sim2real") hu_env_ = std::make_shared<G1Sim2RealEnv>(net, cfg, hands, state_machine_);
+    else if(mode == "sim2real") hu_env_ = std::make_shared<G1Sim2RealEnv>(net, cfg, hands_type, state_machine_);
 #endif 
     else throw std::runtime_error("Invalid mode: " + mode);
     
@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
   torch::Device device = torch::kCPU;
   std::string inference_engine_type = "libtorch";
   std::string precision = "fp32";
-  std::string hands = "box";
+  std::string hands_type = "box";
   
   try {
     cxxopts::Options options(exec_name, "Run Mujoco-based simulation Or Real for Human Legged Robot");
@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
       ("n,net", "Network interface name for sim2real", cxxopts::value<std::string>()->default_value(""))
       ("engine", "Inference engine type: libtorch | tensorrt", cxxopts::value<std::string>()->default_value("libtorch"))
       ("precision", "Inference precision: fp32 | fp16 | int8", cxxopts::value<std::string>()->default_value("fp32"))
-      ("hands", "hands type: box | dex3", cxxopts::value<std::string>()->default_value("box"))
+      ("hands_type", "hands_type type: box | dex3", cxxopts::value<std::string>()->default_value("box"))
       ("h,help", "Show help");
 
     auto result = options.parse(argc, argv);
@@ -120,14 +120,14 @@ int main(int argc, char** argv) {
     net = result["net"].as<std::string>();
     inference_engine_type = result["engine"].as<std::string>();
     precision = result["precision"].as<std::string>();
-    hands = result["hands"].as<std::string>();
+    hands_type = result["hands_type"].as<std::string>();
 
     std::string device_str = result["device"].as<std::string>();
     std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
     std::transform(device_str.begin(), device_str.end(), device_str.begin(), ::tolower);
     std::transform(inference_engine_type.begin(), inference_engine_type.end(), inference_engine_type.begin(), ::tolower);
     std::transform(precision.begin(), precision.end(), precision.begin(), ::tolower);
-    std::transform(hands.begin(), hands.end(), hands.begin(), ::tolower);
+    std::transform(hands_type.begin(), hands_type.end(), hands_type.begin(), ::tolower);
 
     // 模式合法性检查
     if (mode != "sim2mujoco" && mode != "sim2real") {
@@ -186,10 +186,10 @@ int main(int argc, char** argv) {
       return -1;
     }
 
-    // hands type check
+    // hands_type type check
     const std::vector<std::string> valid_hands = {"box", "dex3"};
-    if (std::find(valid_hands.begin(), valid_hands.end(), hands) == valid_hands.end()) {
-      FRC_ERROR("Invalid hands type: " << hands);
+    if (std::find(valid_hands.begin(), valid_hands.end(), hands_type) == valid_hands.end()) {
+      FRC_ERROR("Invalid hands type: " << hands_type);
       FRC_ERROR("Available types: box | dex3");
       return -1;
     }
@@ -211,15 +211,15 @@ int main(int argc, char** argv) {
 
   try {
     config = tools::loadConfig(config_name);
-    // FRC_INFO(config->hand_map[hands].left_cmd_topic);
-
+    // FRC_INFO(config->hand_map[hands_type].left_cmd_topic);
+    
     std::vector<std::pair<std::string, char>> registers = {
       {"CmdTask", '1'},
-      {"TeleopTask", '2'},
+      // {"TeleopTask", '2'},
       // {"MocapTask", '3'}
     };
     
-    controller = std::make_unique<G1Controller>(net, mode, registers, config, hands, device, 
+    controller = std::make_unique<G1Controller>(net, mode, registers, config, hands_type, device, 
                                                 headless, inference_engine_type, precision);
                                                 
     // Enter the zero torque state, press the start key to continue executing

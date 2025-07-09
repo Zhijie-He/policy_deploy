@@ -15,7 +15,7 @@
 class G1Sim2MujocoEnv : public BaseEnv {
 public:
   G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-                  const std::string& hands,
+                  const std::string& hands_type,
                   std::shared_ptr<StateMachine> state_machine);
 
   ~G1Sim2MujocoEnv();
@@ -38,7 +38,13 @@ private:
   std::string robotName_;
   float simulation_dt_ = 5e-4;
   std::thread step_thread_;
-  
+
+  // hands related
+  int left_hand_num_dof_;
+  int right_hand_num_dof_;
+  Eigen::VectorXi joint_concat_index_;
+  std::unordered_map<std::string, Eigen::VectorXi> joint_split_index_;
+
   // MuJoCo core members
   bool headless_ = true; 
   mjModel* mj_model_ = nullptr;
