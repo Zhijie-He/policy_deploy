@@ -8,9 +8,10 @@
 
 TeleopTask::TeleopTask(std::shared_ptr<const BaseRobotConfig> cfg,
                        torch::Device device,
+                       const std::string& hands_type,
                        const std::string& inference_engine_type,
                        const std::string& precision)
-     : BaseTask(cfg, std::make_shared<TeleopTaskCfg>(), device,  inference_engine_type, precision),
+     : BaseTask(cfg, std::make_shared<TeleopTaskCfg>(), device, hands_type, inference_engine_type, precision),
        task_cfg_() 
 {
     FRC_INFO("[TeleopTask.Const] Created!");

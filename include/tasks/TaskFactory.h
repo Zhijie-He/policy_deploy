@@ -14,6 +14,7 @@ public:
         const std::string& name,
         std::shared_ptr<const BaseRobotConfig> cfg,
         torch::Device device,
+        const std::string& hands_type,
         const std::string& inference_engine_type,
         const std::string& precision);
 
@@ -22,6 +23,7 @@ public:
         const std::function<std::shared_ptr<BaseTask>(
             std::shared_ptr<const BaseRobotConfig>,
             torch::Device,
+            std::string,    // hands type
             std::string,    // inference_engine_type
             std::string     // precision
         )>& ctor);
@@ -32,6 +34,7 @@ private:
     static std::unordered_map<std::string,std::function<std::shared_ptr<BaseTask>(
             std::shared_ptr<const BaseRobotConfig>,
             torch::Device,
+            std::string,
             std::string,
             std::string
         )>>& registry();

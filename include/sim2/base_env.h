@@ -44,7 +44,7 @@ protected:
   char* keyPtr_ = nullptr;
   JoystickData* joyPtr_ = nullptr;
 
-  int gcDim_, gvDim_, jointDim_;
+  int gcDim_, gvDim_, jointDim_, handsDim_;
   Eigen::VectorXd gc_, gv_, joint_torques_;
   Eigen::VectorXf pTarget, vTarget;
   Eigen::VectorXf jointPGain, jointDGain;

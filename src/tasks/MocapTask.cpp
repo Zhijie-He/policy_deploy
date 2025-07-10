@@ -4,52 +4,6 @@
 #include "utility/tools.h"
 #include <Eigen/Dense>
 
-std::vector<std::vector<float>> compute_teleop_observation_test(
-    const std::vector<std::vector<std::array<float, 3>>>& motion_state,
-    float dt)
-{
-    int T = motion_state.size();          // 帧数
-    int K = motion_state[0].size();       // 关键点数
-
-    // 初始化输出：每帧 [K * 3]
-    std::vector<std::vector<float>> mocap_obs(T, std::vector<float>(K * 3, 0.0f));
-
-    // 获取第0帧 root 坐标
-    std::array<float, 3> root0 = motion_state[0][0];
-
-    for (int t = 0; t < T; ++t) {
-        for (int k = 0; k < K; ++k) {
-            std::array<float, 3> value = motion_state[t][k];
-
-            // Step 1: 相对位置（减去第0帧 root）
-            for (int d = 0; d < 3; ++d)
-                value[d] -= root0[d];
-
-            // Step 2: 从 t=1 开始计算速度（差分除以 dt * 5）
-            if (t > 0) {
-                for (int d = 0; d < 3; ++d)
-                    value[d] = (motion_state[t][k][d] - motion_state[0][k][d]) / dt / 5.0f;
-
-                // Step 3: 衰减处理 (仅 X, Y)
-                float damping = static_cast<float>(t);
-                value[0] /= damping;
-                value[1] /= damping;
-            }
-
-            // 保存为展平形式：mocap_obs[t][k*3 + d]
-            for (int d = 0; d < 3; ++d)
-                mocap_obs[t][k * 3 + d] = value[d];
-        }
-    }
-
-    // Step 4: 补上第0帧的 root = 第1帧的 root
-    for (int d = 0; d < 3; ++d)
-        mocap_obs[0][0 * 3 + d] = mocap_obs[1][0 * 3 + d];
-
-    return mocap_obs;
-}
-
-
 Eigen::MatrixXf compute_teleop_observation(
     const Eigen::MatrixXf& motion_body_pos,  // [T, 90]
     const Eigen::VectorXf& damping,          // [T-1]
@@ -101,9 +55,10 @@ Eigen::MatrixXf compute_teleop_observation(
 
 MocapTask::MocapTask(std::shared_ptr<const BaseRobotConfig> cfg,
                      torch::Device device,
+                     const std::string& hands_type,
                      const std::string& inference_engine_type,
                      const std::string& precision)
-      : BaseTask(cfg, std::make_shared<MocapTaskCfg>(), device,  inference_engine_type, precision),
+      : BaseTask(cfg, std::make_shared<MocapTaskCfg>(), device, hands_type, inference_engine_type, precision),
         task_cfg_() 
 {
     FRC_INFO("[MocapTask.Const] Created!");
@@ -147,7 +102,7 @@ void MocapTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
     int self_obs_len = 93;
 
     MocapResult mocap = getMocap();
-    const auto& cache = mocap.mocap_obs;
+    const auto& cache = mocap.teleop_obs;
     // const auto& points = mocap.motion_state;
 
     // 3. 构造 task_obs（当前帧）
@@ -221,7 +176,7 @@ MocapResult MocapTask::getMocap() {
     }
 
     float dt = 1.0f / task_cfg_.sample_timestep_inv;
-    Eigen::MatrixXf mocap_obs_eigen = compute_teleop_observation(mocap_state, damping, dt);
+    Eigen::MatrixXf teleop_obs_eigen = compute_teleop_observation(mocap_state, damping, dt);
 
     // 5. 构建结果
     MocapResult result;
@@ -235,16 +190,47 @@ MocapResult MocapTask::getMocap() {
         }
     }
 
-    // 5.2 mocap_obs: [T-1][D]
-    int obs_time = mocap_obs_eigen.rows();  // T-1
-    int obs_dim  = mocap_obs_eigen.cols();  // D
-    result.mocap_obs.resize(obs_time);
+    // 5.2 teleop_obs: [T-1][D]
+    int obs_time = teleop_obs_eigen.rows();  // T-1
+    int obs_dim  = teleop_obs_eigen.cols();  // D
+    result.teleop_obs.resize(obs_time);
     for (int t = 0; t < obs_time; ++t) {
-        result.mocap_obs[t].resize(obs_dim);
+        result.teleop_obs[t].resize(obs_dim);
         for (int d = 0; d < obs_dim; ++d) {
-            result.mocap_obs[t][d] = mocap_obs_eigen(t, d);
+            result.teleop_obs[t][d] = teleop_obs_eigen(t, d);
         }
     }
+
+    // sanity check: compare with subscribed teleop_obs
+    int T = result.teleop_obs.size();       // T-1
+    int D = result.teleop_obs[0].size();    // D
+
+    const auto& ref = mocap_data.teleop_obs;  // T rows of 90-dim
+
+    bool mismatch_found = false;
+
+    if (ref.size() != T) {
+        FRC_ERROR("[MocapTask.getMocap] teleop_obs length mismatch: expected " << T << ", got " << ref.size());
+        mismatch_found = true;
+    } else {
+        for (int t = 0; t < T; ++t) {
+            for (int d = 0; d < D; ++d) {
+                float a = result.teleop_obs[t][d];
+                float b = ref[t][d];
+                if (std::abs(a - b) > 1e-5f) {
+                    FRC_ERROR("[MocapTask.getMocap] Mismatch at t=" << t << ", d=" << d << " | a=" << a << ", b=" << b);
+                    mismatch_found = true;
+                    break;
+                }
+            }
+            if (mismatch_found) break;
+        }
+    }
+
+    if (mismatch_found) {
+        throw std::runtime_error("[MocapTask.getMocap] Mismatched in teleop observation data.");
+    }
+
 
     return result;
 }

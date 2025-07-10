@@ -87,5 +87,33 @@ namespace tools {
         float heading = std::atan2(forward[1], forward[0]);  // atan2(y, x)
         return heading;
     }
+
+    Eigen::VectorXf resolveCompatibilityConcat(const Eigen::VectorXf& state, const Eigen::VectorXi& joint_concat_index){
+         Eigen::VectorXf result(joint_concat_index.size());
+        for (int i = 0; i < joint_concat_index.size(); ++i) {
+            result(i) = state(joint_concat_index(i));
+        }
+        return result;
+    }
+
+    std::pair<Eigen::VectorXf, Eigen::VectorXf> resolveCompatibilitySplit(const Eigen::VectorXf& state, 
+                                                                          const std::unordered_map<std::string, Eigen::VectorXi>& joint_split_index)
+    {
+        const auto& skeleton_index = joint_split_index.at("skeleton");
+        const auto& hands_index    = joint_split_index.at("hands");
+
+        Eigen::VectorXf skeleton(skeleton_index.size());
+        Eigen::VectorXf hands(hands_index.size());
+
+        for (int i = 0; i < skeleton_index.size(); ++i) {
+            skeleton(i) = state(skeleton_index(i));
+        }
+
+        for (int i = 0; i < hands_index.size(); ++i) {
+            hands(i) = state(hands_index(i));
+        }
+
+        return {skeleton, hands};
+    }
 }
 

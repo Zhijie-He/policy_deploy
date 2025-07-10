@@ -26,7 +26,7 @@ public:
                const std::string& inference_engine_type,
                const std::string& precision)
   {
-    state_machine_ = std::make_shared<StateMachine>(cfg, device, registers, inference_engine_type, precision);
+    state_machine_ = std::make_shared<StateMachine>(cfg, device, registers, hands_type, inference_engine_type, precision);
     
     if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, hands_type, state_machine_);
 #ifdef USE_UNITREE_SDK
@@ -211,12 +211,11 @@ int main(int argc, char** argv) {
 
   try {
     config = tools::loadConfig(config_name);
-    // FRC_INFO(config->hand_map[hands_type].left_cmd_topic);
-    
+
     std::vector<std::pair<std::string, char>> registers = {
       {"CmdTask", '1'},
       // {"TeleopTask", '2'},
-      // {"MocapTask", '3'}
+      {"MocapTask", '3'}
     };
     
     controller = std::make_unique<G1Controller>(net, mode, registers, config, hands_type, device, 

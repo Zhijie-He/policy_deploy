@@ -13,6 +13,13 @@ struct HandConfig {
     std::string right_cmd_topic = "";
     std::string left_state_topic = "";
     std::string right_state_topic = "";
+
+    // custom hands related
+    int hands_num = 0;
+    int left_hand_num_dof = 0;
+    int right_hand_num_dof = 0;
+    Eigen::VectorXi joint_concat_index;
+    std::unordered_map<std::string, Eigen::VectorXi> joint_split_index;
 };
 
 

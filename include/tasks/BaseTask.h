@@ -11,6 +11,7 @@
 class BasePolicyInferenceEngine;
 
 struct BaseTaskCfg {
+    float action_clip = 10.0;
     virtual ~BaseTaskCfg() = default;
 
     virtual std::string getPolicyPath() const = 0;
@@ -25,6 +26,7 @@ public:
      BaseTask(std::shared_ptr<const BaseRobotConfig> cfg,
               std::shared_ptr<const BaseTaskCfg> task_cfg, 
               torch::Device device,
+              const std::string& hands_type,
               const std::string& inference_engine_type,
               const std::string& precision);
               
@@ -39,7 +41,8 @@ public:
 protected:
     void updateObservation(const CustomTypes::RobotData& robotData);
     
-    int obDim, acDim;
+    int obDim, acDim, handsDim;
+    std::string hands_type_;
     std::shared_ptr<const BaseRobotConfig> cfg_;
     std::shared_ptr<const BaseTaskCfg> task_cfg_;
     int counter_;

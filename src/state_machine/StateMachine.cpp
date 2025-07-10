@@ -8,18 +8,21 @@
 StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, 
                            torch::Device device,
                            const std::vector<std::pair<std::string, char>>& registers,
+                           const std::string& hands_type,
                            const std::string& inference_engine_type,
                            const std::string& precision)
                            : cfg_(cfg),
-                           _jointNum(cfg->num_actions)
+                           hands_type_(hands_type),
+                           _jointNum(cfg->num_actions),
+                           _handsNum(cfg->hand_map.at(hands_type).hands_num)
 {
   // 1. 初始化底层设备数据结构
   _robotStatusBuffer = std::make_shared<DataBuffer<robotStatus>>();
   _jointCMDBuffer = std::make_shared<DataBuffer<jointCMD>>();
 
   // 2. 初始化机器人状态和输出动作向量为零
-  robotAction = CustomTypes::zeroAction(_jointNum);
-  robotData = CustomTypes::zeroData(_jointNum);
+  robotAction = CustomTypes::zeroAction(_jointNum, _handsNum);
+  robotData = CustomTypes::zeroData(_jointNum, _handsNum);
 
   // 3. 创建任务
   createTasks(registers, device, inference_engine_type, precision);
@@ -45,7 +48,7 @@ void StateMachine::createTasks(const std::vector<std::pair<std::string, char>>& 
       throw std::runtime_error("Invalid task name: " + task_name);
     }
     FRC_HIGHLIGHT("[StateMachine.createTasks] Create task: " << task_name);
-    auto task = TaskFactory::create(task_name, cfg_, device, inference_engine_type, precision);
+    auto task = TaskFactory::create(task_name, cfg_, device, hands_type_, inference_engine_type, precision);
     tasks_[task_name] = task;
     task_key_map_[task_name] = key;
     task_name_list_.push_back(task_name);
@@ -136,28 +139,53 @@ void StateMachine::getRawObs() {
     status_ptr = _robotStatusBuffer->GetData();  // 重新尝试获取
   }
 
-  const auto& status = *status_ptr;  // 解引用拿结构体  推荐：零拷贝 + 明确只读引用
-  robotData.timestamp = status.data.timestamp;
+  const auto& status      = *status_ptr;  // 解引用拿结构体  推荐：零拷贝 + 明确只读引用
+  robotData.timestamp     = status.data.timestamp;
+  robotData.root_xyz      = Eigen::Map<const Eigen::Vector3f>(status.data.position);
+  robotData.root_rot      = Eigen::Map<const Eigen::Vector4f>(status.data.position + 3);
+  robotData.root_vel      = Eigen::Map<const Eigen::Vector3f>(status.data.velocity);
+  robotData.root_ang_vel  = Eigen::Map<const Eigen::Vector3f>(status.data.velocity + 3);
 
-  robotData.root_xyz = Eigen::Map<const Eigen::Vector3f>(status.data.position);
-  robotData.root_rot     = Eigen::Map<const Eigen::Vector4f>(status.data.position + 3);
-  robotData.joint_pos = Eigen::Map<const Eigen::VectorXf>(status.data.position + 7, _jointNum);
+  Eigen::Map<const Eigen::VectorXf> joint_pos_full(status.data.position + 7, _jointNum + _handsNum);
+  auto [joint_pos, hands_joint_pos] = tools::resolveCompatibilitySplit(joint_pos_full, cfg_->hand_map.at(hands_type_).joint_split_index);
+  robotData.joint_pos = joint_pos;
+  robotData.hands_joint_pos = hands_joint_pos;
 
-  robotData.root_vel = Eigen::Map<const Eigen::Vector3f>(status.data.velocity);
-  robotData.root_ang_vel    = Eigen::Map<const Eigen::Vector3f>(status.data.velocity + 3);
-  robotData.joint_vel = Eigen::Map<const Eigen::VectorXf>(status.data.velocity + 6, _jointNum);
+  Eigen::Map<const Eigen::VectorXf> joint_vel_full(status.data.velocity + 6, _jointNum + _handsNum);
+  auto [joint_vel, hands_joint_vel] = tools::resolveCompatibilitySplit(joint_vel_full, cfg_->hand_map.at(hands_type_).joint_split_index);
+  robotData.joint_vel = joint_vel;
+  robotData.hands_joint_vel = hands_joint_vel;
 
-  robotData.joint_torques = Eigen::Map<const Eigen::VectorXf>(status.data.jointTorques, _jointNum);
-}
+  Eigen::Map<const Eigen::VectorXf> joint_torques_full(status.data.jointTorques, _jointNum + _handsNum);
+  auto [joint_torques, hands_joint_torques] = tools::resolveCompatibilitySplit(joint_torques_full, cfg_->hand_map.at(hands_type_).joint_split_index);
+  robotData.joint_torques = joint_torques;
+  robotData.hands_joint_torques = hands_joint_torques;
+} 
 
 void StateMachine::packJointAction(){
   assert(_jointCMDBuffer != nullptr);
   jointCMD cmd;
   cmd.data.timestamp = robotAction.timestamp;
-  memcpy(cmd.data.position, robotAction.motorPosition.data(), _jointNum * sizeof(float));
-  memcpy(cmd.data.velocity, robotAction.motorVelocity.data(), _jointNum * sizeof(float));
-  memcpy(cmd.data.kp, robotAction.kP.data(), _jointNum * sizeof(float));
-  memcpy(cmd.data.kd, robotAction.kD.data(), _jointNum * sizeof(float));
+  
+  Eigen::VectorXf full_position(_jointNum + _handsNum);
+  full_position << robotAction.motorPosition, robotAction.handsPosition;
+  // FRC_CRITICAL("full_position size " << full_position.size());
+
+  Eigen::VectorXf resolved_full_position = tools::resolveCompatibilityConcat(full_position, cfg_->hand_map.at(hands_type_).joint_concat_index);
+  memcpy(cmd.data.position, resolved_full_position.data(), (_jointNum + _handsNum) * sizeof(float));
+  
+  Eigen::VectorXf full_velocity(_jointNum + _handsNum);
+  full_velocity << robotAction.motorVelocity, robotAction.handsVelocity;
+  // FRC_CRITICAL("full_velocity size " << full_velocity.size());
+  
+  Eigen::VectorXf resolved_full_velocity = tools::resolveCompatibilityConcat(full_velocity, cfg_->hand_map.at(hands_type_).joint_concat_index);
+  memcpy(cmd.data.velocity, resolved_full_velocity.data(), (_jointNum + _handsNum) * sizeof(float));
+
+  // memcpy(cmd.data.position, robotAction.motorPosition.data(), _jointNum * sizeof(float));
+  // memcpy(cmd.data.velocity, robotAction.motorVelocity.data(), _jointNum * sizeof(float));
+
+  // memcpy(cmd.data.kp, robotAction.kP.data(), _jointNum * sizeof(float));
+  // memcpy(cmd.data.kd, robotAction.kD.data(), _jointNum * sizeof(float));
   _jointCMDBuffer->SetData(cmd);
 }
 

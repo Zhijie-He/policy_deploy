@@ -15,6 +15,7 @@ public:
     StateMachine(std::shared_ptr<const BaseRobotConfig> cfg, 
                  torch::Device device,
                  const std::vector<std::pair<std::string, char>>& registers,
+                 const std::string& hands_type,
                  const std::string& inference_engine_type = "libtorch", 
                  const std::string& precision = "fp32");
                  
@@ -39,6 +40,8 @@ protected:
     JoystickData* _jsStates = nullptr;
 
     int _jointNum;
+    int _handsNum;
+    std::string hands_type_;
     std::shared_ptr<DataBuffer<robotStatus>> _robotStatusBuffer;
     std::shared_ptr<DataBuffer<jointCMD>> _jointCMDBuffer;
 

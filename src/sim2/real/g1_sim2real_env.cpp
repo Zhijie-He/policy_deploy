@@ -89,8 +89,7 @@ void G1Sim2RealEnv::initWorld() {
   }
 
   gcDim_    = cfg_->num_actions + 7; 
-  gvDim_    = cfg_->num_actions + 6; 
-  jointDim_ = cfg_->num_actions; 
+  gvDim_    = cfg_->num_actions + 6;
 }
 
 void G1Sim2RealEnv::waitForLowState() {

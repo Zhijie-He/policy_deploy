@@ -72,7 +72,7 @@ int main() {
 
                 std::cout << "Teleop: " << static_cast<int>(msg.teleop) << "\n";
 
-                std::cout << "Teleop Obs (30x3): [";
+                std::cout << "Teleop Obs (9x30x3): [";
                 for (int i = 0; i < 21; ++i) std::cout << msg.teleop_obs[i] << (i < 20 ? ", " : "]\n");
             }
         } else {

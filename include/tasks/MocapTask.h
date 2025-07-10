@@ -72,6 +72,7 @@ class MocapTask : public BaseTask {
 public:
     MocapTask(std::shared_ptr<const BaseRobotConfig> cfg,
               torch::Device device,
+              const std::string& hands_type,
               const std::string& inference_engine_type,
               const std::string& precision);
     void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
@@ -94,9 +95,10 @@ bool registered = []() {
     TaskFactory::registerTask("MocapTask", 
         [](std::shared_ptr<const BaseRobotConfig> cfg, 
            torch::Device device,
+           const std::string& hands_type,
            const std::string& inference_engine_type,
            const std::string& precision) {
-            return std::make_shared<MocapTask>(cfg, device, inference_engine_type, precision);
+            return std::make_shared<MocapTask>(cfg, device, hands_type, inference_engine_type, precision);
         });
     return true;
 }();

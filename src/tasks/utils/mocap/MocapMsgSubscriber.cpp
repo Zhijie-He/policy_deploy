@@ -66,6 +66,7 @@ MocapMsgSubscriber::MocapMsgSubscriber(float fps, int length)
 MocapData MocapMsgSubscriber::subscribe() {
     MocapData result;
 
+    // get MAX_SAMPLES messages
     MocapMsg samples[MAX_SAMPLES];
     void* samples_void[MAX_SAMPLES];
     dds_sample_info_t infos[MAX_SAMPLES];
@@ -104,6 +105,14 @@ MocapData MocapMsgSubscriber::subscribe() {
         for (int j = 0; j < 9; ++j)
             std::memcpy(keypoints[j].data(), &msg.key_points[j * 3], sizeof(float) * 3);
         result.key_points.insert(result.key_points.begin(), keypoints); 
+    }
+
+    // get calculated teleop_obs
+    const MocapMsg& last_msg = samples[ret - 1];
+    for (int j = 0; j< length_; ++j){
+        std::array<float, 90> obs{};
+        std::memcpy(obs.data(), &last_msg.teleop_obs[j * 90], sizeof(float) * 90);
+        result.teleop_obs.push_back(obs);
     }
 
     return result;

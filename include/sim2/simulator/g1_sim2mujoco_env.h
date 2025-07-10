@@ -21,6 +21,7 @@ public:
   ~G1Sim2MujocoEnv();
 
   void initWorld();
+  void initState() override;
   void launchServer();
   void setHeadless(bool headless) override { headless_ = headless; }
   void run() override;
@@ -38,7 +39,8 @@ private:
   std::string robotName_;
   float simulation_dt_ = 5e-4;
   std::thread step_thread_;
-
+  
+  int actuatorDim_;
   // hands related
   int left_hand_num_dof_;
   int right_hand_num_dof_;

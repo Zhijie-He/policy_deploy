@@ -33,64 +33,91 @@ void G1Sim2MujocoEnv::initWorld() {
     FRC_ERROR("[G1Sim2MujocoEnv.initWorld] Failed to load "<< cfg_->xml_path.c_str() << ", " << error);
     std::exit(1);
   }
+  
   mj_data_ = mj_makeData(mj_model_);
   mj_model_->opt.timestep = simulation_dt_;
 
-  gcDim_ = mj_model_->nq; // nq 是 广义坐标（generalized coordinates） 的维度。
-  gvDim_ = mj_model_->nv; // nv 是 广义速度（generalized velocities） 的维度。
-  jointDim_ = mj_model_->nu; // nu 是 控制输入（actuator）的数量，即 ctrl 数组的长度。
+  gcDim_        = mj_model_->nq;  // generalized coordinates (qpos)
+  gvDim_        = mj_model_->nv;  // generalized velocities (qvel)
+  actuatorDim_  = mj_model_->nu;  // number of actuators = ctrl dimension
+
+  const int expected_actuator_dim = jointDim_ + handsDim_;
+
+  if (actuatorDim_ != expected_actuator_dim) {
+      std::ostringstream oss;
+      oss << "[G1Sim2MujocoEnv] Actuator dimension mismatch!\n"
+          << "  mj_model_->nu             = " << actuatorDim_ << "\n"
+          << "  expected (joint + hands)  = " << expected_actuator_dim << " ("
+          << jointDim_ << " + " << handsDim_ << ")\n"
+          << "  --> Please check XML <actuator> block for completeness.";
+
+      throw std::runtime_error(oss.str());
+  }
 
   FRC_INFO("[G1Sim2MujocoEnv.initWorld] Loaded robot: " << robotName_ << " with XML: " << cfg_->xml_path.c_str());
   FRC_INFO("[G1Sim2MujocoEnv.initWorld] generalize Coordinate dimensions: " << gcDim_);
   FRC_INFO("[G1Sim2MujocoEnv.initWorld] generalize Vel dimensions: " << gvDim_);
   FRC_INFO("[G1Sim2MujocoEnv.initWorld] Joint Num: " << jointDim_);
- 
+  FRC_INFO("[G1Sim2MujocoEnv.initWorld] hands Num: " << handsDim_);
+
   std::ostringstream oss;
   for (int i = 0; i < gcDim_; ++i)
     oss << mj_data_->qpos[i] << " ";
   FRC_INFO("[G1Sim2MujocoEnv.initWorld] Initial qpos from XML: " <<oss.str());
 
-  // add hands logical
-  left_hand_num_dof_ = cfg_->hand_map.at(hands_type_).kp_left.size();
-  right_hand_num_dof_ = cfg_->hand_map.at(hands_type_).kp_right.size();
+  // add hands related value
+  left_hand_num_dof_  = cfg_->hand_map.at(hands_type_).left_hand_num_dof;
+  right_hand_num_dof_ = cfg_->hand_map.at(hands_type_).right_hand_num_dof;
+  joint_concat_index_ = cfg_->hand_map.at(hands_type_).joint_concat_index;
+  joint_split_index_  = cfg_->hand_map.at(hands_type_).joint_split_index;
 
-  // FRC_CRITICAL(left_hand_num_dof_ << " " << right_hand_num_dof_);
-  int size = 6 + 6 + 3 + 7 + left_hand_num_dof_ + 7 + right_hand_num_dof_;
-  joint_concat_index_.resize(size);
-  int idx = 0;
-  for (int i = 0; i < 6; ++i) joint_concat_index_(idx++) = i;   // [0,6)
-  for (int i = 6; i < 12; ++i) joint_concat_index_(idx++) = i;  // [6,12)
-  for (int i = 12; i < 15; ++i) joint_concat_index_(idx++) = i; // [12,15)
-  for (int i = 15; i < 22; ++i) joint_concat_index_(idx++) = i; // [15,22)
-  for (int i = 29; i < 29 + left_hand_num_dof_; ++i) joint_concat_index_(idx++) = i;   // [29,29+L)
-  for (int i = 22; i < 29; ++i) joint_concat_index_(idx++) = i;   // [22,29)
-  for (int i = 29 + left_hand_num_dof_; i < 29 + left_hand_num_dof_ + right_hand_num_dof_; ++i)   // [29+L,29+L+R)
-      joint_concat_index_(idx++) = i;
-  FRC_CRITICAL(joint_concat_index_.transpose());
+  // FRC_CRITICAL("hand num " << left_hand_num_dof_ << " " << right_hand_num_dof_);
+  // FRC_CRITICAL("joint_concat_index_ " << joint_concat_index_.transpose());
+  // FRC_CRITICAL("joint_split_index_skeleton " << joint_split_index_.at("skeleton").transpose());
+  // FRC_CRITICAL("joint_split_index_hands " << joint_split_index_.at("hands").transpose());
 
-  // 构建 skeleton 下标
-  std::vector<int> skeleton_vec;
-  for (int i = 0; i < 6; ++i) skeleton_vec.push_back(i);
-  for (int i = 6; i < 12; ++i) skeleton_vec.push_back(i);
-  for (int i = 12; i < 15; ++i) skeleton_vec.push_back(i);
-  for (int i = 15; i < 22; ++i) skeleton_vec.push_back(i);
-  for (int i = 22 + left_hand_num_dof_; i < 22 + left_hand_num_dof_ + 7; ++i)
-      skeleton_vec.push_back(i);
-
-  // 构建 hands 下标
-  std::vector<int> hands_vec;
-  for (int i = 22; i < 22 + left_hand_num_dof_; ++i)
-      hands_vec.push_back(i);
-  for (int i = 22 + left_hand_num_dof_ + 7; i < 22 + left_hand_num_dof_ + 7 + right_hand_num_dof_; ++i)
-      hands_vec.push_back(i);
-
-  // 转为 Eigen::VectorXi
-  joint_split_index_["skeleton"] = Eigen::Map<Eigen::VectorXi>(skeleton_vec.data(), skeleton_vec.size());
-  joint_split_index_["hands"]    = Eigen::Map<Eigen::VectorXi>(hands_vec.data(), hands_vec.size());
-  FRC_CRITICAL(joint_split_index_["skeleton"].transpose());
-  FRC_CRITICAL(joint_split_index_["hands"].transpose());
   FRC_INFO("[G1Sim2MujocoEnv.initWorld] Add hands logical");
 }
+
+void G1Sim2MujocoEnv::initState() {
+  // ① 机器人状态变量
+  gc_.setZero(gcDim_);                //  当前 generalized coordinate（广义坐标，位置）
+  gv_.setZero(gvDim_);                //  当前 generalized velocity（广义速度）
+  joint_torques_.setZero(actuatorDim_);  //  当前 tau
+
+  // ② 控制增益
+  // jointPGain = cfg_->kP;
+  // jointDGain = cfg_->kD;
+  {
+    std::vector<float> kp_vec(cfg_->kP.data(), cfg_->kP.data() + cfg_->kP.size());
+    const auto& kp_left  = cfg_->hand_map.at(hands_type_).kp_left;
+    const auto& kp_right = cfg_->hand_map.at(hands_type_).kp_right;
+    kp_vec.insert(kp_vec.end(), kp_left.begin(), kp_left.end());
+    kp_vec.insert(kp_vec.end(), kp_right.begin(), kp_right.end());
+    Eigen::VectorXf raw_kp = Eigen::Map<Eigen::VectorXf>(kp_vec.data(), kp_vec.size());
+    jointPGain = tools::resolveCompatibilityConcat(raw_kp, joint_concat_index_);
+  }
+  // FRC_CRITICAL("jointPGain " << jointPGain.transpose());
+  {
+    std::vector<float> kd_vec(cfg_->kD.data(), cfg_->kD.data() + cfg_->kD.size());
+    const auto& kp_left  = cfg_->hand_map.at(hands_type_).kp_left;
+    const auto& kd_left  = cfg_->hand_map.at(hands_type_).kd_left;
+    const auto& kd_right = cfg_->hand_map.at(hands_type_).kd_right;
+    kd_vec.insert(kd_vec.end(), kd_left.begin(), kd_left.end());
+    kd_vec.insert(kd_vec.end(), kd_right.begin(), kd_right.end());
+    Eigen::VectorXf raw_kd = Eigen::Map<Eigen::VectorXf>(kd_vec.data(), kd_vec.size());
+    jointDGain = tools::resolveCompatibilityConcat(raw_kd, joint_concat_index_);
+  }
+  // FRC_CRITICAL("jointDGain " << jointDGain.transpose());
+  
+  // ③ 动作目标
+  pTarget.setZero(actuatorDim_); // desired position（用于位置控制）
+  vTarget.setZero(actuatorDim_); // desired velocity（用于速度控制）
+
+  // ④ 力矩命令
+  tauCmd.setZero(actuatorDim_); //	最终输出的控制力矩（全体）
+}
+
 
 void G1Sim2MujocoEnv::launchServer() {
   if (headless_) {
@@ -170,18 +197,18 @@ void G1Sim2MujocoEnv::updateRobotState() {
     std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动上锁，作用域结束自动释放
     gc_ = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos, gcDim_);
     gv_ = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel, gvDim_);
-    joint_torques_  = Eigen::Map<Eigen::VectorXd>(mj_data_->ctrl, jointDim_);
+    joint_torques_  = Eigen::Map<Eigen::VectorXd>(mj_data_->ctrl, actuatorDim_);
     positionVec = gc_.cast<float>();
     velocityVec = gv_.cast<float>();
     jointTorquesVec = joint_torques_.cast<float>();
     timestamp = mj_data_->time;
   }
-
+  
   if (robotStatusBufferPtr_) {
     robotStatus status;
     memcpy(status.data.position, positionVec.data(), gcDim_ * sizeof(float));
     memcpy(status.data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
-    memcpy(status.data.jointTorques, jointTorquesVec.data(), jointDim_ * sizeof(float));
+    memcpy(status.data.jointTorques, jointTorquesVec.data(), actuatorDim_ * sizeof(float));
     status.data.timestamp = timestamp;
     robotStatusBufferPtr_->SetData(status);
   }
@@ -192,10 +219,11 @@ bool G1Sim2MujocoEnv::isRunning() const {
 }
 
 void G1Sim2MujocoEnv::applyAction(const jointCMD& cmd) {
-  memcpy(pTarget.data(), cmd.data.position, sizeof(float) * jointDim_);
-  memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
-  memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
-  memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
+  memcpy(pTarget.data(), cmd.data.position, sizeof(float) * actuatorDim_);
+  memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * actuatorDim_);
+  // memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * actuatorDim_);
+  // memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * actuatorDim_);
+  // kp and kd need to rethink how to sync
 }
 
 void G1Sim2MujocoEnv::step() {
@@ -239,16 +267,18 @@ void G1Sim2MujocoEnv::integrate() {
     }
     { 
       std::lock_guard<std::mutex> actionLock(action_lock_);
-      Eigen::VectorXf joint_pos = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, jointDim_).cast<float>();
-      Eigen::VectorXf joint_vel = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel + 6, jointDim_).cast<float>();
+      Eigen::VectorXf joint_pos = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, actuatorDim_).cast<float>();
+      Eigen::VectorXf joint_vel = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel + 6, actuatorDim_).cast<float>();
       tauCmd = tools::pd_control(pTarget, joint_pos, jointPGain, vTarget, joint_vel, jointDGain);
-      for (int i = 0; i < tauCmd.size(); ++i) {
-        float limit = cfg_->effort_limit[i];
-        if(std::isfinite(limit)){
-          tauCmd[i] = std::clamp(tauCmd[i], -limit, limit);
-        }
-      }
-      for (int i = 0; i < jointDim_; ++i) mj_data_->ctrl[i] = tauCmd[i];
+
+      // for (int i = 0; i < tauCmd.size(); ++i) {
+      //   float limit = cfg_->effort_limit[i];
+      //   if(std::isfinite(limit)){
+      //     tauCmd[i] = std::clamp(tauCmd[i], -limit, limit);
+      //   }
+      // }
+      
+      for (int i = 0; i < actuatorDim_; ++i) mj_data_->ctrl[i] = tauCmd[i];
     }
     {
       std::lock_guard<std::mutex> stateLock(state_lock_); 
@@ -259,28 +289,43 @@ void G1Sim2MujocoEnv::integrate() {
 
 void G1Sim2MujocoEnv::moveToDefaultPos() {
   FRC_INFO("[G1Sim2MujocoEnv.moveToDefaultPos] Moving to default position...");
-  
-  // 设定初始 root 位姿
-  Eigen::Vector3f root_xyz(0.0f, 0.0f, 0.8f);
-  Eigen::Vector4f root_rot(1.0f, 0.0f, 0.0f, 0.0f); // 无旋转
-  Eigen::VectorXf joint_pos = cfg_->default_angles;  // 从 config 加载
 
-  // 边界检查（防仿真爆炸）
-  // assert((joint_pos.array() >= joint_lower.array() - 1e-3f).all());
-  // assert((joint_pos.array() <= joint_upper.array() + 1e-3f).all());
+  Eigen::Vector3f start_root_xyz(0.0f, 0.0f, 0.8f);
+  Eigen::Vector4f start_root_rot(1.0f, 0.0f, 0.0f, 0.0f);
+  Eigen::VectorXf target_joint_pos = cfg_->default_angles;
+
+  // 1. 如果需要扩展 hand DOF：
+  if (handsDim_ > 0) {
+    Eigen::VectorXf hand_vec = Eigen::VectorXf::Ones(handsDim_);
+    Eigen::VectorXf extended(target_joint_pos.size() + hand_vec.size());
+    extended << target_joint_pos, hand_vec;
+    target_joint_pos = extended;
+  }
+
+  // 2. 兼容拼接（resolveCompatibilityConcat）
+  target_joint_pos = tools::resolveCompatibilityConcat(target_joint_pos, joint_concat_index_);
+
+  // 3. 拆分（resolveCompatibilitySplit）
+  auto split_result = tools::resolveCompatibilitySplit(target_joint_pos, joint_split_index_);
+  Eigen::VectorXf skeleton_joint_pos = split_result.first;  // 获取第一个部分
+  
+  // 边界检查（防仿真爆炸） 
+  // assert((target_joint_pos.array() >= joint_lower.array() - 1e-3f).all());
+  // assert((target_joint_pos.array() <= joint_upper.array() + 1e-3f).all());
 
   {  
     std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动锁定 state
     mj_step1(mj_model_, mj_data_); // step1: 更新状态，获得最新 qpos/qvel/contact 等
   }
   {
-    // 设置 qpos（位置） = [root_xyz(3) + root_rot(4) + joint_pos(n)]
-    for (int i = 0; i < 3; ++i) mj_data_->qpos[i] = double(root_xyz[i]);
-    for (int i = 0; i < 4; ++i) mj_data_->qpos[3 + i] = double(root_rot[i]);
-    for (int i = 0; i < jointDim_; ++i) mj_data_->qpos[7 + i] = double(joint_pos[i]);
+    // 设置 qpos（位置） = [start_root_xyz(3) + start_root_rot(4) + target_joint_pos(n)]
+    for (int i = 0; i < 3; ++i) mj_data_->qpos[i] = double(start_root_xyz[i]);
+    for (int i = 0; i < 4; ++i) mj_data_->qpos[3 + i] = double(start_root_rot[i]);
+    for (int i = 0; i < actuatorDim_; ++i) mj_data_->qpos[7 + i] = double(target_joint_pos[i]);
+
     // 清零速度和控制输入
     std::fill(mj_data_->qvel, mj_data_->qvel + gvDim_, 0.0);
-    std::fill(mj_data_->ctrl, mj_data_->ctrl + jointDim_, 0.0);
+    std::fill(mj_data_->ctrl, mj_data_->ctrl + actuatorDim_, 0.0);
   }
   {
     std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动锁定 state
@@ -288,7 +333,7 @@ void G1Sim2MujocoEnv::moveToDefaultPos() {
   }
 
   // 初始化当前动作缓存（用于后续策略初始化）
-  pTarget = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, jointDim_).cast<float>();
+  pTarget = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, actuatorDim_).cast<float>();
   updateRobotState();
 
   std::ostringstream oss;

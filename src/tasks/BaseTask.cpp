@@ -4,15 +4,17 @@
 #include "inference_engine/BasePolicyInferenceEngine.h"
 #include "inference_engine/PolicyInferenceEngineFactory.h"
 
-
 BaseTask::BaseTask(std::shared_ptr<const BaseRobotConfig> cfg,
                    std::shared_ptr<const BaseTaskCfg> task_cfg, 
                    torch::Device device,
+                   const std::string& hands_type,
                    const std::string& inference_engine_type,
                    const std::string& precision)
     : cfg_(cfg), 
       _kP(cfg->kP),
       _kD(cfg->kD),
+      handsDim(cfg->hand_map.at(hands_type).hands_num),
+      hands_type_(hands_type),
       task_cfg_(task_cfg),
       obDim(task_cfg->getNumObs()),
       acDim(task_cfg->getNumActions()), 
@@ -69,25 +71,30 @@ CustomTypes::Action BaseTask::getAction(const CustomTypes::RobotData &robotData)
 
   // 2. 推理输出
   action = engine_->predict(observation);
-
-  // 3. clip 动作到合理范围 [-10, 10]
+  
+  // 3. clip 动作到合理范围
   for (int i = 0; i < action.size(); ++i) {
-      if (action[i] > 10.0f) action[i] = 10.0f;
-      if (action[i] < -10.0f) action[i] = -10.0f;
+      if (action[i] > task_cfg_->action_clip) action[i] = task_cfg_->action_clip;
+      if (action[i] < -task_cfg_->action_clip) action[i] = -task_cfg_->action_clip;
   }
 
   // 4. 构造控制命令
-  CustomTypes::Action robotAction = CustomTypes::zeroAction(acDim);
+  CustomTypes::Action robotAction = CustomTypes::zeroAction(acDim, handsDim);
   robotAction.timestamp = robotData.timestamp;
+  
   robotAction.motorPosition = action(cfg_->actor2env) * cfg_->action_scale + cfg_->default_angles;  // 应用动作映射（比如 env 控制的只有某些 motor）
   robotAction.motorVelocity.setZero();
   robotAction.motorTorque.setZero();
-  robotAction.kP = _kP;
-  robotAction.kD = _kD;
+
+  robotAction.handsPosition.setZero();
+  robotAction.handsVelocity.setZero();
+  robotAction.handsTorque.setZero();
+  // robotAction.kP = _kP;
+  // robotAction.kD = _kD;
 
   // 5. 保存历史动作
   actionPrev = action;
-
+  
   return robotAction;
 }
 
@@ -96,3 +103,4 @@ void BaseTask::reset(){
   start_ = false;
   engine_->reset("reset_hist_buffer");
 }
+

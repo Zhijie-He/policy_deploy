@@ -7,6 +7,8 @@ BaseEnv::BaseEnv(std::shared_ptr<const BaseRobotConfig> cfg,
                  std::shared_ptr<StateMachine> state_machine)
     : cfg_(cfg),
       hands_type_(hands_type),
+      jointDim_(cfg_->num_actions),
+      handsDim_(cfg->hand_map.at(hands_type).hands_num),
       state_machine_(state_machine),
       jointCMDBufferPtr_(state_machine->getJointCMDBufferPtr()),
       robotStatusBufferPtr_(state_machine_->getRobotStatusBufferPtr()),
@@ -38,7 +40,7 @@ void BaseEnv::initState() {
 
 void BaseEnv::runControlLoop() {
     RateLimiter controlTimer(1.0 / control_dt_, "main loop");
-    
+
     int print_interval = 300;
     while (isRunning()) {
         // == 状态机 step ==

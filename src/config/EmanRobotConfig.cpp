@@ -24,7 +24,47 @@ inline HandConfig loadHandConfigFromNode(const YAML::Node& node) {
     config.left_state_topic  = get_optional_string(node, "left_lowstate_topic");
     config.right_state_topic = get_optional_string(node, "right_lowstate_topic");
 
-    return config;
+    // add hands logical
+    config.hands_num = config.kp_left.size() + config.kp_right.size();
+    config.left_hand_num_dof = config.kp_left.size();
+    config.right_hand_num_dof = config.kp_right.size();
+
+    int size = 6 + 6 + 3 + 7 + config.left_hand_num_dof  + 7 + config.right_hand_num_dof;
+    config.joint_concat_index.resize(size);
+    int idx = 0;
+    for (int i = 0; i < 6; ++i) config.joint_concat_index(idx++) = i;   // [0,6)
+    for (int i = 6; i < 12; ++i) config.joint_concat_index(idx++) = i;  // [6,12)
+    for (int i = 12; i < 15; ++i) config.joint_concat_index(idx++) = i; // [12,15)
+    for (int i = 15; i < 22; ++i) config.joint_concat_index(idx++) = i; // [15,22)
+    for (int i = 29; i < 29 + config.left_hand_num_dof ; ++i) config.joint_concat_index(idx++) = i;   // [29,29+L)
+    for (int i = 22; i < 29; ++i) config.joint_concat_index(idx++) = i;   // [22,29)
+    for (int i = 29 + config.left_hand_num_dof ; i < 29 + config.left_hand_num_dof  + config.right_hand_num_dof; ++i)   // [29+L,29+L+R)
+        config.joint_concat_index(idx++) = i;
+    
+    // FRC_CRITICAL("joint_concat_index" << config.joint_concat_index.transpose());
+
+    // 构建 skeleton 下标
+    std::vector<int> skeleton_vec;
+    for (int i = 0; i < 6; ++i) skeleton_vec.push_back(i);
+    for (int i = 6; i < 12; ++i) skeleton_vec.push_back(i);
+    for (int i = 12; i < 15; ++i) skeleton_vec.push_back(i);
+    for (int i = 15; i < 22; ++i) skeleton_vec.push_back(i);
+    for (int i = 22 + config.left_hand_num_dof; i < 22 + config.left_hand_num_dof + 7; ++i)
+        skeleton_vec.push_back(i);
+    
+    // 构建 hands 下标
+    std::vector<int> hands_vec;
+    for (int i = 22; i < 22 + config.left_hand_num_dof; ++i)
+        hands_vec.push_back(i);
+    for (int i = 22 + config.left_hand_num_dof + 7; i < 22 + config.left_hand_num_dof + 7 + config.right_hand_num_dof; ++i)
+        hands_vec.push_back(i);
+
+
+    // 转为 Eigen::VectorXi
+    config.joint_split_index["skeleton"] = Eigen::Map<Eigen::VectorXi>(skeleton_vec.data(), skeleton_vec.size());
+    config.joint_split_index["hands"]    = Eigen::Map<Eigen::VectorXi>(hands_vec.data(), hands_vec.size());
+
+    return config;  
 }
 
 EmanRobotConfig::EmanRobotConfig(const std::string& yaml_path)
