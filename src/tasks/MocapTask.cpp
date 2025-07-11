@@ -2,56 +2,6 @@
 #include "tasks/MocapTask.h"
 #include "utility/logger.h"
 #include "utility/tools.h"
-#include <Eigen/Dense>
-
-Eigen::MatrixXf compute_teleop_observation(
-    const Eigen::MatrixXf& motion_body_pos,  // [T, 90]
-    const Eigen::VectorXf& damping,          // [T-1]
-    float dt
-) {
-    int T = motion_body_pos.rows();      // 时间步数
-    int D = motion_body_pos.cols();      // 90
-    int J = D / 3;                       // 30
-
-    // 输出
-    Eigen::MatrixXf local_motion = Eigen::MatrixXf::Zero(T, D);
-
-    // 1. 计算 root 起始位置（第0帧，第0个关键点的3D坐标）
-    Eigen::Vector3f ref_root_start = motion_body_pos.block(0, 0, 1, 3).transpose();  // [3]
-
-    // 2. 所有位置减去 ref_root_start，实现相对坐标系（只对 pos[t][j]）
-    for (int t = 0; t < T; ++t) {
-        for (int j = 0; j < J; ++j) {
-            for (int d = 0; d < 3; ++d) {
-                local_motion(t, j * 3 + d) = motion_body_pos(t, j * 3 + d) - ref_root_start(d);
-            }
-        }
-    }
-
-    // 3. 第1帧到最后一帧：计算速度并除以dt * 5
-    for (int t = 1; t < T; ++t) {
-        for (int j = 0; j < J; ++j) {
-            for (int d = 0; d < 3; ++d) {
-                float vel = (motion_body_pos(t, j * 3 + d) - motion_body_pos(0, j * 3 + d)) / dt / 5.f;
-                local_motion(t, j * 3 + d) = vel;
-            }
-        }
-    }
-
-    // 4. 对于第1帧及以后，将 XY 平面除以 damping（不对 Z 做处理）
-    for (int t = 1; t < T; ++t) {
-        float damp = damping(t - 1);
-        for (int j = 0; j < J; ++j) {
-            local_motion(t, j * 3 + 0) /= damp;  // x
-            local_motion(t, j * 3 + 1) /= damp;  // y
-        }
-    }
-
-    // 5. 把第0帧的 root（第0个点）替换为第1帧的 root
-    local_motion.row(0).segment(0, 3) = local_motion.row(1).segment(0, 3);
-
-    return local_motion;  // shape: [T, 90]
-}
 
 MocapTask::MocapTask(std::shared_ptr<const BaseRobotConfig> cfg,
                      torch::Device device,
@@ -62,43 +12,80 @@ MocapTask::MocapTask(std::shared_ptr<const BaseRobotConfig> cfg,
         task_cfg_() 
 {
     FRC_INFO("[MocapTask.Const] Created!");
+
     // overwrite cfg from model cfg
     // task_cfg_.num_samples = 1 + self.actor.cfg["task_next_obs"]["shape"][0]
 
-    obs_scale_heading_ = task_cfg_.obs_scale_heading;
-    
     // 1. 提取 track_keypoints 对应的下标索引
     const auto& body_names = task_cfg_.BODY_NAMES;
     const auto& track_names = task_cfg_.track_keypoints_names;
 
+    std::vector<int> temp_indices;
     for (const auto& name : track_names) {
         auto it = std::find(body_names.begin(), body_names.end(), name);
         if (it != body_names.end()) {
-            track_keypoints_indices_.push_back(std::distance(body_names.begin(), it));
+            temp_indices.push_back(static_cast<int>(std::distance(body_names.begin(), it)));
         } else {
             throw std::runtime_error("Body name not found in BODY_NAMES: " + name);
         }
     }
-    
+
+    // 转换为 Eigen::VectorXi
+    track_keypoints_indices_ = Eigen::Map<Eigen::VectorXi>(temp_indices.data(), static_cast<int>(temp_indices.size()));
+
     // 2. 创建 mask_ 向量
     int n_bodies = static_cast<int>(body_names.size());
     mask_ = Eigen::VectorXf::Zero(n_bodies);
-    for (int idx : track_keypoints_indices_) {
-        mask_[idx] = 1.0f;
+    for (int i = 0; i < track_keypoints_indices_.size(); ++i) {
+        mask_[track_keypoints_indices_[i]] = 1.0f;
     }
     FRC_INFO("[MocapTask.Const] mask" << mask_.transpose());
 
     // 3. create mocap receiver
     mocap_receiver_ = std::make_unique<MocapMsgSubscriber>(task_cfg_.sample_timestep_inv, task_cfg_.num_samples);
+
+    // 4. used for MocapTask with hands
+    std::vector<int> temp_left;
+    for (const auto& name : std::vector<std::string>{
+        "left_wrist_roll_link",
+        "left_wrist_pitch_link",
+        "left_wrist_yaw_link"
+    }) {
+        auto it = std::find(body_names.begin(), body_names.end(), name);
+        if (it != body_names.end()) {
+            temp_left.push_back(static_cast<int>(std::distance(body_names.begin(), it)) - 1);
+        } else {
+            throw std::runtime_error("Missing body name: " + name);
+        }
+    }
+    left_wrist_ids_ = Eigen::Map<Eigen::VectorXi>(temp_left.data(), static_cast<int>(temp_left.size()));
+
+    // --- 初始化 right_wrist_ids_
+    std::vector<int> temp_right;
+    for (const auto& name : std::vector<std::string>{
+        "right_wrist_roll_link",
+        "right_wrist_pitch_link",
+        "right_wrist_yaw_link"
+    }) {
+        auto it = std::find(body_names.begin(), body_names.end(), name);
+        if (it != body_names.end()) {
+            temp_right.push_back(static_cast<int>(std::distance(body_names.begin(), it)) - 1);
+        } else {
+            throw std::runtime_error("Missing body name: " + name);
+        }
+    }
+    right_wrist_ids_ = Eigen::Map<Eigen::VectorXi>(temp_right.data(), static_cast<int>(temp_right.size()));
 }
 
 void MocapTask::resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) {
     FRC_INFO("[MocapTask.resolveKeyboardInput] Key pressed: " << key);
 }
 
-void MocapTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
-    updateObservation(raw_obs); // get self_obs → observation.head(93)
+void MocapTask::resolveSelfObservation(const CustomTypes::RobotData& raw_obs) {
+    BaseTask::resolveSelfObservation(raw_obs);
+}
 
+void MocapTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
     int self_obs_len = 93;
 
     MocapResult mocap = getMocap();
@@ -121,7 +108,7 @@ void MocapTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
 
     // 5. heading
     float heading = tools::getHeadingFromQuat(raw_obs.root_rot);
-    float scaled_heading = heading * obs_scale_heading_;
+    float scaled_heading = heading * task_cfg_.self_obs_scale.at("heading");
 
     // 6. 拼接 heading + task_obs
     Eigen::VectorXf final_task_obs(task_obs.size() + 1);
@@ -144,7 +131,7 @@ void MocapTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
     }
 
     // 8. 填充 observation
-    // observation.head(self_obs_len) = observation_self_; // 来自 updateObservation()
+    // observation.head(self_obs_len) = observation_self_; // 来自 resolveSelfObservation()
     observation.segment(self_obs_len, final_task_obs.size()) = final_task_obs;
     observation.segment(self_obs_len + final_task_obs.size(), task_next_obs.size()) = task_next_obs;
     observation.tail(mask_.size()) = mask_;
@@ -162,7 +149,7 @@ MocapResult MocapTask::getMocap() {
 
     for(int t = 0; t < num_samples; ++t){
         for (size_t j = 0; j < track_num; ++j){
-            int idx = track_keypoints_indices_[j];
+            int idx = track_keypoints_indices_(j);
             const auto& kp = key_points_data[t][j];
             mocap_state(t, idx * 3 + 0) = kp[0];
             mocap_state(t, idx * 3 + 1) = kp[1];
@@ -176,7 +163,7 @@ MocapResult MocapTask::getMocap() {
     }
 
     float dt = 1.0f / task_cfg_.sample_timestep_inv;
-    Eigen::MatrixXf teleop_obs_eigen = compute_teleop_observation(mocap_state, damping, dt);
+    Eigen::MatrixXf teleop_obs_eigen = tools::compute_teleop_observation(mocap_state, damping, dt);
 
     // 5. 构建结果
     MocapResult result;
@@ -209,32 +196,72 @@ MocapResult MocapTask::getMocap() {
 
     bool mismatch_found = false;
 
-    if (ref.size() != T) {
-        FRC_ERROR("[MocapTask.getMocap] teleop_obs length mismatch: expected " << T << ", got " << ref.size());
-        mismatch_found = true;
-    } else {
-        for (int t = 0; t < T; ++t) {
-            for (int d = 0; d < D; ++d) {
-                float a = result.teleop_obs[t][d];
-                float b = ref[t][d];
-                if (std::abs(a - b) > 1e-5f) {
-                    FRC_ERROR("[MocapTask.getMocap] Mismatch at t=" << t << ", d=" << d << " | a=" << a << ", b=" << b);
-                    mismatch_found = true;
-                    break;
-                }
-            }
-            if (mismatch_found) break;
-        }
-    }
+    // if (ref.size() != T) {
+    //     FRC_ERROR("[MocapTask.getMocap] teleop_obs length mismatch: expected " << T << ", got " << ref.size());
+    //     mismatch_found = true;
+    // } else {
+    //     for (int t = 0; t < T; ++t) {
+    //         for (int d = 0; d < D; ++d) {
+    //             float a = result.teleop_obs[t][d];
+    //             float b = ref[t][d];
+    //             if (std::abs(a - b) > 1e-5f) {
+    //                 FRC_ERROR("[MocapTask.getMocap] Mismatch at t=" << t << ", d=" << d << " | a=" << a << ", b=" << b);
+    //                 mismatch_found = true;
+    //                 break;
+    //             }
+    //         }
+    //         if (mismatch_found) break;
+    //     }
+    // }
 
-    if (mismatch_found) {
-        throw std::runtime_error("[MocapTask.getMocap] Mismatched in teleop observation data.");
-    }
+    // if (mismatch_found) {
+    //     throw std::runtime_error("[MocapTask.getMocap] Mismatched in teleop observation data.");
+    // }
 
 
     return result;
 }
 
+CustomTypes::Action MocapTask::getAction(const CustomTypes::RobotData &robotData){
+    CustomTypes::Action robotAction = BaseTask::getAction(robotData);
+    getHandsAction(robotAction);
+    return robotAction;
+}
+
+CustomTypes::Action MocapTask::getHandsAction(CustomTypes::Action& robotAction) {
+    auto hands_data = mocap_receiver_->subscribeHands();
+
+    // if not has message or hands_type not equal to dex3, do not run hands logical
+    const auto& valid_flag = hands_data.at("valid");
+    if (valid_flag[0] != 1.0f || hands_type_ != "dex3") {
+        // robotAction.handsPosition.setOnes();
+        return robotAction;  
+    }
+
+    const auto& left_wrist = hands_data.at("left_wrist_joints");
+    const auto& right_wrist = hands_data.at("right_wrist_joints");
+    const auto& hands_joints = hands_data.at("hands_joints");
+
+    // 1. 写入 wrist motorPosition
+    for (int i = 0; i < left_wrist_ids_.size(); ++i) {
+        int idx = left_wrist_ids_[i];
+        robotAction.motorPosition[idx] = left_wrist[i] / task_cfg_.action_scale;
+    }
+    for (int i = 0; i < right_wrist_ids_.size(); ++i) {
+        int idx = right_wrist_ids_[i];
+        robotAction.motorPosition[idx] = right_wrist[i] / task_cfg_.action_scale;
+    }
+
+    // 2. hands_joints 是一个长度为 14 的 VectorXf，直接赋值
+    robotAction.handsPosition = hands_joints;
+    robotAction.handsVelocity.setZero();
+    robotAction.handsTorque.setZero();
+
+    return robotAction;
+}
+
+
 void MocapTask::reset() {
     BaseTask::reset();
 }
+

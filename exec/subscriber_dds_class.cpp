@@ -2,12 +2,47 @@
 #include <thread>
 #include <iostream>
 #include <iomanip>
-#include "tasks/utils/mocap/MocapMsgSubscriber.hpp"
+#include "tasks/utils/mocap/MocapMsgSubscriber.h"
 
 // ------------------ 主函数示例 ------------------
 int main() {
     MocapMsgSubscriber subscriber(30.0f, 9);
 
+    while (true) {
+        auto hands_data = subscriber.subscribeHands();
+
+        std::cout << "======= Mocap Hands Frame Received =======" << std::endl;
+
+        // 1. 打印 hands_joints (2x7) 展平
+        const auto& hands_flat = hands_data.at("hands_joints");
+        std::cout << "hands_joints (2x7):" << std::endl;
+        for (int i = 0; i < 2; ++i) {
+            std::cout << "  Hand " << i << ": [ ";
+            for (int j = 0; j < 7; ++j) {
+                std::cout << std::fixed << std::setprecision(3) << hands_flat[i * 7 + j] << " ";
+            }
+            std::cout << "]" << std::endl;
+        }
+
+        // 2. 打印 left_wrist_joints
+        const auto& left = hands_data.at("left_wrist_joints");
+        std::cout << "left_wrist_joints: [ ";
+        for (int i = 0; i < left.size(); ++i) {
+            std::cout << std::fixed << std::setprecision(3) << left[i] << " ";
+        }
+        std::cout << "]" << std::endl;
+
+        // 3. 打印 right_wrist_joints
+        const auto& right = hands_data.at("right_wrist_joints");
+        std::cout << "right_wrist_joints: [ ";
+        for (int i = 0; i < right.size(); ++i) {
+            std::cout << std::fixed << std::setprecision(3) << right[i] << " ";
+        }
+        std::cout << "]" << std::endl;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 每秒打印一次
+    }
+    
     while (true) {
         MocapData data = subscriber.subscribe();
 

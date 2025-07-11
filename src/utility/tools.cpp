@@ -88,6 +88,55 @@ namespace tools {
         return heading;
     }
 
+    Eigen::MatrixXf compute_teleop_observation(const Eigen::MatrixXf& motion_body_pos,  // [T, 90]
+                                               const Eigen::VectorXf& damping,          // [T-1]
+                                               float dt) 
+    {
+        int T = motion_body_pos.rows();      // 时间步数
+        int D = motion_body_pos.cols();      // 90
+        int J = D / 3;                       // 30
+
+        // 输出
+        Eigen::MatrixXf local_motion = Eigen::MatrixXf::Zero(T, D);
+
+        // 1. 计算 root 起始位置（第0帧，第0个关键点的3D坐标）
+        Eigen::Vector3f ref_root_start = motion_body_pos.block(0, 0, 1, 3).transpose();  // [3]
+
+        // 2. 所有位置减去 ref_root_start，实现相对坐标系（只对 pos[t][j]）
+        for (int t = 0; t < T; ++t) {
+            for (int j = 0; j < J; ++j) {
+                for (int d = 0; d < 3; ++d) {
+                    local_motion(t, j * 3 + d) = motion_body_pos(t, j * 3 + d) - ref_root_start(d);
+                }
+            }
+        }
+
+        // 3. 第1帧到最后一帧：计算速度并除以dt * 5
+        for (int t = 1; t < T; ++t) {
+            for (int j = 0; j < J; ++j) {
+                for (int d = 0; d < 3; ++d) {
+                    float vel = (motion_body_pos(t, j * 3 + d) - motion_body_pos(0, j * 3 + d)) / dt / 5.f;
+                    local_motion(t, j * 3 + d) = vel;
+                }
+            }
+        }
+
+        // 4. 对于第1帧及以后，将 XY 平面除以 damping（不对 Z 做处理）
+        for (int t = 1; t < T; ++t) {
+            float damp = damping(t - 1);
+            for (int j = 0; j < J; ++j) {
+                local_motion(t, j * 3 + 0) /= damp;  // x
+                local_motion(t, j * 3 + 1) /= damp;  // y
+            }
+        }
+
+        // 5. 把第0帧的 root（第0个点）替换为第1帧的 root
+        local_motion.row(0).segment(0, 3) = local_motion.row(1).segment(0, 3);
+
+        return local_motion;  // shape: [T, 90]
+    }
+
+
     Eigen::VectorXf resolveCompatibilityConcat(const Eigen::VectorXf& state, const Eigen::VectorXi& joint_concat_index){
          Eigen::VectorXf result(joint_concat_index.size());
         for (int i = 0; i < joint_concat_index.size(); ++i) {

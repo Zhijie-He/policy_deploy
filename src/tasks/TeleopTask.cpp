@@ -18,28 +18,31 @@ TeleopTask::TeleopTask(std::shared_ptr<const BaseRobotConfig> cfg,
     // overwrite cfg from model cfg
     // task_cfg_.num_samples = 1 + self.actor.cfg["task_next_obs"]["shape"][0]
 
-    obs_scale_heading_ = task_cfg_.obs_scale_heading;
-
     // 1. 提取 track_keypoints 对应的下标索引
     const auto& body_names = task_cfg_.BODY_NAMES;
     const auto& track_names = task_cfg_.track_keypoints_names;
 
+    std::vector<int> temp_indices;
     for (const auto& name : track_names) {
         auto it = std::find(body_names.begin(), body_names.end(), name);
         if (it != body_names.end()) {
-            track_keypoints_indices_.push_back(std::distance(body_names.begin(), it));
+            temp_indices.push_back(static_cast<int>(std::distance(body_names.begin(), it)));
         } else {
             throw std::runtime_error("Body name not found in BODY_NAMES: " + name);
         }
     }
-    
+
+    // 转换为 Eigen::VectorXi
+    track_keypoints_indices_ = Eigen::Map<Eigen::VectorXi>(temp_indices.data(), static_cast<int>(temp_indices.size()));
+
     // 2. 创建 mask_ 向量
     int n_bodies = static_cast<int>(body_names.size());
     mask_ = Eigen::VectorXf::Zero(n_bodies);
-    for (int idx : track_keypoints_indices_) {
-        mask_[idx] = 1.0f;
+    for (int i = 0; i < track_keypoints_indices_.size(); ++i) {
+        mask_[track_keypoints_indices_[i]] = 1.0f;
     }
-    FRC_INFO("[TeleopTask.Const] mask" << mask_.transpose());
+    FRC_INFO("[MocapTask.Const] mask" << mask_.transpose());
+
 
     motion_id_ = 0;
     count_offset_ = 0;
@@ -62,14 +65,17 @@ void TeleopTask::resolveKeyboardInput(char key, CustomTypes::RobotData &robotDat
     FRC_INFO("[TeleopTask.resolveKeyboardInput] TeleopTask motion_id: " << motion_id_);   
 }
 
-void TeleopTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
-    updateObservation(raw_obs); // get self_obs → observation.head(93)
 
-    int self_obs_len = 93;
+void TeleopTask::resolveSelfObservation(const CustomTypes::RobotData& raw_obs) {
+    BaseTask::resolveSelfObservation(raw_obs);
+}
+
+void TeleopTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
+   int self_obs_len = 93;
 
     // 1. cache index
     int cache_index = static_cast<int>((counter_ - count_offset_) * static_cast<float>(start_));
-    cache_index = std::min(cache_index, motion_lib_cache_len_[motion_id_] - 1);
+    cache_index = std::min(cache_index, motion_lib_cache_len_(motion_id_) - 1);
 
     // 2. 获取当前 teleop_obs [当前帧][动作编号]
     const auto& cache = motion_lib_cache_[cache_index]["teleop_obs"][motion_id_];
@@ -90,7 +96,7 @@ void TeleopTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
 
     // 5. heading
     float heading = tools::getHeadingFromQuat(raw_obs.root_rot);
-    float scaled_heading = heading * obs_scale_heading_;
+    float scaled_heading = heading * task_cfg_.self_obs_scale.at("heading");
 
     // 6. 拼接 heading + task_obs
     Eigen::VectorXf final_task_obs(task_obs.size() + 1);
@@ -128,8 +134,10 @@ void TeleopTask::loadMotion() {
     file >> data;
 
     // 读取 motion_lib_cache_len_
-    for (const auto& val : data["motion_lib_cache_len"]) {
-        motion_lib_cache_len_.push_back(val.get<int>());
+    const auto& cache_len_json = data["motion_lib_cache_len"];
+    motion_lib_cache_len_.resize(cache_len_json.size());
+    for (int i = 0; i < cache_len_json.size(); ++i) {
+        motion_lib_cache_len_(i) = cache_len_json[i].get<int>();
     }
 
     // 读取 motion_lib_cache_

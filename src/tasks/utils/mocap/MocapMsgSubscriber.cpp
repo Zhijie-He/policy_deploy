@@ -1,13 +1,13 @@
-#include "tasks/utils/mocap/MocapMsgSubscriber.hpp"
 #include <thread>
 #include <chrono>
 #include <cstring>
+#include "tasks/utils/mocap/MocapMsgSubscriber.h"
 #include "utility/logger.h"
 
 MocapMsgSubscriber::MocapMsgSubscriber(float fps, int length)
     : fps_(fps), length_(length)
 {
-    participant_ = dds_create_participant(0, nullptr, nullptr);
+    participant_ = dds_create_participant(1, nullptr, nullptr);
     if (participant_ < 0) {
         FRC_ERROR("Failed to create DDS participant.");
         throw std::runtime_error("Failed to create DDS participant");
@@ -117,6 +117,41 @@ MocapData MocapMsgSubscriber::subscribe() {
 
     return result;
 }
+
+std::unordered_map<std::string, Eigen::VectorXf> MocapMsgSubscriber::subscribeHands() {
+    // 提前定义并初始化返回值
+    std::unordered_map<std::string, Eigen::VectorXf> result;
+    result["hands_joints"]       = Eigen::VectorXf::Zero(14);
+    result["left_wrist_joints"]  = Eigen::VectorXf::Zero(3);
+    result["right_wrist_joints"] = Eigen::VectorXf::Zero(3);
+    result["valid"]              = Eigen::VectorXf::Zero(1);  // 0 表示无效
+
+    if (!msg_hands_) {
+        return result;  // 直接返回空数据 + valid = 0
+    }
+
+    // 尝试读取数据
+    MocapMsg samples[1];
+    void* samples_void[1] = { &samples[0] };
+    dds_sample_info_t infos[1];
+
+    int ret = dds_read(reader_, samples_void, infos, 1, 1);
+    if (ret <= 0 || !infos[0].valid_data) {
+        return result;  // 无效数据，也返回 default 向量 + valid = 0
+    }
+
+    const auto& sample = samples[0];
+
+    // 读取有效数据
+    std::memcpy(result["hands_joints"].data(), sample.hands_joints, sizeof(float) * 14);
+    std::memcpy(result["left_wrist_joints"].data(), sample.left_wrist_joints, sizeof(float) * 3);
+    std::memcpy(result["right_wrist_joints"].data(), sample.right_wrist_joints, sizeof(float) * 3);
+    result["valid"] = Eigen::VectorXf::Constant(1, 1.0f);
+
+    return result;
+}
+
+
 
 MocapMsgSubscriber::~MocapMsgSubscriber() {
     dds_delete(participant_);

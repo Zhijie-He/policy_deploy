@@ -1,17 +1,16 @@
 // tasks/MocapTask.h
 #pragma once
+#include <fstream>
 #include "tasks/BaseTask.h"
 #include "tasks/TaskFactory.h"
-#include "tasks/utils/mocap/MocapMsgSubscriber.hpp"
-
+#include "tasks/utils/mocap/MocapMsgSubscriber.h"
 #include "utility/json.hpp"
-#include <fstream>
+
 using json = nlohmann::json;
 
 struct MocapTaskCfg : public BaseTaskCfg {
     std::string policy_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.pt";
     std::string engine_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.engine";
-    std::string motion_json_file = std::string(PROJECT_SOURCE_DIR) + "/resources/sample_data/teleop_motion_lib_cache.json";
 
     // 模型参数
     int num_obs = 934;       // 93 + 91 + 8x90 + 30
@@ -75,17 +74,21 @@ public:
               const std::string& hands_type,
               const std::string& inference_engine_type,
               const std::string& precision);
+    CustomTypes::Action getAction(const CustomTypes::RobotData &robotData) override;
     void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
-    void resolveObservation(const CustomTypes::RobotData& robotData) override;
-    MocapResult getMocap();
+    void resolveSelfObservation(const CustomTypes::RobotData& robotData) override;
+    void resolveTaskObservation(const CustomTypes::RobotData& robotData) override;
     void reset() override;
+    
+    MocapResult getMocap();
+    CustomTypes::Action getHandsAction(CustomTypes::Action& robotAction);
 
 private:
     MocapTaskCfg task_cfg_;
-    float obs_scale_heading_;
-    std::vector<int> track_keypoints_indices_;
+    Eigen::VectorXi track_keypoints_indices_;
     Eigen::VectorXf mask_;
     std::unique_ptr<MocapMsgSubscriber> mocap_receiver_;
+    Eigen::VectorXi left_wrist_ids_, right_wrist_ids_;
 };
 
 

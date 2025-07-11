@@ -21,6 +21,7 @@ typedef struct MocapMsg
   float root_rot[4];
   float box_rot[8];
   float key_points[27];
+  float visualization[33];
   uint8_t teleop;
   float teleop_obs[810];
   uint8_t hands;

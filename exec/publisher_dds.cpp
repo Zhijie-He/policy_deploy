@@ -7,7 +7,7 @@
 int main() {
     std::cout << "[Publisher] Starting...\n";
 
-    dds_entity_t participant = dds_create_participant(0, NULL, NULL);
+    dds_entity_t participant = dds_create_participant(1, NULL, NULL);
     if (participant < 0) {
         std::cerr << "Failed to create participant\n";
         return -1;

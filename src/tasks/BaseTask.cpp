@@ -42,20 +42,31 @@ BaseTask::BaseTask(std::shared_ptr<const BaseRobotConfig> cfg,
   }
 }
 
-void BaseTask::updateObservation(const CustomTypes::RobotData &raw_obs) {
-    Eigen::Vector3f projected_gravity_b = tools::quat_rotate_inverse_on_gravity(raw_obs.root_rot * cfg_->obs_scale_projected_gravity_b);
-    Eigen::Vector3f root_ang_vel_b = raw_obs.root_ang_vel * cfg_->ang_vel_scale;
-    Eigen::VectorXf joint_pos = (raw_obs.joint_pos - cfg_->default_angles) * cfg_->dof_pos_scale;
-    Eigen::VectorXf joint_vel = raw_obs.joint_vel * cfg_->dof_vel_scale;
-    Eigen::VectorXf last_action = actionPrev * cfg_->action_scale;
-    // Eigen::Vector3f cmd = raw_obs.targetCMD.cwiseProduct(cfg_->cmd_scale);
+void BaseTask::resolveSelfObservation(const CustomTypes::RobotData &raw_obs) {
+  // Eigen::Vector3f projected_gravity_b = tools::quat_rotate_inverse_on_gravity(raw_obs.root_rot * task_cfg_->self_obs_scale.at("projected_gravity_b"));
+  // Eigen::Vector3f root_ang_vel_b = raw_obs.root_ang_vel * task_cfg_->self_obs_scale.at("root_ang_vel_b");
+  // Eigen::VectorXf joint_pos = (raw_obs.joint_pos - cfg_->default_angles) * task_cfg_->self_obs_scale.at("joint_pose");
+  // Eigen::VectorXf joint_vel = raw_obs.joint_vel * task_cfg_->self_obs_scale.at("joint_vel");
+  // Eigen::VectorXf last_action = actionPrev * task_cfg_->self_obs_scale.at("action");
 
-    observation.segment(0, 3)                  = projected_gravity_b;
-    observation.segment(3, 3)                  = root_ang_vel_b;
-    observation.segment(6, acDim)              = joint_pos(cfg_->env2actor);
-    observation.segment(6 + acDim, acDim)      = joint_vel(cfg_->env2actor);
-    observation.segment(6 + 2 * acDim, acDim)  = actionPrev;
-    // observation.segment(6 + 3 * acDim, 3)      = cmd;
+  Eigen::Vector3f projected_gravity_b = tools::quat_rotate_inverse_on_gravity(raw_obs.root_rot * cfg_->obs_scale_projected_gravity_b);
+  Eigen::Vector3f root_ang_vel_b = raw_obs.root_ang_vel * cfg_->ang_vel_scale;
+  Eigen::VectorXf joint_pos = (raw_obs.joint_pos - cfg_->default_angles) * cfg_->dof_pos_scale;
+  Eigen::VectorXf joint_vel = raw_obs.joint_vel * cfg_->dof_vel_scale;
+  Eigen::VectorXf last_action = actionPrev * cfg_->action_scale;
+  // Eigen::Vector3f cmd = raw_obs.targetCMD.cwiseProduct(cfg_->cmd_scale);
+
+  observation.segment(0, 3)                  = projected_gravity_b;
+  observation.segment(3, 3)                  = root_ang_vel_b;
+  observation.segment(6, acDim)              = joint_pos(cfg_->env2actor);
+  observation.segment(6 + acDim, acDim)      = joint_vel(cfg_->env2actor);
+  observation.segment(6 + 2 * acDim, acDim)  = actionPrev;
+  // observation.segment(6 + 3 * acDim, 3)      = cmd;
+}
+
+void BaseTask::resolveObservation(const CustomTypes::RobotData &raw_obs) {
+  resolveSelfObservation(raw_obs);
+  resolveTaskObservation(raw_obs);
 }
 
 CustomTypes::Action BaseTask::getAction(const CustomTypes::RobotData &robotData){

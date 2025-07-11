@@ -61,7 +61,6 @@ struct TeleopTaskCfg : public BaseTaskCfg {
     }
 };
 
-
 class TeleopTask : public BaseTask {
 public:
     TeleopTask(std::shared_ptr<const BaseRobotConfig> cfg,
@@ -69,20 +68,19 @@ public:
                const std::string& hands_type,
                const std::string& inference_engine_type,
                const std::string& precision);
-
     void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
-    void resolveObservation(const CustomTypes::RobotData& robotData) override;
+    void resolveSelfObservation(const CustomTypes::RobotData& robotData) override;
+    void resolveTaskObservation(const CustomTypes::RobotData& robotData) override;
     void loadMotion();
     void reset() override;
 
 private:
     TeleopTaskCfg task_cfg_;
-    float obs_scale_heading_;
-    std::vector<int> track_keypoints_indices_;
+    Eigen::VectorXi track_keypoints_indices_;
     Eigen::VectorXf mask_;
     int motion_id_;
     int count_offset_;
-    std::vector<int> motion_lib_cache_len_;
+    Eigen::VectorXi motion_lib_cache_len_;
     json motion_lib_cache_;
 };
 

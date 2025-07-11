@@ -5,7 +5,7 @@
 #include <thread>
 
 int main() {
-    dds_entity_t participant = dds_create_participant(DDS_DOMAIN_DEFAULT, nullptr, nullptr);
+    dds_entity_t participant = dds_create_participant(1, nullptr, nullptr);
     if (participant < 0) {
         std::cerr << "Failed to create participant\n";
         return -1;
@@ -52,39 +52,39 @@ int main() {
     }
 
 
-    MocapMsg samples[MAX_SAMPLES];
-    void* samples_void[MAX_SAMPLES];
-    dds_sample_info_t infos[MAX_SAMPLES];
+    // MocapMsg samples[MAX_SAMPLES];
+    // void* samples_void[MAX_SAMPLES];
+    // dds_sample_info_t infos[MAX_SAMPLES];
 
-    for (int i = 0; i < MAX_SAMPLES; ++i)
-        samples_void[i] = &samples[i];
+    // for (int i = 0; i < MAX_SAMPLES; ++i)
+    //     samples_void[i] = &samples[i];
 
-    while (true) {
-        int ret = dds_read(reader, samples_void, infos, MAX_SAMPLES, MAX_SAMPLES);
-        if (ret > 0) {
-            std::cout << "📥 本轮收到了 " << ret << " 条消息\n";
-            for (int i = 0; i < ret; ++i) {
-                if (!infos[i].valid_data) continue;
-                const MocapMsg& msg = samples[i];
-                std::cout << "  - Msg[" << i << "] FPS: " << msg.fps << "\n";
-                std::cout << "Root Rot: [";
-                for (int i = 0; i < 4; ++i) std::cout << msg.root_rot[i] << (i < 3 ? ", " : "]\n");
+    // while (true) {
+    //     int ret = dds_read(reader, samples_void, infos, MAX_SAMPLES, MAX_SAMPLES);
+    //     if (ret > 0) {
+    //         std::cout << "📥 本轮收到了 " << ret << " 条消息\n";
+    //         for (int i = 0; i < ret; ++i) {
+    //             if (!infos[i].valid_data) continue;
+    //             const MocapMsg& msg = samples[i];
+    //             std::cout << "  - Msg[" << i << "] FPS: " << msg.fps << "\n";
+    //             std::cout << "Root Rot: [";
+    //             for (int i = 0; i < 4; ++i) std::cout << msg.root_rot[i] << (i < 3 ? ", " : "]\n");
 
-                std::cout << "Teleop: " << static_cast<int>(msg.teleop) << "\n";
+    //             std::cout << "Teleop: " << static_cast<int>(msg.teleop) << "\n";
 
-                std::cout << "Teleop Obs (9x30x3): [";
-                for (int i = 0; i < 21; ++i) std::cout << msg.teleop_obs[i] << (i < 20 ? ", " : "]\n");
-            }
-        } else {
-            std::cout << "（暂无新消息）\n";
-        }
+    //             std::cout << "Teleop Obs (9x30x3): [";
+    //             for (int i = 0; i < 21; ++i) std::cout << msg.teleop_obs[i] << (i < 20 ? ", " : "]\n");
+    //         }
+    //     } else {
+    //         std::cout << "（暂无新消息）\n";
+    //     }
 
-        dds_sleepfor(DDS_MSECS(1000));
-        // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    }
+    //     dds_sleepfor(DDS_MSECS(1000));
+    //     // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    // }
 
-    dds_delete(participant);
-    return 0;
+    // dds_delete(participant);
+    // return 0;
 
     while (true) {
         MocapMsg samples[1];

@@ -23,7 +23,10 @@ namespace tools {
     Eigen::Vector3f get_gravity_orientation(const Eigen::Vector4f& q);
     Eigen::Vector3f quat_rotate_inverse_on_gravity(const Eigen::Vector4f& q);
     float getHeadingFromQuat(const Eigen::Vector4f& quat);
-
+    
+    Eigen::MatrixXf compute_teleop_observation(const Eigen::MatrixXf& motion_body_pos,  // [T, 90]
+                                               const Eigen::VectorXf& damping,          // [T-1]
+                                               float dt);                                      
     Eigen::VectorXf resolveCompatibilityConcat(const Eigen::VectorXf& state, const Eigen::VectorXi& joint_concat_index);
     std::pair<Eigen::VectorXf, Eigen::VectorXf> resolveCompatibilitySplit(const Eigen::VectorXf& state, 
                                                                           const std::unordered_map<std::string, Eigen::VectorXi>& joint_split_index); 

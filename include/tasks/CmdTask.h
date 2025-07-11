@@ -43,7 +43,8 @@ public:
             const std::string& inference_engine_type,
             const std::string& precision);
     void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) override;
-    void resolveObservation(const CustomTypes::RobotData& robotData) override;
+    void resolveSelfObservation(const CustomTypes::RobotData& robotData) override;
+    void resolveTaskObservation(const CustomTypes::RobotData& robotData) override;
     void reset() override;
     
 private:

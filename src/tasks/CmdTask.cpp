@@ -63,16 +63,17 @@ void CmdTask::resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) 
     FRC_INFO("[CmdTask.resolveKeyboardInput] Cmd state = " << cmd_states_.transpose());
 }
 
-void CmdTask::resolveObservation(const CustomTypes::RobotData& raw_obs) {
-    updateObservation(raw_obs);
+void CmdTask::resolveSelfObservation(const CustomTypes::RobotData& raw_obs) {
+    BaseTask::resolveSelfObservation(raw_obs);
+}
 
+void CmdTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
     Vec3f task_obs;
     {
         std::lock_guard<std::mutex> lock(cmd_states_lock_);
         task_obs = cmd_states_.cwiseProduct(cmd_obs_scale_);
     }
-    
-    observation.segment(6 + 3 * acDim, 3)      = task_obs;
+    observation.segment(6 + 3 * acDim, 3) = task_obs;
 }
 
 void CmdTask::reset() {

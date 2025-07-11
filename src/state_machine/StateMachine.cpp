@@ -165,27 +165,21 @@ void StateMachine::getRawObs() {
 void StateMachine::packJointAction(){
   assert(_jointCMDBuffer != nullptr);
   jointCMD cmd;
+  
   cmd.data.timestamp = robotAction.timestamp;
   
   Eigen::VectorXf full_position(_jointNum + _handsNum);
   full_position << robotAction.motorPosition, robotAction.handsPosition;
-  // FRC_CRITICAL("full_position size " << full_position.size());
-
   Eigen::VectorXf resolved_full_position = tools::resolveCompatibilityConcat(full_position, cfg_->hand_map.at(hands_type_).joint_concat_index);
   memcpy(cmd.data.position, resolved_full_position.data(), (_jointNum + _handsNum) * sizeof(float));
   
   Eigen::VectorXf full_velocity(_jointNum + _handsNum);
   full_velocity << robotAction.motorVelocity, robotAction.handsVelocity;
-  // FRC_CRITICAL("full_velocity size " << full_velocity.size());
-  
   Eigen::VectorXf resolved_full_velocity = tools::resolveCompatibilityConcat(full_velocity, cfg_->hand_map.at(hands_type_).joint_concat_index);
   memcpy(cmd.data.velocity, resolved_full_velocity.data(), (_jointNum + _handsNum) * sizeof(float));
 
-  // memcpy(cmd.data.position, robotAction.motorPosition.data(), _jointNum * sizeof(float));
-  // memcpy(cmd.data.velocity, robotAction.motorVelocity.data(), _jointNum * sizeof(float));
-
-  // memcpy(cmd.data.kp, robotAction.kP.data(), _jointNum * sizeof(float));
-  // memcpy(cmd.data.kd, robotAction.kD.data(), _jointNum * sizeof(float));
+  // memcpy(cmd.data.kp, robotAction.kP.data(),  (_jointNum + _handsNum) * sizeof(float));
+  // memcpy(cmd.data.kd, robotAction.kD.data(),  (_jointNum + _handsNum) * sizeof(float));
   _jointCMDBuffer->SetData(cmd);
 }
 
