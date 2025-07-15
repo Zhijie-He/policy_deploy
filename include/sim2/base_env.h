@@ -7,6 +7,7 @@
 #include "hardware/listener.h"
 #include "types/CustomTypes.h"
 #include "state_machine/StateMachine.h"
+#include "utility/tools.h"
 
 class BaseEnv {
 public:
@@ -15,7 +16,8 @@ public:
           std::shared_ptr<StateMachine> state_machine);
          
   virtual ~BaseEnv() = default;
-  virtual void initState();
+  virtual void initWorld();
+  void initState();
   virtual void stop() { running_ = false;}  
   virtual void setHeadless(bool) {}
   virtual void setUserInputPtr(std::shared_ptr<Listener> listener, char* key, JoystickData* joy) {listenerPtr_ = listener; keyPtr_ = key; joyPtr_ = joy;}
@@ -43,11 +45,15 @@ protected:
   std::shared_ptr<Listener> listenerPtr_;
   char* keyPtr_ = nullptr;
   JoystickData* joyPtr_ = nullptr;
-
-  int gcDim_, gvDim_, jointDim_, handsDim_;
-  Eigen::VectorXd gc_, gv_, joint_torques_;
+  
+  std::string robotName_;
+  int gcDim_, gvDim_, jointDim_, handsDim_, actuatorDim_;
+  Eigen::VectorXf gc_, gv_, joint_torques_;
   Eigen::VectorXf pTarget, vTarget;
   Eigen::VectorXf jointPGain, jointDGain;
+  Eigen::VectorXf leftHandPGain, leftHandDGain;
+  Eigen::VectorXf rightHandPGain, rightHandDGain;
+  Eigen::VectorXf fullPGain, fullDGain;
   Eigen::VectorXf tauCmd;
 
   std::mutex state_lock_;
@@ -58,4 +64,11 @@ protected:
   int run_count = 0;
   double run_sum_us = 0;
   double run_sum_sq_us = 0;
+
+    
+  // hands related
+  int left_hand_num_dof_;
+  int right_hand_num_dof_;
+  Eigen::VectorXi joint_concat_index_;
+  std::unordered_map<std::string, Eigen::VectorXi> joint_split_index_;
 };

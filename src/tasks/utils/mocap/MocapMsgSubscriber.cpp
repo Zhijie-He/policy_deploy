@@ -60,7 +60,7 @@ MocapMsgSubscriber::MocapMsgSubscriber(float fps, int length)
     msg_fps_ = samples[0].fps;
     msg_hands_ = samples[0].hands;
     FRC_INFO("[MocapMsgSubscriber.Const] msg_fps_: "<< msg_fps_ << ", msg_hands_: " << msg_hands_);
-    FRC_INFO("[MocapMsgSubscriber.Const] created!");
+    FRC_INFO("[MocapMsgSubscriber.Const] MocapMsgSubscriber Initialization Done!");
 }
 
 MocapData MocapMsgSubscriber::subscribe() {
@@ -80,6 +80,7 @@ MocapData MocapMsgSubscriber::subscribe() {
     }
     
     // FRC_HIGHLIGHT("[MocapMsgSubscriber.subscribe] 本轮收到了 " << ret << " 条消息");
+    // get keypoints
     for (int i = 1; i <= length_; ++i) {
         int idx = ret - 1 - static_cast<int>(i * (1.0 / fps_) * msg_fps_);
         if (idx < 0 || idx >= ret || !infos[idx].valid_data) {
@@ -109,10 +110,17 @@ MocapData MocapMsgSubscriber::subscribe() {
 
     // get calculated teleop_obs
     const MocapMsg& last_msg = samples[ret - 1];
-    for (int j = 0; j< length_; ++j){
+    for (int i = 0; i < length_; ++i){
         std::array<float, 90> obs{};
-        std::memcpy(obs.data(), &last_msg.teleop_obs[j * 90], sizeof(float) * 90);
+        std::memcpy(obs.data(), &last_msg.teleop_obs[i * 90], sizeof(float) * 90);
         result.teleop_obs.push_back(obs);
+    }
+
+    // get visualization
+    for (int i = 0; i < 11; ++i) {
+        std::array<float, 3> point{};
+        std::memcpy(point.data(), &last_msg.visualization[i * 3], sizeof(float) * 3);
+        result.visualization.push_back(point);
     }
 
     return result;
@@ -150,8 +158,6 @@ std::unordered_map<std::string, Eigen::VectorXf> MocapMsgSubscriber::subscribeHa
 
     return result;
 }
-
-
 
 MocapMsgSubscriber::~MocapMsgSubscriber() {
     dds_delete(participant_);

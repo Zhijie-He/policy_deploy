@@ -3,26 +3,10 @@
 #include <memory>
 #include "types/system_defined.h"
 #include "sim2/base_env.h"
+#include "tasks/utils/mocap/Keypoints.h"
+// unitree related
+#include "utility/real/unitree_tools.h"
 
-
-// unitree
-// DDS
-#include <unitree/robot/channel/channel_publisher.hpp>
-#include <unitree/robot/channel/channel_subscriber.hpp>
-
-// IDL
-#include <unitree/idl/hg/IMUState_.hpp>
-#include <unitree/idl/hg/LowCmd_.hpp>
-#include <unitree/idl/hg/LowState_.hpp>
-#include <unitree/robot/b2/motion_switcher/motion_switcher_client.hpp>
-
-using namespace unitree::robot;
-using namespace unitree_hg::msg::dds_;
-
-enum class Mode {
-  PR = 0,  // Series Control for Ptich/Roll Joints
-  AB = 1   // Parallel Control for A/B Joints
-};
 
 class G1Sim2RealEnv : public BaseEnv {
 public:
@@ -31,9 +15,9 @@ public:
             const std::string& hands_type,
             std::shared_ptr<StateMachine> state_machine);   
 
-  void initWorld();
+  void initWorld() override;
   void stop() override { running_ = false;}
-  void LowStateHandler(const void *message);
+  void LowStateHgHandler(const void *message);
   void updateRobotState();
   void waitForLowState();
 
@@ -57,4 +41,19 @@ private:
   DataBuffer<LowState_> low_state_buffer_;
   std::unique_ptr<ChannelPublisher<LowCmd_>> lowcmd_publisher_;         // publisher
   std::unique_ptr<ChannelSubscriber<LowState_>> lowstate_subscriber_;   // subscriber
+
+  // hands related
+  HandCmd_ leftHand_cmd_;
+  HandState_ leftHand_state_;
+  std::unique_ptr<ChannelPublisher<HandCmd_>> leftHandcmd_publisher_;         // publisher
+  std::unique_ptr<ChannelSubscriber<HandCmd_>> leftHandstate_subscriber_;         // subscriber
+  
+  HandCmd_ rightHand_cmd_;
+  HandState_ rightHand_state_;
+  std::unique_ptr<ChannelPublisher<HandCmd_>> rightHandcmd_publisher_;         // publisher
+  std::unique_ptr<ChannelSubscriber<HandCmd_>> rightHandstate_subscriber_;         // subscriber
+
+  // visualization 
+  dds_entity_t keypoints_publisher_; 
+  mujoco_visualization_KeypointsMsg keypoints_msg_;
 };

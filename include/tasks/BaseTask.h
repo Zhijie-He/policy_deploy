@@ -48,7 +48,9 @@ public:
     virtual void resolveObservation(const CustomTypes::RobotData& robotData);
     virtual void resolveKeyboardInput(char key, CustomTypes::RobotData &robotData) = 0;
     virtual void reset();
-
+    const Eigen::MatrixXf& getVisualization() const;
+    void setVisualization(const std::vector<std::array<float, 3>>& vis);
+    
 protected:
     virtual void resolveSelfObservation(const CustomTypes::RobotData& robotData);
     virtual void resolveTaskObservation(const CustomTypes::RobotData& robotData) = 0;
@@ -65,5 +67,7 @@ protected:
     Eigen::VectorXf observation;
     Eigen::VectorXf action, actionPrev;
     std::shared_ptr<BasePolicyInferenceEngine> engine_;
+
+    Eigen::MatrixXf visualization_;
 };
 

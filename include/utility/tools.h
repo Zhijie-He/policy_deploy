@@ -1,5 +1,4 @@
 // utility/tools.h
-
 #pragma once
 #include <Eigen/Dense>
 #include <memory>
@@ -30,6 +29,10 @@ namespace tools {
     Eigen::VectorXf resolveCompatibilityConcat(const Eigen::VectorXf& state, const Eigen::VectorXi& joint_concat_index);
     std::pair<Eigen::VectorXf, Eigen::VectorXf> resolveCompatibilitySplit(const Eigen::VectorXf& state, 
                                                                           const std::unordered_map<std::string, Eigen::VectorXi>& joint_split_index); 
+    Eigen::VectorXf concatJointAndHand(const Eigen::VectorXf& joint,
+                                       const Eigen::VectorXf& hands,
+                                       int jointDim,
+                                       int handsDim);
 }
 
 

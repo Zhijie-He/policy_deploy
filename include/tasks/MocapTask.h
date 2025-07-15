@@ -79,7 +79,6 @@ public:
     void resolveSelfObservation(const CustomTypes::RobotData& robotData) override;
     void resolveTaskObservation(const CustomTypes::RobotData& robotData) override;
     void reset() override;
-    
     MocapResult getMocap();
     CustomTypes::Action getHandsAction(CustomTypes::Action& robotAction);
 

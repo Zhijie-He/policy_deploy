@@ -6,19 +6,10 @@
 #include <string>
 #include <thread>
 #include <random>
-
-#include <unitree/robot/channel/channel_subscriber.hpp>
-#include <unitree/common/time/time_tool.hpp>
-#include <unitree/idl/hg/LowCmd_.hpp>
-#include <unitree/idl/hg/LowState_.hpp>
 #include "utility/real/unitree_tools.h"
 #include "utility/tools.h"
 #include "utility/timer.h"
 #include "utility/cxxopts.hpp"
-
-using namespace unitree::robot;
-using namespace unitree_hg::msg::dds_;
-
 #define LOG_USE_COLOR 1
 #define LOG_USE_PREFIX 1
 #include "utility/logger.h"

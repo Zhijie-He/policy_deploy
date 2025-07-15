@@ -4,8 +4,12 @@ DT: 0.02
 msg_type: "hg"     # "hg" or "go"
 imu_type: "pelvis"    # "torso" or "pelvis"
 
-lowcmd_topic: "rt/lowcmd"
-lowstate_topic: "rt/lowstate"
+# lowcmd_topic: "rt/lowcmd"
+# lowstate_topic: "rt/lowstate"
+
+lowcmd_topic: "mujoco/rt/lowcmd"
+lowstate_topic: "mujoco/rt/lowstate"
+mujoco_keypoints_topic: "mujoco/visualization/keypoints"
 
 actor_path: "{EMAN_ROOT_DIR}/ei/actor/actor.pt"
 motion_file: "{EMAN_ROOT_DIR}/deploy/sample_data/fly_ws/"

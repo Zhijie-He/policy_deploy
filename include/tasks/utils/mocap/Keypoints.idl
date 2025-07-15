@@ -1,0 +1,8 @@
+module mujoco {
+  module visualization {
+    struct KeypointsMsg {
+      float keypoints[90];
+    };
+  };
+};
+

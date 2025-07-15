@@ -1,16 +1,15 @@
 // ===== include/sim2/simulator/g1_sim2mujoco_env.h =====
 #pragma once
 
+#include <mutex>
+#include <vector>
+#include <memory>
+#include <Eigen/Core>
+#include <GLFW/glfw3.h>
 #include <yaml-cpp/yaml.h>
 #include <mujoco/mujoco.h>
-#include <GLFW/glfw3.h>
-#include <memory>
-#include <mutex>
-#include <Eigen/Core>
-#include <vector>
-#include "types/system_defined.h"
 #include "sim2/base_env.h"
-
+#include "types/system_defined.h"
 
 class G1Sim2MujocoEnv : public BaseEnv {
 public:
@@ -20,8 +19,7 @@ public:
 
   ~G1Sim2MujocoEnv();
 
-  void initWorld();
-  void initState() override;
+  void initWorld() override;
   void launchServer();
   void setHeadless(bool headless) override { headless_ = headless; }
   void run() override;
@@ -36,16 +34,8 @@ public:
 
 private:
   double lastx_ = 0, lasty_ = 0;
-  std::string robotName_;
   float simulation_dt_ = 5e-4;
   std::thread step_thread_;
-  
-  int actuatorDim_;
-  // hands related
-  int left_hand_num_dof_;
-  int right_hand_num_dof_;
-  Eigen::VectorXi joint_concat_index_;
-  std::unordered_map<std::string, Eigen::VectorXi> joint_split_index_;
 
   // MuJoCo core members
   bool headless_ = true; 

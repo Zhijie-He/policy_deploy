@@ -21,7 +21,6 @@ int main() {
         return -1;
     }
 
-
     dds_qos_t* pub_qos = dds_create_qos();
     dds_qset_history(pub_qos, DDS_HISTORY_KEEP_LAST, 20);  // 缓存最近 32 条
 

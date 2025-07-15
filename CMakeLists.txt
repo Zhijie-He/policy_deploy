@@ -185,12 +185,14 @@ if (USE_UNITREE_SDK)
     # target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
 endif()
 
-add_executable(subscriber exec/subscriber_dds.cpp ${SRC_FILES})
-target_link_libraries(subscriber ${COMMON_LIBS})
+# add_executable(subscriber exec/subscriber_dds.cpp ${SRC_FILES})
+# target_link_libraries(subscriber ${COMMON_LIBS})
 
-add_executable(subscriber_class exec/subscriber_dds_class.cpp ${SRC_FILES})
-target_link_libraries(subscriber_class ${COMMON_LIBS})
+# add_executable(subscriber_class exec/subscriber_dds_class.cpp ${SRC_FILES})
+# target_link_libraries(subscriber_class ${COMMON_LIBS})
 
-add_executable(publisher exec/publisher_dds.cpp ${SRC_FILES})
-target_link_libraries(publisher ${COMMON_LIBS})
+# add_executable(publisher exec/publisher_dds.cpp ${SRC_FILES})
+# target_link_libraries(publisher ${COMMON_LIBS})
 
+# add_executable(subscriber_visualization exec/subscriber_visualization.cpp ${SRC_FILES})
+# target_link_libraries(subscriber_visualization ${COMMON_LIBS})

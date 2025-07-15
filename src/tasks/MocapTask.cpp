@@ -11,7 +11,7 @@ MocapTask::MocapTask(std::shared_ptr<const BaseRobotConfig> cfg,
       : BaseTask(cfg, std::make_shared<MocapTaskCfg>(), device, hands_type, inference_engine_type, precision),
         task_cfg_() 
 {
-    FRC_INFO("[MocapTask.Const] Created!");
+    FRC_INFO("[MocapTask.Const] MocapTask Created!");
 
     // overwrite cfg from model cfg
     // task_cfg_.num_samples = 1 + self.actor.cfg["task_next_obs"]["shape"][0]
@@ -91,7 +91,9 @@ void MocapTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
     MocapResult mocap = getMocap();
     const auto& cache = mocap.teleop_obs;
     // const auto& points = mocap.motion_state;
-
+    
+    setVisualization(mocap.visualization);
+  
     // 3. 构造 task_obs（当前帧）
     Eigen::VectorXf task_obs(cache[0].size());
     for (size_t i = 0; i < cache[0].size(); ++i) {
@@ -165,10 +167,10 @@ MocapResult MocapTask::getMocap() {
     float dt = 1.0f / task_cfg_.sample_timestep_inv;
     Eigen::MatrixXf teleop_obs_eigen = tools::compute_teleop_observation(mocap_state, damping, dt);
 
-    // 5. 构建结果
+    // 构建结果
     MocapResult result;
 
-    // 5.1 motion_state: [T][90]
+    // motion_state: [T][90]
     result.motion_state.resize(num_samples);
     for (int t = 0; t < num_samples; ++t) {
         result.motion_state[t].resize(num_keypoints * 3);
@@ -177,7 +179,7 @@ MocapResult MocapTask::getMocap() {
         }
     }
 
-    // 5.2 teleop_obs: [T-1][D]
+    // teleop_obs: [T-1][D]
     int obs_time = teleop_obs_eigen.rows();  // T-1
     int obs_dim  = teleop_obs_eigen.cols();  // D
     result.teleop_obs.resize(obs_time);
@@ -188,13 +190,16 @@ MocapResult MocapTask::getMocap() {
         }
     }
 
+    // 3 get visualization
+    result.visualization = mocap_data.visualization;
+
     // sanity check: compare with subscribed teleop_obs
-    int T = result.teleop_obs.size();       // T-1
-    int D = result.teleop_obs[0].size();    // D
+    // int T = result.teleop_obs.size();       // T-1
+    // int D = result.teleop_obs[0].size();    // D
 
-    const auto& ref = mocap_data.teleop_obs;  // T rows of 90-dim
+    // const auto& ref = mocap_data.teleop_obs;  // T rows of 90-dim
 
-    bool mismatch_found = false;
+    // bool mismatch_found = false;
 
     // if (ref.size() != T) {
     //     FRC_ERROR("[MocapTask.getMocap] teleop_obs length mismatch: expected " << T << ", got " << ref.size());

@@ -54,6 +54,12 @@ void StateMachine::createTasks(const std::vector<std::pair<std::string, char>>& 
     task_name_list_.push_back(task_name);
   }
   
+  // print all available tasks
+  std::ostringstream oss;
+  oss << "[StateMachine.createTasks] Available Tasks: ";
+  for (const auto& r : task_name_list_) oss << r << " ";
+  FRC_INFO(oss.str());
+
   // default activate the first task
   if (!task_name_list_.empty()) {
       current_task_ = task_name_list_.front();  
@@ -62,12 +68,6 @@ void StateMachine::createTasks(const std::vector<std::pair<std::string, char>>& 
       FRC_ERROR("[StateMachine.createTasks] No tasks registered in StateMachine");
       throw std::runtime_error("No  tasks registered in StateMachine.");
   }
-
-  // print all available tasks
-  std::ostringstream oss;
-  oss << "[StateMachine.createTasks] Available Tasks: ";
-  for (const auto& r : task_name_list_) oss << r << " ";
-  FRC_INFO(oss.str());
 }
 
 void StateMachine::handleKeyboardInput(char c) {
@@ -181,5 +181,10 @@ void StateMachine::packJointAction(){
   // memcpy(cmd.data.kp, robotAction.kP.data(),  (_jointNum + _handsNum) * sizeof(float));
   // memcpy(cmd.data.kd, robotAction.kD.data(),  (_jointNum + _handsNum) * sizeof(float));
   _jointCMDBuffer->SetData(cmd);
+}
+
+const Eigen::MatrixXf& StateMachine::getTaskVisualization() {
+  std::lock_guard<std::mutex> lock(task_lock_);
+  return tasks_[current_task_]->getVisualization();
 }
 

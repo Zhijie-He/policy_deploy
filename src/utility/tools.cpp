@@ -138,7 +138,7 @@ namespace tools {
 
 
     Eigen::VectorXf resolveCompatibilityConcat(const Eigen::VectorXf& state, const Eigen::VectorXi& joint_concat_index){
-         Eigen::VectorXf result(joint_concat_index.size());
+        Eigen::VectorXf result(joint_concat_index.size());
         for (int i = 0; i < joint_concat_index.size(); ++i) {
             result(i) = state(joint_concat_index(i));
         }
@@ -163,6 +163,19 @@ namespace tools {
         }
 
         return {skeleton, hands};
+    }
+
+    Eigen::VectorXf concatJointAndHand(const Eigen::VectorXf& joint,
+                                       const Eigen::VectorXf& hands,
+                                       int jointDim,
+                                       int handsDim) {
+        Eigen::VectorXf result(jointDim + handsDim);
+        result.segment(0, jointDim) = joint;
+
+        if (handsDim > 0 && hands.size() == handsDim) {
+            result.segment(jointDim, handsDim) = hands;
+        } 
+        return result;
     }
 }
 

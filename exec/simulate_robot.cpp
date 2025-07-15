@@ -3,20 +3,6 @@
 #include <random>
 #include "utility/timer.h"
 #include "utility/real/unitree_tools.h"
-// unitree
-// DDS
-#include <unitree/robot/channel/channel_publisher.hpp>
-#include <unitree/robot/channel/channel_subscriber.hpp>
-
-// IDL
-#include <unitree/idl/hg/IMUState_.hpp>
-#include <unitree/idl/hg/LowCmd_.hpp>
-#include <unitree/idl/hg/LowState_.hpp>
-#include <unitree/robot/b2/motion_switcher/motion_switcher_client.hpp>
-
-using namespace unitree::robot;
-using namespace unitree_hg::msg::dds_;
-
 #define LOG_USE_COLOR 1
 #define LOG_USE_PREFIX 1
 #include "utility/logger.h"
@@ -60,18 +46,17 @@ int main(int argc, char** argv) {
   std::uniform_real_distribution<float> pos_dist(-0.3f, 0.3f); // 位置扰动范围
   std::uniform_real_distribution<float> vel_dist(-0.05f, 0.05f); // 速度扰动范围
   int joint_num = 29;
-  while (!stop_flag) {
-      fake_state.tick() = tick_counter++;
-      for (int i = 0; i < joint_num; ++i) {
-          fake_state.motor_state().at(i).q() = pos_dist(rng);   // 随机关节角度
-          fake_state.motor_state().at(i).dq() = vel_dist(rng);  // 随机关节速度
-      }
-      // CRC 校验
-      fake_state.crc() = unitree_tools::Crc32Core((uint32_t*)&fake_state, (sizeof(LowState_) >> 2) - 1);
 
-      state_pub->Write(fake_state);
-      FRC_INFO("[simulate_robot] Publishing fake LowState_ with tick " << tick_counter);
-      simulateRobotTimer.wait();
+  while (!stop_flag) {
+    fake_state.tick() = tick_counter++;
+    for (int i = 0; i < joint_num; ++i) {
+      fake_state.motor_state().at(i).q() = pos_dist(rng);  
+      fake_state.motor_state().at(i).dq() = vel_dist(rng);  
+    }
+    fake_state.crc() = unitree_tools::Crc32Core((uint32_t*)&fake_state, (sizeof(LowState_) >> 2) - 1);     // CRC 校验
+    state_pub->Write(fake_state);
+    FRC_INFO("[simulate_robot] Publishing fake LowState_ with tick " << fake_state.tick());
+    simulateRobotTimer.wait();
   }
 
   return 0;

@@ -1,3 +1,4 @@
+// ===== include/state_machine/StateMachine.h =====
 #pragma once
 
 #include <vector>
@@ -29,7 +30,8 @@ public:
     void setInputPtr(char* key, JoystickData* joy) {_jsStates = joy; _keyState = key;}
     std::shared_ptr<DataBuffer<robotStatus>> getRobotStatusBufferPtr() const {return _robotStatusBuffer;}
     std::shared_ptr<DataBuffer<jointCMD>> getJointCMDBufferPtr() const {return _jointCMDBuffer;}
-
+    const Eigen::MatrixXf& getTaskVisualization();
+    
 protected:
     void getRawObs();
     void packJointAction();

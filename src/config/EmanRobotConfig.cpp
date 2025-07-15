@@ -110,6 +110,7 @@ EmanRobotConfig::EmanRobotConfig(const std::string& yaml_path)
     imu_type = root_["imu_type"].as<std::string>();
     lowcmd_topic = root_["lowcmd_topic"].as<std::string>();
     lowstate_topic = root_["lowstate_topic"].as<std::string>();
+    mujoco_keypoints_topic = root_["mujoco_keypoints_topic"].as<std::string>();
     obs_scale_projected_gravity_b = root_["obs_scale_projected_gravity_b"].as<float>();
     actor_joint_names = root_["actor_joint_names"].as<std::vector<std::string>>();
     env_joint_names = root_["env_joint_names"].as<std::vector<std::string>>();

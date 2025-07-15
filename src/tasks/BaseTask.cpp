@@ -31,11 +31,9 @@ BaseTask::BaseTask(std::shared_ptr<const BaseRobotConfig> cfg,
                                                    task_cfg,
                                                    device,
                                                    precision);
-    FRC_INFO("[BaseTask.Const] Inference engine created with {" << inference_engine_type << "} inference backend " << "and {" << precision << "} precision!");
-    
     engine_->warmUp();
     engine_->reset("reset_hist_buffer");
-    FRC_INFO("[BaseTask.Const] Engine Constructor Finished.");
+    FRC_HIGHLIGHT("[BaseTask.Const] Policy Inference Engine created with {" << inference_engine_type << "} backend " << "and {" << precision << "} precision!");
   } catch (const std::exception &e) {
       FRC_ERROR("[BaseTask.Const] Failed to create inference engine: " << e.what());
       std::exit(EXIT_FAILURE);
@@ -113,5 +111,17 @@ void BaseTask::reset(){
   counter_ = 0;
   start_ = false;
   engine_->reset("reset_hist_buffer");
+}
+
+void BaseTask::setVisualization(const std::vector<std::array<float, 3>>& vis) {
+  int N = vis.size();  // e.g., 11
+  visualization_ = Eigen::MatrixXf::Zero(N, 3);
+  for (int i = 0; i < N; ++i) {
+      visualization_.row(i) = Eigen::Vector3f(vis[i][0], vis[i][1], vis[i][2]);
+  }
+}
+
+const Eigen::MatrixXf& BaseTask::getVisualization() const{
+  return visualization_;
 }
 

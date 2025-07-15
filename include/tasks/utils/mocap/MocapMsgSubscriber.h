@@ -8,7 +8,6 @@
 #include "tasks/utils/mocap/MocapMsg.h"  // 包含由 IDL 生成的结构体定义
 #include "tasks/utils/mocap/MocapData.h" 
 
-
 class MocapMsgSubscriber {
 public:
     MocapMsgSubscriber(float fps, int length);

@@ -12,7 +12,7 @@ CmdTask::CmdTask(std::shared_ptr<const BaseRobotConfig> cfg,
     : BaseTask(cfg, std::make_shared<CmdTaskCfg>(), device, hands_type, inference_engine_type, precision), 
       task_cfg_() 
 {
-    FRC_INFO("[CmdTask.Const] Created!");
+    FRC_INFO("[CmdTask.Const] CmdTask Created!");
     // if (!cfg_->cmd_init.isZero()) {
     //     cmd_states_ = cfg_->cmd_init;
     //     FRC_INFO("[CmdTask.Const] Initial target cmd: " << cmd_states_.transpose()); 
