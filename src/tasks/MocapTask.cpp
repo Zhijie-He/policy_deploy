@@ -83,10 +83,16 @@ void MocapTask::resolveKeyboardInput(char key, CustomTypes::RobotData &robotData
 
 void MocapTask::resolveSelfObservation(const CustomTypes::RobotData& raw_obs) {
     BaseTask::resolveSelfObservation(raw_obs);
+    // add heading 
+    float heading = tools::getHeadingFromQuat(raw_obs.root_rot);
+    float scaled_heading = heading * task_cfg_.self_obs_scale.at("heading");
+
+    observation.tail(observation.size() - 1) = observation.head(observation.size() - 1);
+    observation(0) = scaled_heading;
 }
 
 void MocapTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
-    int self_obs_len = 93;
+    int self_obs_len = 93 + 1;
 
     MocapResult mocap = getMocap();
     const auto& cache = mocap.teleop_obs;
@@ -109,17 +115,17 @@ void MocapTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
     }
 
     // 5. heading
-    float heading = tools::getHeadingFromQuat(raw_obs.root_rot);
-    float scaled_heading = heading * task_cfg_.self_obs_scale.at("heading");
+    // float heading = tools::getHeadingFromQuat(raw_obs.root_rot);
+    // float scaled_heading = heading * task_cfg_.self_obs_scale.at("heading");
 
     // 6. 拼接 heading + task_obs
-    Eigen::VectorXf final_task_obs(task_obs.size() + 1);
-    final_task_obs[0] = scaled_heading;
-    final_task_obs.tail(task_obs.size()) = task_obs;
+    // Eigen::VectorXf final_task_obs(task_obs.size() + 1);
+    // final_task_obs[0] = scaled_heading;
+    // final_task_obs.tail(task_obs.size()) = task_obs;
 
     // 7. 总长度检查
-    int expected_len = self_obs_len + final_task_obs.size() + task_next_obs.size() + mask_.size();
-    int actual_len = observation.size();
+    int expected_len = observation.size();
+    int actual_len = self_obs_len + task_obs.size() + task_next_obs.size() + mask_.size();
 
     if (expected_len != actual_len) {
         throw std::runtime_error(
@@ -127,15 +133,15 @@ void MocapTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
             "Expected = " + std::to_string(expected_len) +
             ", Actual = " + std::to_string(actual_len) +
             " | self_obs = " + std::to_string(self_obs_len) +
-            ", task_obs = " + std::to_string(final_task_obs.size()) +
+            ", task_obs = " + std::to_string(task_obs.size()) +
             ", task_next_obs = " + std::to_string(task_next_obs.size()) +
             ", mask = " + std::to_string(mask_.size()));
     }
 
     // 8. 填充 observation
     // observation.head(self_obs_len) = observation_self_; // 来自 resolveSelfObservation()
-    observation.segment(self_obs_len, final_task_obs.size()) = final_task_obs;
-    observation.segment(self_obs_len + final_task_obs.size(), task_next_obs.size()) = task_next_obs;
+    observation.segment(self_obs_len, task_obs.size()) = task_obs;
+    observation.segment(self_obs_len + task_obs.size(), task_next_obs.size()) = task_next_obs;
     observation.tail(mask_.size()) = mask_;
 }
 
@@ -194,35 +200,34 @@ MocapResult MocapTask::getMocap() {
     result.visualization = mocap_data.visualization;
 
     // sanity check: compare with subscribed teleop_obs
-    // int T = result.teleop_obs.size();       // T-1
-    // int D = result.teleop_obs[0].size();    // D
+    int T = result.teleop_obs.size();       // T-1
+    int D = result.teleop_obs[0].size();    // D
 
-    // const auto& ref = mocap_data.teleop_obs;  // T rows of 90-dim
+    const auto& ref = mocap_data.teleop_obs;  // T rows of 90-dim
 
-    // bool mismatch_found = false;
+    bool mismatch_found = false;
 
-    // if (ref.size() != T) {
-    //     FRC_ERROR("[MocapTask.getMocap] teleop_obs length mismatch: expected " << T << ", got " << ref.size());
-    //     mismatch_found = true;
-    // } else {
-    //     for (int t = 0; t < T; ++t) {
-    //         for (int d = 0; d < D; ++d) {
-    //             float a = result.teleop_obs[t][d];
-    //             float b = ref[t][d];
-    //             if (std::abs(a - b) > 1e-5f) {
-    //                 FRC_ERROR("[MocapTask.getMocap] Mismatch at t=" << t << ", d=" << d << " | a=" << a << ", b=" << b);
-    //                 mismatch_found = true;
-    //                 break;
-    //             }
-    //         }
-    //         if (mismatch_found) break;
-    //     }
-    // }
-
-    // if (mismatch_found) {
-    //     throw std::runtime_error("[MocapTask.getMocap] Mismatched in teleop observation data.");
-    // }
-
+    if (ref.size() != T) {
+        FRC_ERROR("[MocapTask.getMocap] teleop_obs length mismatch: expected " << T << ", got " << ref.size());
+        mismatch_found = true;
+    } else {
+        for (int t = 0; t < T; ++t) {
+            for (int d = 0; d < D; ++d) {
+                float a = result.teleop_obs[t][d];
+                float b = ref[t][d];
+                if (std::abs(a - b) > 1e-5f) {
+                    FRC_ERROR("[MocapTask.getMocap] Mismatch at t=" << t << ", d=" << d << " | a=" << a << ", b=" << b);
+                    mismatch_found = true;
+                    break;
+                }
+            }
+            if (mismatch_found) break;
+        }
+    }
+    
+    if (mismatch_found) {
+        throw std::runtime_error("[MocapTask.getMocap] Mismatched in teleop observation data.");
+    }
 
     return result;
 }

@@ -13,8 +13,8 @@ struct MocapTaskCfg : public BaseTaskCfg {
     std::string engine_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.engine";
 
     // 模型参数
-    int num_obs = 934;       // 93 + 91 + 8x90 + 30
-    int num_hidden = 5704;   //  5704  = 31 x(91 + 93)
+    int num_obs = 94 + 90 + 4*90 + 30;       // 93 + 91 + 8x90 + 30 -> 94 + 90 + 4x90 + 30 
+    int num_hidden = 31*(94 + 90);        //  5704  = 31 x (94 + 90)
     int num_actions = 29;    
 
     // 远程设置

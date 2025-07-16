@@ -68,10 +68,16 @@ void TeleopTask::resolveKeyboardInput(char key, CustomTypes::RobotData &robotDat
 
 void TeleopTask::resolveSelfObservation(const CustomTypes::RobotData& raw_obs) {
     BaseTask::resolveSelfObservation(raw_obs);
+    // add heading 
+    float heading = tools::getHeadingFromQuat(raw_obs.root_rot);
+    float scaled_heading = heading * task_cfg_.self_obs_scale.at("heading");
+
+    observation.tail(observation.size() - 1) = observation.head(observation.size() - 1);
+    observation(0) = scaled_heading;
 }
 
 void TeleopTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
-   int self_obs_len = 93;
+    int self_obs_len = 93 + 1;
 
     // 1. cache index
     int cache_index = static_cast<int>((counter_ - count_offset_) * static_cast<float>(start_));
@@ -95,17 +101,17 @@ void TeleopTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
     }
 
     // 5. heading
-    float heading = tools::getHeadingFromQuat(raw_obs.root_rot);
-    float scaled_heading = heading * task_cfg_.self_obs_scale.at("heading");
+    // float heading = tools::getHeadingFromQuat(raw_obs.root_rot);
+    // float scaled_heading = heading * task_cfg_.self_obs_scale.at("heading");
 
     // 6. 拼接 heading + task_obs
-    Eigen::VectorXf final_task_obs(task_obs.size() + 1);
-    final_task_obs[0] = scaled_heading;
-    final_task_obs.tail(task_obs.size()) = task_obs;
+    // Eigen::VectorXf final_task_obs(task_obs.size() + 1);
+    // final_task_obs[0] = scaled_heading;
+    // final_task_obs.tail(task_obs.size()) = task_obs;
 
     // 7. 总长度检查
-    int expected_len = self_obs_len + final_task_obs.size() + task_next_obs.size() + mask_.size();
-    int actual_len = observation.size();
+    int expected_len = observation.size();
+    int actual_len = self_obs_len + task_obs.size() + task_next_obs.size() + mask_.size();
 
     if (expected_len != actual_len) {
         throw std::runtime_error(
@@ -113,15 +119,15 @@ void TeleopTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
             "Expected = " + std::to_string(expected_len) +
             ", Actual = " + std::to_string(actual_len) +
             " | self_obs = " + std::to_string(self_obs_len) +
-            ", task_obs = " + std::to_string(final_task_obs.size()) +
+            ", task_obs = " + std::to_string(task_obs.size()) +
             ", task_next_obs = " + std::to_string(task_next_obs.size()) +
             ", mask = " + std::to_string(mask_.size()));
     }
 
     // 8. 填充 observation
     // observation.head(self_obs_len) = observation_self_; // 来自 updateObservation()
-    observation.segment(self_obs_len, final_task_obs.size()) = final_task_obs;
-    observation.segment(self_obs_len + final_task_obs.size(), task_next_obs.size()) = task_next_obs;
+    observation.segment(self_obs_len, task_obs.size()) = task_obs;
+    observation.segment(self_obs_len + task_obs.size(), task_next_obs.size()) = task_next_obs;
     observation.tail(mask_.size()) = mask_;
 }
 

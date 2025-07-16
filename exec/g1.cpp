@@ -215,7 +215,7 @@ int main(int argc, char** argv) {
     std::vector<std::pair<std::string, char>> registers = {
       {"CmdTask", '1'},
       // {"TeleopTask", '2'},
-      {"MocapTask", '3'}
+      // {"MocapTask", '3'}
     };
     
     controller = std::make_unique<G1Controller>(net, mode, registers, config, hands_type, device, 
@@ -232,8 +232,8 @@ int main(int argc, char** argv) {
 
     close_all_threads(200);
   } catch (const std::exception& e) {
-      FRC_ERROR("Failed to construct G1Controller: " << e.what());
-      return -1;
+    FRC_ERROR("Failed to construct G1Controller: " << e.what());
+    return -1;
   }
   return 0;
 }

@@ -11,13 +11,14 @@ struct TeleopTaskCfg : public BaseTaskCfg {
     std::string engine_path = std::string(PROJECT_SOURCE_DIR) + "/resources/policies/g1/teleopTask.engine";
     std::string motion_json_file = std::string(PROJECT_SOURCE_DIR) + "/resources/sample_data/teleop_motion_lib_cache.json";
 
-    int num_obs = 934;       // 93 + 91 + 8x90 + 30
-    int num_hidden = 5704;   //  5704  = 31 x(91 + 93)
-    int num_actions = 29;    
+    // 模型参数
+    int num_obs = 94 + 90 + 4*90 + 30;       // 93 + 91 + 8x90 + 30 -> 94 + 90 + 4x90 + 30 
+    int num_hidden = 31*(94 + 90);          //  5704  = 31 x (94 + 90)
+    int num_actions = 29;
 
     float obs_scale_heading = 0.5f;
     int num_motions = 2;
-    int num_samples = 1 + 8;
+    int num_samples = 1 + 4;
     float sample_timestep_inv = 30.0f;
 
     std::vector<std::string> track_keypoints_names = {

@@ -107,14 +107,8 @@ CustomTypes::Action BaseTask::getAction(const CustomTypes::RobotData &robotData)
   return robotAction;
 }
 
-void BaseTask::reset(){
-  counter_ = 0;
-  start_ = false;
-  engine_->reset("reset_hist_buffer");
-}
-
 void BaseTask::setVisualization(const std::vector<std::array<float, 3>>& vis) {
-  int N = vis.size();  // e.g., 11
+  int N = vis.size();  
   visualization_ = Eigen::MatrixXf::Zero(N, 3);
   for (int i = 0; i < N; ++i) {
       visualization_.row(i) = Eigen::Vector3f(vis[i][0], vis[i][1], vis[i][2]);
@@ -125,3 +119,8 @@ const Eigen::MatrixXf& BaseTask::getVisualization() const{
   return visualization_;
 }
 
+void BaseTask::reset(){
+  counter_ = 0;
+  start_ = false;
+  engine_->reset("reset_hist_buffer");
+}

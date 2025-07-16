@@ -4,27 +4,6 @@
 #include "utility/timer.h"
 #include "sim2/real/g1_sim2real_env.h"
 
-#define MOTOR_MAX 7
-#define SENSOR_MAX 9
-
-class RIS_Mode {
-public:
-    RIS_Mode(uint8_t id = 0, uint8_t status = 0x01, uint8_t timeout = 0)
-        : id_(id & 0x0F), status_(status & 0x07), timeout_(timeout & 0x01) {}
-
-    uint8_t modeToUint8() const {
-        uint8_t mode = 0;
-        mode |= (id_ & 0x0F);
-        mode |= (status_ & 0x07) << 4;
-        mode |= (timeout_ & 0x01) << 7;
-        return mode;
-    }
-private:
-    uint8_t id_;
-    uint8_t status_;
-    uint8_t timeout_;
-};
-
 G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
                              std::shared_ptr<const BaseRobotConfig> cfg,
                              const std::string& hands_type,
@@ -90,7 +69,7 @@ void G1Sim2RealEnv::initWorld() {
     rightHand_cmd_.motor_cmd().resize(MOTOR_MAX);
   }
 
-  // visualization
+  // create keypoints visualization publisher
   {
     dds_entity_t dds_participant_ = dds_create_participant(0, NULL, NULL);
     if (dds_participant_ < 0) {
@@ -120,10 +99,10 @@ void G1Sim2RealEnv::waitForLowState() {
 void G1Sim2RealEnv::LowStateHgHandler(const void *message) {
   const LowState_& msg = *(const LowState_ *)message;
   // CRC verify
-  // if (msg.crc() != unitree_tools::Crc32Core((uint32_t *)&msg, (sizeof(LowState_) >> 2) - 1)) {
-  //   FRC_ERROR("[G1Sim2RealEnv.LowStateHgHandler] CRC Error");
-  //   return;
-  // }
+  if (msg.crc() != unitree_tools::Crc32Core((uint32_t *)&msg, (sizeof(LowState_) >> 2) - 1)) {
+    FRC_ERROR("[G1Sim2RealEnv.LowStateHgHandler] CRC Error");
+    return;
+  }
   
   // 机器人类型模式更新
   if (mode_machine_ != msg.mode_machine()) { // 检查当前程序记录的机器人类型（mode_machine_）是否与最新状态中的不一致
@@ -132,11 +111,9 @@ void G1Sim2RealEnv::LowStateHgHandler(const void *message) {
   }
   
   // update gamepad
-  // TODO: create a new thread to update gamepad in low freq e.g.-> policy_dt
   if (listenerPtr_) {
     memcpy(listenerPtr_->rx_.buff, &msg.wireless_remote()[0], 40);
     listenerPtr_->gamepad_.update(listenerPtr_->rx_.RF_RX);
-    // FRC_INFO("[G1Sim2RealEnv.LowStateHgHandler] tick: "<<msg.tick()<<" Gamepad: lx=" << listenerPtr_->gamepad_.lx);
   }
   
   low_state_buffer_.SetData(msg);
@@ -202,8 +179,8 @@ void G1Sim2RealEnv::updateRobotState() {
 }
 
 void G1Sim2RealEnv::sendCmd(LowCmd_& cmd) {
-  cmd.crc() = unitree_tools::Crc32Core((uint32_t *)&cmd, (sizeof(cmd) >> 2) - 1);  // 计算 CRC 校验
-  lowcmd_publisher_->Write(cmd);          // DDS 发布指令
+  cmd.crc() = unitree_tools::Crc32Core((uint32_t *)&cmd, (sizeof(cmd) >> 2) - 1); 
+  lowcmd_publisher_->Write(cmd);         
 }
 
 void G1Sim2RealEnv::zeroTorqueState() {
@@ -211,8 +188,8 @@ void G1Sim2RealEnv::zeroTorqueState() {
   FRC_INFO("[G1Sim2RealEnv.zeroTorqueState] Waiting for the start signal...");
   Timer zeroTorqueStateTimer(control_dt_);
 
-  // while (listenerPtr_ && listenerPtr_->gamepad_.start.pressed != 1) {
-  while (listenerPtr_ && *listenerPtr_->getKeyInputPtr() != 's') {
+  while (listenerPtr_ && listenerPtr_->gamepad_.start.pressed != 1) {
+  // while (listenerPtr_ && *listenerPtr_->getKeyInputPtr() != 's') {
     unitree_tools::create_zero_cmd(low_cmd_);  
     sendCmd(low_cmd_);        
     zeroTorqueStateTimer.wait();
@@ -296,8 +273,8 @@ void G1Sim2RealEnv::defaultPosState() {
   const auto& default_joint_pos = cfg_->default_angles;
   int dof_size = jointDim_;
 
-  // while (listenerPtr_ && listenerPtr_->gamepad_.A.pressed != 1) {
-  while (listenerPtr_ && *listenerPtr_->getKeyInputPtr() != 'a') {
+  while (listenerPtr_ && listenerPtr_->gamepad_.A.pressed != 1) {
+  // while (listenerPtr_ && *listenerPtr_->getKeyInputPtr() != 'a') {
     for (int i = 0; i < dof_size; ++i) {
       int motor_idx = i;
       low_cmd_.motor_cmd()[motor_idx].q() = default_joint_pos[motor_idx];
@@ -394,9 +371,7 @@ void G1Sim2RealEnv::applyAction(const jointCMD& cmd) {
     // 发布消息
     int rc = dds_write(keypoints_publisher_, &keypoints_msg_);
     if (rc < 0) {
-        FRC_WARN("Failed to write DDS visualization message");
-    } else {
-      FRC_HIGHLIGHT("publised visualization msessge");
+      FRC_WARN("[G1Sim2RealEnv.applyAction] Failed to write DDS visualization message");
     }
   }
 }

@@ -13,13 +13,6 @@ CmdTask::CmdTask(std::shared_ptr<const BaseRobotConfig> cfg,
       task_cfg_() 
 {
     FRC_INFO("[CmdTask.Const] CmdTask Created!");
-    // if (!cfg_->cmd_init.isZero()) {
-    //     cmd_states_ = cfg_->cmd_init;
-    //     FRC_INFO("[CmdTask.Const] Initial target cmd: " << cmd_states_.transpose()); 
-    // } else {
-    //     cmd_states_.setZero();  
-    // }
-
     cmd_states_.setZero();  
     max_cmd_ = task_cfg_.max_cmd;
     cmd_obs_scale_ = task_cfg_.obs_scale;
