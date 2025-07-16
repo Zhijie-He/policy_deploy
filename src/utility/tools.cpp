@@ -88,99 +88,40 @@ namespace tools {
         return heading;
     }
 
-    // Eigen::MatrixXf compute_teleop_observation(const Eigen::MatrixXf& motion_body_pos,  // [T, 90]
-    //                                            const Eigen::VectorXf& damping,          // [T-1]
-    //                                            float dt) 
-    // {
-    //     // try to use torch rewrite
-        
-    //     int T = motion_body_pos.rows();      // 时间步数
-    //     int D = motion_body_pos.cols();      // 90
-    //     int J = D / 3;                       // 30
-
-    //     // 输出
-    //     Eigen::MatrixXf local_motion = Eigen::MatrixXf::Zero(T, D);
-
-    //     // 1. 计算 root 起始位置（第0帧，第0个关键点的3D坐标）
-    //     Eigen::Vector3f ref_root_start = motion_body_pos.block(0, 0, 1, 3).transpose();  // [3]
-
-    //     // 2. 所有位置减去 ref_root_start，实现相对坐标系（只对 pos[t][j]）
-    //     for (int t = 0; t < T; ++t) {
-    //         for (int j = 0; j < J; ++j) {
-    //             for (int d = 0; d < 3; ++d) {
-    //                 local_motion(t, j * 3 + d) = motion_body_pos(t, j * 3 + d) - ref_root_start(d);
-    //             }
-    //         }
-    //     }
-
-    //     // 3. 第1帧到最后一帧：计算速度并除以dt * 5
-    //     for (int t = 1; t < T; ++t) {
-    //         for (int j = 0; j < J; ++j) {
-    //             for (int d = 0; d < 3; ++d) {
-    //                 float vel = (motion_body_pos(t, j * 3 + d) - motion_body_pos(0, j * 3 + d)) / dt / 5.f;
-    //                 local_motion(t, j * 3 + d) = vel;
-    //             }
-    //         }
-    //     }
-
-    //     // 4. 对于第1帧及以后，将 XY 平面除以 damping（不对 Z 做处理）
-    //     for (int t = 1; t < T; ++t) {
-    //         float damp = damping(t - 1);
-    //         for (int j = 0; j < J; ++j) {
-    //             local_motion(t, j * 3 + 0) /= damp;  // x
-    //             local_motion(t, j * 3 + 1) /= damp;  // y
-    //         }
-    //     }
-
-    //     // 5. 把第0帧的 root（第0个点）替换为第1帧的 root
-    //     local_motion.row(0).segment(0, 3) = local_motion.row(1).segment(0, 3);
-
-    //     return local_motion;  // shape: [T, 90]
-    // }
-
     Eigen::MatrixXf compute_teleop_observation(const Eigen::MatrixXf& motion_body_pos,  // [T, 90]
                                                const Eigen::VectorXf& damping,          // [T-1]
-                                               float dt)
+                                               float dt) 
     {
-        int T = motion_body_pos.rows();   // 时间步
-        int D = motion_body_pos.cols();   // 90
-        int J = D / 3;                    // 30
+        int T = motion_body_pos.rows();      // 时间步数
+        int D = motion_body_pos.cols();      // 90
+        int J = D / 3;                       // 30
+
+        // 输出
         Eigen::MatrixXf local_motion = Eigen::MatrixXf::Zero(T, D);
 
-        // 1. 替换 root（第 0 个关键点）为左右髋关节中点（关键点 4 和 5）
-        Eigen::MatrixXf modified_body_pos = motion_body_pos;
-        for (int t = 0; t < T; ++t) {
-            for (int d = 0; d < 3; ++d) {
-                float left = motion_body_pos(t, 4 * 3 + d);
-                float right = motion_body_pos(t, 5 * 3 + d);
-                float avg = 0.5f * (left + right);
-                modified_body_pos(t, 0 * 3 + d) = avg;
-            }
-        }
+        // 1. 计算 root 起始位置（第0帧，第0个关键点的3D坐标）
+        Eigen::Vector3f ref_root_start = motion_body_pos.block(0, 0, 1, 3).transpose();  // [3]
 
-        // 2. 计算 ref_root_start_pos = 第 0 帧的 root（关键点 0）的 3D 坐标
-        Eigen::Vector3f ref_root_start = modified_body_pos.block(0, 0, 1, 3).transpose();
-
-        // 3. 相对坐标系：每个点减去 ref_root_start（不含速度）
+        // 2. 所有位置减去 ref_root_start，实现相对坐标系（只对 pos[t][j]）
         for (int t = 0; t < T; ++t) {
             for (int j = 0; j < J; ++j) {
                 for (int d = 0; d < 3; ++d) {
-                    local_motion(t, j * 3 + d) = modified_body_pos(t, j * 3 + d) - ref_root_start(d);
+                    local_motion(t, j * 3 + d) = motion_body_pos(t, j * 3 + d) - ref_root_start(d);
                 }
             }
         }
 
-        // 4. 从第 1 帧开始，计算速度并除以 dt * 5
+        // 3. 第1帧到最后一帧：计算速度并除以dt * 5
         for (int t = 1; t < T; ++t) {
             for (int j = 0; j < J; ++j) {
                 for (int d = 0; d < 3; ++d) {
-                    float vel = (modified_body_pos(t, j * 3 + d) - modified_body_pos(0, j * 3 + d)) / dt / 5.f;
+                    float vel = (motion_body_pos(t, j * 3 + d) - motion_body_pos(0, j * 3 + d)) / dt / 5.f;
                     local_motion(t, j * 3 + d) = vel;
                 }
             }
         }
 
-        // 5. 对第 1 帧及之后，XY 坐标除以 damping（Z 不变）
+        // 4. 对于第1帧及以后，将 XY 平面除以 damping（不对 Z 做处理）
         for (int t = 1; t < T; ++t) {
             float damp = damping(t - 1);
             for (int j = 0; j < J; ++j) {
@@ -189,10 +130,10 @@ namespace tools {
             }
         }
 
-        // 6. 把第 0 帧的 root 替换为第 1 帧的 root（只修改第 0 点的 3D 坐标）
+        // 5. 把第0帧的 root（第0个点）替换为第1帧的 root
         local_motion.row(0).segment(0, 3) = local_motion.row(1).segment(0, 3);
 
-        return local_motion;
+        return local_motion;  // shape: [T, 90]
     }
 
     Eigen::VectorXf resolveCompatibilityConcat(const Eigen::VectorXf& state, const Eigen::VectorXi& joint_concat_index){

@@ -8,7 +8,7 @@ struct MocapMsg {
   float visualization[33];      // (9 + 2) * 3
 
   octet teleop;                 // uint8
-  float teleop_obs[810];        // 9*30*3
+  float teleop_obs[450];        // 5*30*3
   
   octet hands;                 // uint8
   float left_hand_pos[21];     // 7*3

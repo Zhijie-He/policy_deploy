@@ -74,6 +74,7 @@ EmanRobotConfig::EmanRobotConfig(const std::string& yaml_path)
     num_actions = root_["num_actions"].as<int>();
     simulation_dt = root_["simulation_dt"].as<float>();
     control_decimation = root_["control_decimation"].as<int>();
+    print_interval = root_["print_interval"].as<int>();
     policy_dt = simulation_dt *  control_decimation;
     
     // ========== 控制增益 ==========

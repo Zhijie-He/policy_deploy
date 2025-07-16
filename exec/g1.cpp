@@ -214,8 +214,8 @@ int main(int argc, char** argv) {
 
     std::vector<std::pair<std::string, char>> registers = {
       {"CmdTask", '1'},
-      // {"TeleopTask", '2'},
-      // {"MocapTask", '3'}
+      {"TeleopTask", '2'},
+      {"MocapTask", '3'}
     };
     
     controller = std::make_unique<G1Controller>(net, mode, registers, config, hands_type, device, 

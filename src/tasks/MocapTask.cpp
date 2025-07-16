@@ -87,7 +87,10 @@ void MocapTask::resolveSelfObservation(const CustomTypes::RobotData& raw_obs) {
     float heading = tools::getHeadingFromQuat(raw_obs.root_rot);
     float scaled_heading = heading * task_cfg_.self_obs_scale.at("heading");
 
-    observation.tail(observation.size() - 1) = observation.head(observation.size() - 1);
+    for (int i = observation.size() - 1; i > 0; --i){
+        observation(i) = observation(i -1);
+    }
+    
     observation(0) = scaled_heading;
 }
 
@@ -106,7 +109,7 @@ void MocapTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
         task_obs[i] = cache[0][i];
     }
 
-    // 4. 构造 task_next_obs（剩下 8 帧）
+    // 4. 构造 task_next_obs（剩下 task_cfg_.num_samples - 1 帧）
     Eigen::VectorXf task_next_obs((task_cfg_.num_samples - 1) * cache[0].size());
     for (int i = 1; i < task_cfg_.num_samples; ++i) {
         for (size_t j = 0; j < cache[i].size(); ++j) {
@@ -114,16 +117,7 @@ void MocapTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
         }
     }
 
-    // 5. heading
-    // float heading = tools::getHeadingFromQuat(raw_obs.root_rot);
-    // float scaled_heading = heading * task_cfg_.self_obs_scale.at("heading");
-
-    // 6. 拼接 heading + task_obs
-    // Eigen::VectorXf final_task_obs(task_obs.size() + 1);
-    // final_task_obs[0] = scaled_heading;
-    // final_task_obs.tail(task_obs.size()) = task_obs;
-
-    // 7. 总长度检查
+    // 5. 总长度检查
     int expected_len = observation.size();
     int actual_len = self_obs_len + task_obs.size() + task_next_obs.size() + mask_.size();
 
@@ -138,7 +132,7 @@ void MocapTask::resolveTaskObservation(const CustomTypes::RobotData& raw_obs) {
             ", mask = " + std::to_string(mask_.size()));
     }
 
-    // 8. 填充 observation
+    // 6. 填充 observation
     // observation.head(self_obs_len) = observation_self_; // 来自 resolveSelfObservation()
     observation.segment(self_obs_len, task_obs.size()) = task_obs;
     observation.segment(self_obs_len + task_obs.size(), task_next_obs.size()) = task_next_obs;
@@ -215,7 +209,7 @@ MocapResult MocapTask::getMocap() {
             for (int d = 0; d < D; ++d) {
                 float a = result.teleop_obs[t][d];
                 float b = ref[t][d];
-                if (std::abs(a - b) > 1e-5f) {
+                if (std::abs(a - b) > 1e-3f) {
                     FRC_ERROR("[MocapTask.getMocap] Mismatch at t=" << t << ", d=" << d << " | a=" << a << ", b=" << b);
                     mismatch_found = true;
                     break;

@@ -62,4 +62,5 @@ public:
 
     // hands
     std::unordered_map<std::string, HandConfig> hand_map;
+    int print_interval;
 };
