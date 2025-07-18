@@ -14,11 +14,17 @@ public:
     virtual ~BasePolicyInferenceEngine() = default;
 
     virtual void warmUp(int rounds = 10) {};
-    virtual void reset(const std::string& method_name = ""){};
     virtual Eigen::VectorXf predict(const Eigen::VectorXf& observation) = 0;
+    virtual void reset(const std::string& method_name = "");
     
 protected:
     int obDim, acDim;
+    int hiddenDim = 0; 
+    Eigen::VectorXf prev_hidden_state_;
+
     std::string precision_str_;
     std::shared_ptr<const BaseRobotConfig> cfg_; 
+    std::string policy_path_;
+    std::string engine_path_;
+
 };

@@ -78,6 +78,7 @@ set(MUJOCO_DIR ${CMAKE_SOURCE_DIR}/library/mujoco)                  # Set Mujoco
 set(UNITREE_SDK2_DIR ${CMAKE_SOURCE_DIR}/library/unitree_sdk2)      # Set Unitree SDK path
 set(TENSORRT_DIR $ENV{TENSORRT_DIR})                                # Set TensorRT path
 set(CUDA_DIR $ENV{CUDA_DIR})                                        # Set CUDA path
+set(FASTDDS_DIR ${CMAKE_SOURCE_DIR}/library/fastdds)                # Set FastDDS path
 
 # 根据 TENSORRT_DIR 是否存在自动判断是否使用 TensorRT
 if(DEFINED TENSORRT_DIR AND EXISTS "${TENSORRT_DIR}/lib")
@@ -86,7 +87,7 @@ if(DEFINED TENSORRT_DIR AND EXISTS "${TENSORRT_DIR}/lib")
     color_message(STATUS cyan "[INFO] USE_TENSORRT: ${USE_TENSORRT} (${TENSORRT_DIR})")
 else()
     set(USE_TENSORRT OFF)
-    color_message(STATUS cyan "[INFO] USE_TENSORRT: ${USE_TENSORRT} (TENSORRT_DIR not set or invalid ${LIBTORCH_DIR})")
+    color_message(STATUS cyan "[INFO] USE_TENSORRT: ${USE_TENSORRT} (TENSORRT_DIR not set or invalid ${TENSORRT_DIR})")
 endif()
 
 # 查找依赖库
@@ -117,6 +118,8 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/exec
     ${CMAKE_SOURCE_DIR}/library
+
+    ${FASTDDS_DIR}/include
 )
 
 # 链接库目录
@@ -124,6 +127,8 @@ link_directories(
     ${YAMLCPP_LIBRARY_DIRS}
     ${GLFW_LIBRARY_DIRS}
     ${MUJOCO_DIR}/lib/${CURRENT_PLATFORM}
+
+    ${FASTDDS_DIR}/lib/${CMAKE_SYSTEM_PROCESSOR}
 )
 
 # 公共库列表
@@ -177,10 +182,19 @@ add_executable(g1 exec/g1.cpp ${SRC_FILES})
 target_link_libraries(g1 ${COMMON_LIBS})
 
 # 真机部署（仅在启用Unitree SDK时编译）
-if (USE_UNITREE_SDK)
-    add_executable(simulate_robot exec/simulate_robot.cpp ${SRC_FILES})
-    target_link_libraries(simulate_robot ${COMMON_LIBS})
+# if (USE_UNITREE_SDK)
+#     add_executable(simulate_robot exec/simulate_robot.cpp ${SRC_FILES})
+#     target_link_libraries(simulate_robot ${COMMON_LIBS})
 
-    add_executable(check_G1Robot_input exec/check_G1Robot_input.cpp ${SRC_FILES})
-    target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
-endif()
+#     add_executable(check_G1Robot_input exec/check_G1Robot_input.cpp ${SRC_FILES})
+#     target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
+# endif()
+
+# 递归收集所有 .cxx 文件
+file(GLOB_RECURSE ALL_MESSAGES ${CMAKE_SOURCE_DIR}/include/*.cxx)
+
+add_executable(check_dog_input exec/check_dog_input.cpp ${SRC_FILES} ${ALL_MESSAGES})
+target_link_libraries(check_dog_input fastdds fastcdr ${COMMON_LIBS})
+
+add_executable(publisher exec/publisher.cpp ${SRC_FILES} ${ALL_MESSAGES})
+target_link_libraries(publisher fastdds fastcdr ${COMMON_LIBS})

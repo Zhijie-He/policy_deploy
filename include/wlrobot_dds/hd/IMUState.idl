@@ -1,0 +1,28 @@
+// Topic: /low_state/imu
+// Description: 底层IMU状态数据
+
+module wlrobot {
+    module msg {
+        struct IMUState {
+            //加速度 acceleration (x,y,z)（unit: m/(s2))
+            float accelerometer[3];
+
+            //陀螺仪 angular velocity (x,y,z)（unit: rad/s) 
+            float gyroscope[3]; 
+
+            //四元数，(w,x,y,z)     
+            float quaternion[4];
+
+            //欧拉角，(rol,pit,yaw)
+            float rpy[3];
+
+            //imu温度         
+            float temperature;
+
+            //相对时间戳，单位为10us       
+            uint64 timestamp;
+        };
+
+    };
+};
+

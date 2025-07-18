@@ -1,0 +1,23 @@
+// Topic: /low_state/motor/states
+// Description: 电机状态数据
+
+module wlrobot {
+    module msg {
+        struct MotorStates {
+            //工作模式
+            uint32 mode[12];
+
+            // 当前电机位置
+            float pos[12];
+
+            // 当前实际电机速度
+            float w[12];
+
+            // 当前实际电机输出力矩
+            float t[12];
+
+            // 电机温度，单位：摄氏度
+            int32 temperature[12];
+        };
+    };
+};

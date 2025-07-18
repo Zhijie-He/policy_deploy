@@ -1,0 +1,16 @@
+// Topic: /low_state/motor/cmds
+// Description: 电机指令数据
+
+module wlrobot {
+    module msg {
+        struct MotorCmds { 
+            uint32 mode[12]; // 工作模式
+            float pos[12];// 期望电机本身的位置（rad）       
+            float w[12];// 期望电机本身的速度(rad/s)    
+            float t[12];// 期望电机本身的输出力矩（Nm）     
+            float kp[12];// 电机本身的位置刚度系数
+            float kd[12];  // 电机本身的速度刚度系数
+        };
+    };
+};
+

@@ -3,7 +3,6 @@
 
 #include "inference_engine/BasePolicyInferenceEngine.h"
 #include <memory>
-#include <iostream>
 
 class LibTorchInferenceEngine : public BasePolicyInferenceEngine {
 public:
@@ -12,7 +11,6 @@ public:
                             const std::string& precision);
     void loadModel();
     void warmUp(int rounds = 10) override;
-    void reset(const std::string& method_name = "") override;
     Eigen::VectorXf predict(const Eigen::VectorXf& observation) override;
 
 private:
