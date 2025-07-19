@@ -1,24 +1,16 @@
 #include <Eigen/Dense>
 #include <mujoco/mujoco.h>
 #include <GLFW/glfw3.h>
-#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <thread>
 #include <random>
 
-#include <fastdds/dds/domain/DomainParticipant.hpp>
-#include <fastdds/dds/domain/DomainParticipantFactory.hpp>
-#include <fastdds/dds/subscriber/DataReader.hpp>
-#include <fastdds/dds/subscriber/DataReaderListener.hpp>
-#include <fastdds/dds/subscriber/qos/DataReaderQos.hpp>
-#include <fastdds/dds/subscriber/SampleInfo.hpp>
-#include <fastdds/dds/subscriber/Subscriber.hpp>
-#include <fastdds/dds/topic/TypeSupport.hpp>
-using namespace eprosima::fastdds::dds;
-
-#include "wlrobot_dds/hd/IMUStatePubSubTypes.hpp"
-#include "wlrobot_dds/hd/MotorStatesPubSubTypes.hpp"
+#include <wlrobot/robot/channel/channel_subscriber.hpp>
+#include <wlrobot/robot/low_level/low_state_aggregator.hpp>
+#include <wlrobot/idl/hd/IMUStatePubSubTypes.hpp>
+#include <wlrobot/idl/hd/MotorStatesPubSubTypes.hpp>
+using namespace wlrobot::robot;
 using namespace wlrobot::msg;
 
 #include "utility/tools.h"
@@ -33,6 +25,18 @@ IMUState latestImuState;
 MotorStates latestMotorStates;
 std::mutex imuStateMutex;
 std::mutex motorStatesMutex;
+
+// 实际控制参数
+std::array<float, 4> abad_sign  = { 1.0f,  1.0f, -1.0f, -1.0f };
+std::array<float, 4> hip_sign   = {-1.0f,  1.0f, -1.0f,  1.0f };
+std::array<float, 4> knee_sign  = {-1.0f,  1.0f, -1.0f,  1.0f };
+std::array<int, 12> real2sim_dof_map = { 3,4,5, 0,1,2, 9,10,11, 6,7,8 };
+std::array<std::array<float, 3>, 4> zero_offset = {{
+    { 0.882785f,  1.56933f,  -3.15066f },
+    {-0.245677f, -0.873517f,  2.25232f },
+    { 0.169374f,  1.31086f,  -2.8007f  },
+    { 0.422843f, -0.535587f,  2.45248f }
+}};
 
 class MinimalMujocoViewer {
 public:
@@ -179,7 +183,7 @@ public:
                 // root xyz
                 mj_data_->qpos[0] = 0;
                 mj_data_->qpos[1] = 0;
-                mj_data_->qpos[2] = 1.2;
+                mj_data_->qpos[2] = 0.5;
 
                 // 写入 base 姿态（IMU → 四元数）
                 Eigen::AngleAxisf rollAngle(imu.rpy()[0], Eigen::Vector3f::UnitX());
@@ -268,189 +272,58 @@ private:
     mjrContext con_;
 };
 
-class DDSSubscriberManager {
-public:
-    bool init() {
-        DomainParticipantQos participantQos;
-        participantQos.name("MujocoViewerParticipant");
-
-        participant_ = DomainParticipantFactory::get_instance()->create_participant(1, participantQos);
-        if (!participant_) return false;
-
-        subscriber_ = participant_->create_subscriber(SUBSCRIBER_QOS_DEFAULT, nullptr);
-        if (!subscriber_) return false;
-
-        imuType_ = TypeSupport(new IMUStatePubSubType());
-        motorType_ = TypeSupport(new MotorStatesPubSubType());
-
-        imuType_.register_type(participant_);
-        motorType_.register_type(participant_);
-
-        Topic* imuTopic = participant_->create_topic("/low_level/imu/state", "wlrobot::msg::IMUState", TOPIC_QOS_DEFAULT);
-        Topic* motorTopic = participant_->create_topic("/low_level/motor/state", "wlrobot::msg::MotorStates", TOPIC_QOS_DEFAULT);
-        if (!imuTopic || !motorTopic) return false;
-
-        imuReader_ = subscriber_->create_datareader(imuTopic, DATAREADER_QOS_DEFAULT, &imuListener_);
-        motorReader_ = subscriber_->create_datareader(motorTopic, DATAREADER_QOS_DEFAULT, &motorListener_);
-
-        return imuReader_ && motorReader_;
+void lowstate_callback(const LowState& msg) {
+    {
+        std::lock_guard<std::mutex> lock(imuStateMutex);
+        latestImuState = msg.imu_state();  // 直接缓存 IMU 原始数据
     }
 
-    void shutdown() {
-        if (participant_) {
-            DomainParticipantFactory::get_instance()->delete_participant(participant_);
-            participant_ = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(motorStatesMutex);
+
+        const auto& pos_in  = msg.motor_state().pos();
+        const auto& vel_in  = msg.motor_state().w();
+        const auto& tau_in  = msg.motor_state().t();
+        const auto& temp_in = msg.motor_state().temperature();
+        const auto& mode_in = msg.motor_state().mode();
+
+        float real_pos[12], real_vel[12], real_tau[12];
+        int real_temp[12], real_mode[12];
+
+        for (int i = 0; i < 12; ++i) {
+            int leg = i / 3;
+            int joint = i % 3;
+
+            float sign = (joint == 0) ? abad_sign[leg] :
+                         (joint == 1) ? hip_sign[leg] :
+                                        knee_sign[leg];
+            float offset = zero_offset[leg][joint];
+
+            real_pos[i]  = (pos_in[i] - offset) * sign;
+            real_vel[i]  = vel_in[i] * sign;
+            real_tau[i]  = tau_in[i] * sign;
+            real_temp[i] = temp_in[i];
+            real_mode[i] = mode_in[i];
+        }
+
+        auto& pos_out  = latestMotorStates.pos();
+        auto& vel_out  = latestMotorStates.w();
+        auto& tau_out  = latestMotorStates.t();
+        auto& temp_out = latestMotorStates.temperature();
+        auto& mode_out = latestMotorStates.mode();
+
+        for (int sim_idx = 0; sim_idx < 12; ++sim_idx) {
+            int real_idx = real2sim_dof_map[sim_idx];
+            pos_out[sim_idx]  = real_pos[real_idx];
+            vel_out[sim_idx]  = real_vel[real_idx];
+            tau_out[sim_idx]  = real_tau[real_idx];
+            temp_out[sim_idx] = real_temp[real_idx];
+            mode_out[sim_idx] = real_mode[real_idx];
         }
     }
-
-private:
-    DomainParticipant* participant_ = nullptr;
-    Subscriber* subscriber_ = nullptr;
-    DataReader* imuReader_ = nullptr;
-    DataReader* motorReader_ = nullptr;
-    TypeSupport imuType_;
-    TypeSupport motorType_;
-
-    class IMUListener : public DataReaderListener {
-    public:
-        void on_data_available(DataReader* reader) override {
-            SampleInfo info;
-            IMUState msg;
-            if (reader->take_next_sample(&msg, &info) == eprosima::fastdds::dds::RETCODE_OK) {
-                std::lock_guard<std::mutex> lock(imuStateMutex);
-                latestImuState = msg;
-            }
-        }
-
-        void on_subscription_matched(DataReader*, const SubscriptionMatchedStatus& info) override
-        {
-            if (info.current_count_change == 1)
-            {
-                std::cout << "IMUListener Subscriber matched." << std::endl;
-            }
-            else if (info.current_count_change == -1)
-            {
-                std::cout << "IMUListener Subscriber unmatched." << std::endl;
-            }
-            else
-            {
-                std::cout << info.current_count_change
-                          << " is not a valid value for SubscriptionMatchedStatus current count change" << std::endl;
-            }
-        }
-    };
-
-    class MotorListener : public DataReaderListener {
-    public:
-        MotorListener() {
-            abad_sign  = { 1.0f,  1.0f, -1.0f, -1.0f };
-            hip_sign   = {-1.0f,  1.0f, -1.0f,  1.0f };
-            knee_sign  = {-1.0f,  1.0f, -1.0f,  1.0f };
-
-            real2sim_dof_map = {
-                3, 4, 5,
-                0, 1, 2,
-                9,10,11,
-                6, 7, 8
-            };
-
-            zero_offset = {{
-                { 0.882785f,  1.56933f,  -3.15066f },
-                {-0.245677f, -0.873517f,  2.25232f },
-                { 0.169374f,  1.31086f,  -2.8007f  },
-                { 0.422843f, -0.535587f,  2.45248f }
-            }};
-        }
-
-        void on_data_available(DataReader* reader) override {
-            SampleInfo info;
-            MotorStates msg;
-
-            if (reader->take_next_sample(&msg, &info) == eprosima::fastdds::dds::RETCODE_OK) {
-                std::lock_guard<std::mutex> lock(motorStatesMutex);
-
-                // 实际读取字段
-                const auto& pos_in  = msg.pos();
-                const auto& vel_in  = msg.w();
-                const auto& tau_in  = msg.t();
-                const auto& temp_in = msg.temperature();
-                const auto& mode_in = msg.mode();
-
-                // 中间变量：在 real 顺序上先处理好 offset + sign
-                float real_pos[12];
-                float real_vel[12];
-                float real_tau[12];
-                int   real_temp[12];
-                int   real_mode[12];
-
-                for (int i = 0; i < 12; ++i) {
-                    int leg = i / 3;
-                    int joint = i % 3;
-
-                    float sign = (joint == 0) ? abad_sign[leg]
-                                : (joint == 1) ? hip_sign[leg]
-                                            : knee_sign[leg];
-                    float offset = zero_offset[leg][joint];
-
-                    real_pos[i]  = (pos_in[i] - offset) * sign;
-                    real_vel[i]  = vel_in[i] * sign;
-                    real_tau[i]  = tau_in[i] * sign;
-                    real_temp[i] = temp_in[i];
-                    real_mode[i] = mode_in[i];
-                }
-
-                // 输出字段
-                auto& pos_out  = latestMotorStates.pos();
-                auto& vel_out  = latestMotorStates.w();
-                auto& tau_out  = latestMotorStates.t();
-                auto& temp_out = latestMotorStates.temperature();
-                auto& mode_out = latestMotorStates.mode();
-
-                for (int sim_idx = 0; sim_idx < 12; ++sim_idx) {
-                    int real_idx = real2sim_dof_map[sim_idx];
-
-                    pos_out[sim_idx]  = real_pos[real_idx];
-                    vel_out[sim_idx]  = real_vel[real_idx];
-                    tau_out[sim_idx]  = real_tau[real_idx];
-                    temp_out[sim_idx] = real_temp[real_idx];
-                    mode_out[sim_idx] = real_mode[real_idx];
-                }
-            }
-        }
-            
-        void on_subscription_matched(DataReader*, const SubscriptionMatchedStatus& info) override
-        {
-            if (info.current_count_change == 1)
-            {
-                std::cout << "MotorListener Subscriber matched." << std::endl;
-            }
-            else if (info.current_count_change == -1)
-            {
-                std::cout << "MotorListener Subscriber unmatched." << std::endl;
-            }
-            else
-            {
-                std::cout << info.current_count_change
-                          << " is not a valid value for SubscriptionMatchedStatus current count change" << std::endl;
-            }
-        }
-
-    private:
-        std::array<float, 4> abad_sign;
-        std::array<float, 4> hip_sign;
-        std::array<float, 4> knee_sign;
-        std::array<int, 12> real2sim_dof_map;
-        std::array<std::array<float, 3>, 4> zero_offset;
-    };
-
-
-    IMUListener imuListener_;
-    MotorListener motorListener_;
-};
-
+}
 
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;
-
 
 int main(int argc, char** argv) {
     cxxopts::Options options("check_dog_input", "Check robot input and visualize using Mujoco viewer");
@@ -460,26 +333,38 @@ int main(int argc, char** argv) {
 
     auto result = options.parse(argc, argv);
     if (result.count("help") || !result.count("config")) {
-        std::cout << options.help() << std::endl;
+        FRC_INFO(options.help());
         return 0;
     }
+
     std::string config_name = result["config"].as<std::string>();
 
-    DDSSubscriberManager dds_sub_mgr;
-    if (!dds_sub_mgr.init()) {
-        FRC_ERROR("Failed to initialize DDSSubscriberManager");
+    //  启动 LowStateAggregator 异步聚合（无需订阅者干预）
+    auto aggregator = std::make_shared<LowStateAggregator>(
+        "/low_level/imu/state",
+        "/low_level/motor/state",
+        "/low_level/lowstate",
+        1
+    );
+    aggregator->Start();
+
+    // 初始化通道
+    ChannelFactory::Instance()->Init(1);
+
+    // 仅订阅 /low_level/lowstate，一并获取 IMU 和 Motor 信息
+    auto lowstate_sub = std::make_unique<ChannelSubscriber<LowState>>("/low_level/lowstate");
+    lowstate_sub->InitChannel(lowstate_callback, 20);  // 可配置 queue_len
+
+    try {
+        cfg = tools::loadConfig(config_name);
+        MinimalMujocoViewer viewer(cfg);
+        std::thread integrate_thread(&MinimalMujocoViewer::integrate, &viewer);
+        viewer.renderLoop();
+        integrate_thread.join();
+    } catch (const std::exception& e) {
+        FRC_ERROR("Exception: " << e.what());
         return 1;
     }
 
-    try {
-      cfg = tools::loadConfig(config_name);
-      MinimalMujocoViewer viewer(cfg);
-      std::thread integrate_thread(&MinimalMujocoViewer::integrate, &viewer);
-      viewer.renderLoop();
-      integrate_thread.join();
-    } catch (const std::exception& e) {
-      FRC_ERROR("Exception: " << e.what());
-      return 1;
-    }
     return 0;
 }

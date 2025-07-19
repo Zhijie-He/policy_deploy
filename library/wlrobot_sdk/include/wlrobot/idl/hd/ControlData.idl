@@ -1,0 +1,18 @@
+// Topic: /low_state/control_data
+// Description: 底层遥控器状态数据
+
+module wlrobot {
+    module msg {
+        struct ControlData {
+            int32 swa;
+            int32 swb;
+            int32 swe;
+            int32 swg;
+                
+            float lx;
+            float ly;
+            float rx;
+            float ry;
+        };
+    };
+};

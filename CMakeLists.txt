@@ -79,6 +79,7 @@ set(UNITREE_SDK2_DIR ${CMAKE_SOURCE_DIR}/library/unitree_sdk2)      # Set Unitre
 set(TENSORRT_DIR $ENV{TENSORRT_DIR})                                # Set TensorRT path
 set(CUDA_DIR $ENV{CUDA_DIR})                                        # Set CUDA path
 set(FASTDDS_DIR ${CMAKE_SOURCE_DIR}/library/fastdds)                # Set FastDDS path
+set(WLROBOT_DIR ${CMAKE_SOURCE_DIR}/library/wlrobot_sdk)                # Set wlrobot_sdk path
 
 # 根据 TENSORRT_DIR 是否存在自动判断是否使用 TensorRT
 if(DEFINED TENSORRT_DIR AND EXISTS "${TENSORRT_DIR}/lib")
@@ -120,6 +121,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/library
 
     ${FASTDDS_DIR}/include
+    ${WLROBOT_DIR}/include
 )
 
 # 链接库目录
@@ -177,9 +179,9 @@ if (USE_TENSORRT)
     )
 endif()
 
-# ===== 添加可执行文件 =====
-add_executable(g1 exec/g1.cpp ${SRC_FILES})
-target_link_libraries(g1 ${COMMON_LIBS})
+# # ===== 添加可执行文件 =====
+# add_executable(g1 exec/g1.cpp ${SRC_FILES})
+# target_link_libraries(g1 ${COMMON_LIBS})
 
 # 真机部署（仅在启用Unitree SDK时编译）
 # if (USE_UNITREE_SDK)
@@ -190,11 +192,12 @@ target_link_libraries(g1 ${COMMON_LIBS})
 #     target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
 # endif()
 
-# 递归收集所有 .cxx 文件
-file(GLOB_RECURSE ALL_MESSAGES ${CMAKE_SOURCE_DIR}/include/*.cxx)
+# 递归收集所有 .cpp 文件
+file(GLOB_RECURSE WLROBOT_SDK_SRC_FILES ${WLROBOT_DIR}/src/*.cpp)
 
-add_executable(check_dog_input exec/check_dog_input.cpp ${SRC_FILES} ${ALL_MESSAGES})
+
+add_executable(check_dog_input exec/check_dog_input.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
 target_link_libraries(check_dog_input fastdds fastcdr ${COMMON_LIBS})
 
-add_executable(publisher exec/publisher.cpp ${SRC_FILES} ${ALL_MESSAGES})
+add_executable(publisher exec/publisher.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
 target_link_libraries(publisher fastdds fastcdr ${COMMON_LIBS})

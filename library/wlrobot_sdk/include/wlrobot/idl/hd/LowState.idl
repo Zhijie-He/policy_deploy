@@ -1,0 +1,15 @@
+// 不重复定义 IMUState 和 MotorStates，只引用
+#include "IMUState.idl"
+#include "MotorStates.idl"
+
+module wlrobot {
+  module msg {
+    struct LowState {
+      uint64 tick;
+      wlrobot::msg::IMUState imu_state;
+      wlrobot::msg::MotorStates motor_state;
+    };
+
+  };
+};
+
