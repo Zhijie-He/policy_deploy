@@ -9,24 +9,9 @@
 
 G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
                                  std::shared_ptr<StateMachine> state_machine)
-    : BaseEnv(cfg, state_machine->getJointCMDBufferPtr(), state_machine->getRobotStatusBufferPtr()),
+    : BaseEnv(cfg, state_machine),
       robotName_(cfg->robot_name),
-      simulation_dt_(cfg->simulation_dt),
-      state_machine_(state_machine)
-{
-  tools::checkMujucoVersion();
-  initWorld();
-  initState();
-  updateRobotState();
-  FRC_INFO("[G1Sim2MujocoEnv.Const] Ready.");
-}
-
-G1Sim2MujocoEnv::G1Sim2MujocoEnv(std::shared_ptr<const BaseRobotConfig> cfg,
-                                 std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-                                 std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr)
-    : BaseEnv(cfg, jointCMDBufferPtr, robotStatusBufferPtr),
-      robotName_(cfg->robot_name),
-      simulation_dt_(cfg->simulation_dt) 
+      simulation_dt_(cfg->simulation_dt)
 {
   tools::checkMujucoVersion();
   initWorld();
@@ -58,26 +43,6 @@ void G1Sim2MujocoEnv::initWorld() {
   for (int i = 0; i < gcDim_; ++i)
     oss << mj_data_->qpos[i] << " ";
   FRC_INFO("[G1Sim2MujocoEnv.initWorld] Initial qpos from XML: " <<oss.str());
-}
-
-void G1Sim2MujocoEnv::initState() {
-  // ① 机器人状态变量
-  gc_.setZero(gcDim_);           //  当前 generalized coordinate（广义坐标，位置）
-  gv_.setZero(gvDim_);           //  当前 generalized velocity（广义速度）
-  joint_torques_.setZero(jointDim_); //  当前 tau
-
-  // ② 控制增益
-  // jointPGain.setZero(jointDim_); 
-  // jointDGain.setZero(jointDim_); 
-  jointPGain = cfg_->kP;
-  jointDGain = cfg_->kD;
-  
-  // ③ 动作目标
-  pTarget.setZero(jointDim_); // desired position（用于位置控制）
-  vTarget.setZero(jointDim_); // desired velocity（用于速度控制）
-
-  // ④ 力矩命令
-  tauCmd.setZero(jointDim_); //	最终输出的控制力矩（全体）
 }
 
 void G1Sim2MujocoEnv::launchServer() {
@@ -152,31 +117,24 @@ void G1Sim2MujocoEnv::launchServer() {
 }
 
 void G1Sim2MujocoEnv::updateRobotState() {
-  Eigen::VectorXf positionVec, velocityVec, jointTorquesVec;
-  float timestamp;
   {
-    std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动上锁，作用域结束自动释放
-    gc_ = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos, gcDim_);
-    gv_ = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel, gvDim_);
-    joint_torques_  = Eigen::Map<Eigen::VectorXd>(mj_data_->ctrl, jointDim_);
-    positionVec = gc_.cast<float>();
-    velocityVec = gv_.cast<float>();
-    jointTorquesVec = joint_torques_.cast<float>();
-    timestamp = mj_data_->time;
+    std::lock_guard<std::mutex> stateLock(state_lock_);
+    gc_ = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos, gcDim_).cast<float>();
+    gv_ = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel, gvDim_).cast<float>();
+    joint_torques_ = Eigen::Map<Eigen::VectorXd>(mj_data_->ctrl, actuatorDim_).cast<float>();
   }
 
   if (robotStatusBufferPtr_) {
     robotStatus status;
-    memcpy(status.data.position, positionVec.data(), gcDim_ * sizeof(float));
-    memcpy(status.data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
-    memcpy(status.data.jointTorques, jointTorquesVec.data(), jointDim_ * sizeof(float));
-    status.data.timestamp = timestamp;
+    memcpy(status.data.position, gc_.data(), gcDim_ * sizeof(float));
+    memcpy(status.data.velocity, gv_.data(), gvDim_ * sizeof(float));
+    memcpy(status.data.jointTorques, joint_torques_.data(), actuatorDim_ * sizeof(float));
+    status.data.timestamp = static_cast<float>(mj_data_->time);
     robotStatusBufferPtr_->SetData(status);
   }
 }
 
 void G1Sim2MujocoEnv::step() {
-  // Timer controlTimer(control_dt_);
   RateLimiter controlTimer(1.0 / control_dt_, "mujoco main loop");
   while ((headless_ || !glfwWindowShouldClose(window_)) && running_){
 
@@ -211,49 +169,42 @@ void G1Sim2MujocoEnv::step() {
     {
       std::lock_guard<std::mutex> actionLock(action_lock_);  // 自动锁定 action
       const auto& cmd = *actionPtr; // 直接解引用使用数据（推荐写法）
-      memcpy(pTarget.data(), cmd.data.position, sizeof(float) * jointDim_);
-      memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
-      memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
-      memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
+      memcpy(pTarget.data(), cmd.data.position, sizeof(float) * actuatorDim_);
+      memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * actuatorDim_);
+      memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * actuatorDim_);
+      memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * actuatorDim_);
     }
-    
-    updateRobotState();
     controlTimer.wait();
   }
 }
 
 void G1Sim2MujocoEnv::run() {
   if (headless_) {
-      FRC_INFO("[G1Sim2MujocoEnv.run] Headless mode. Running step loop without rendering.");
-      std::thread step_thread(&G1Sim2MujocoEnv::step, this);
+    FRC_INFO("[G1Sim2MujocoEnv.run] Headless mode. Running step loop without rendering.");
+  } else {
+    launchServer();  // 初始化 GUI 窗口和渲染上下文等
+  }
 
-      // 简单挂起主线程，直到 Ctrl+C
-      while (running_) {
-        std::this_thread::sleep_for(std::chrono::seconds(60));  // 每 60 秒才 wake 一次检查
+  step_thread_ = std::thread(&G1Sim2MujocoEnv::step, this);
+  RateLimiter renderTimer(1.0 / control_dt_, "mujoco render loop", false);
+  while (running_ && (headless_ || !glfwWindowShouldClose(window_))) {
+    integrate();  // 控制数据集成
+    if (!headless_) {
+      {
+        std::lock_guard<std::mutex> lock(state_lock_);
+        // 更新视觉场景
+        mjv_updateScene(mj_model_, mj_data_, &opt_, nullptr, &cam_, mjCAT_ALL, &scn_);
+        // 渲染图像
+        int width, height;
+        glfwGetFramebufferSize(window_, &width, &height);
+        mjr_render({0, 0, width, height}, &scn_, &con_);
       }
-
-      step_thread.join(); 
-      return;
-  }
-  
-  launchServer();
-  RateLimiter renderTimer(1.0 / control_dt_, "mujoco render loop");
-  std::thread step_thread(&G1Sim2MujocoEnv::step, this);
-  while (!glfwWindowShouldClose(window_) && running_) {
-    integrate();
-    {
-      std::lock_guard<std::mutex> lock(state_lock_);
-      mjv_updateScene(mj_model_, mj_data_, &opt_, nullptr, &cam_, mjCAT_ALL, &scn_);
-      int width, height;
-      glfwGetFramebufferSize(window_, &width, &height);
-      mjr_render({0, 0, width, height}, &scn_, &con_);
+      glfwSwapBuffers(window_);
+      glfwPollEvents();
     }
-    glfwSwapBuffers(window_);
-    glfwPollEvents();
-    renderTimer.wait();
+    updateRobotState();
+    renderTimer.wait();  // 控制渲染频率
   }
-
-  step_thread.join();
 }
 
 void G1Sim2MujocoEnv::integrate() {
@@ -264,8 +215,8 @@ void G1Sim2MujocoEnv::integrate() {
     }
     { 
       std::lock_guard<std::mutex> actionLock(action_lock_);
-      Eigen::VectorXf joint_pos = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, jointDim_).cast<float>();
-      Eigen::VectorXf joint_vel = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel + 6, jointDim_).cast<float>();
+      Eigen::VectorXf joint_pos = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, actuatorDim_).cast<float>();
+      Eigen::VectorXf joint_vel = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel + 6, actuatorDim_).cast<float>();
       tauCmd = tools::pd_control(pTarget, joint_pos, jointPGain, vTarget, joint_vel, jointDGain);
       for (int i = 0; i < tauCmd.size(); ++i) {
         float limit = cfg_->effort_limit[i];
@@ -273,7 +224,7 @@ void G1Sim2MujocoEnv::integrate() {
           tauCmd[i] = std::clamp(tauCmd[i], -limit, limit);
         }
       }
-      for (int i = 0; i < jointDim_; ++i) mj_data_->ctrl[i] = tauCmd[i];
+      for (int i = 0; i < actuatorDim_; ++i) mj_data_->ctrl[i] = tauCmd[i];
       // FRC_INFO("tauCmd: " << tauCmd.transpose());
     }
     {
@@ -303,10 +254,10 @@ void G1Sim2MujocoEnv::moveToDefaultPos() {
     // 设置 qpos（位置） = [root_xyz(3) + root_rot(4) + joint_pos(n)]
     for (int i = 0; i < 3; ++i) mj_data_->qpos[i] = double(root_xyz[i]);
     for (int i = 0; i < 4; ++i) mj_data_->qpos[3 + i] = double(root_rot[i]);
-    for (int i = 0; i < jointDim_; ++i) mj_data_->qpos[7 + i] = double(joint_pos[i]);
+    for (int i = 0; i < actuatorDim_; ++i) mj_data_->qpos[7 + i] = double(joint_pos[i]);
     // 清零速度和控制输入
     std::fill(mj_data_->qvel, mj_data_->qvel + gvDim_, 0.0);
-    std::fill(mj_data_->ctrl, mj_data_->ctrl + jointDim_, 0.0);
+    std::fill(mj_data_->ctrl, mj_data_->ctrl + actuatorDim_, 0.0);
   }
   {
     std::lock_guard<std::mutex> stateLock(state_lock_);  // 自动锁定 state
@@ -314,7 +265,7 @@ void G1Sim2MujocoEnv::moveToDefaultPos() {
   }
 
   // 初始化当前动作缓存（用于后续策略初始化）
-  pTarget = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, jointDim_).cast<float>();
+  pTarget = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, actuatorDim_).cast<float>();
   updateRobotState();
 
   std::ostringstream oss;

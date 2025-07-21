@@ -1,42 +1,23 @@
-#include <Eigen/Dense>
-#include <mujoco/mujoco.h>
 #include <GLFW/glfw3.h>
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <random>
 
 #include <wlrobot/robot/channel/channel_subscriber.hpp>
 #include <wlrobot/robot/low_level/low_state_aggregator.hpp>
 #include <wlrobot/idl/hd/IMUStatePubSubTypes.hpp>
 #include <wlrobot/idl/hd/MotorStatesPubSubTypes.hpp>
+#include <wlrobot/idl/hd/LowStatePubSubTypes.hpp>
 using namespace wlrobot::robot;
 using namespace wlrobot::msg;
 
 #include "utility/tools.h"
 #include "utility/timer.h"
 #include "utility/cxxopts.hpp"
-#define LOG_USE_COLOR 1
-#define LOG_USE_PREFIX 1
-#include "utility/logger.h"
 
 // global low state
-IMUState latestImuState;
-MotorStates latestMotorStates;
-std::mutex imuStateMutex;
-std::mutex motorStatesMutex;
-
-// 实际控制参数
-std::array<float, 4> abad_sign  = { 1.0f,  1.0f, -1.0f, -1.0f };
-std::array<float, 4> hip_sign   = {-1.0f,  1.0f, -1.0f,  1.0f };
-std::array<float, 4> knee_sign  = {-1.0f,  1.0f, -1.0f,  1.0f };
-std::array<int, 12> real2sim_dof_map = { 3,4,5, 0,1,2, 9,10,11, 6,7,8 };
-std::array<std::array<float, 3>, 4> zero_offset = {{
-    { 0.882785f,  1.56933f,  -3.15066f },
-    {-0.245677f, -0.873517f,  2.25232f },
-    { 0.169374f,  1.31086f,  -2.8007f  },
-    { 0.422843f, -0.535587f,  2.45248f }
-}};
+LowState latestLowState;
+std::mutex lowStateMutex;
 
 class MinimalMujocoViewer {
 public:
@@ -166,53 +147,38 @@ public:
     void integrate() {
         Timer worldTimer(control_dt_);
         while (!glfwWindowShouldClose(window_)) {
+            
+            IMUState imu;
+            MotorStates motor_state;
             {
-                IMUState imu;
-                MotorStates motor_state;
-                {
-                    std::lock_guard<std::mutex> lock(imuStateMutex);
-                    imu = latestImuState;
-                }
-                {
-                    std::lock_guard<std::mutex> lock(motorStatesMutex);
-                    motor_state = latestMotorStates;
-                }
-     
-                int joint_num = std::min(int(motor_state.w().size()), jointDim_);
-
-                // root xyz
-                mj_data_->qpos[0] = 0;
-                mj_data_->qpos[1] = 0;
-                mj_data_->qpos[2] = 0.5;
-
-                // 写入 base 姿态（IMU → 四元数）
-                Eigen::AngleAxisf rollAngle(imu.rpy()[0], Eigen::Vector3f::UnitX());
-                Eigen::AngleAxisf pitchAngle(imu.rpy()[1], Eigen::Vector3f::UnitY());
-                Eigen::AngleAxisf yawAngle(imu.rpy()[2], Eigen::Vector3f::UnitZ());
-
-                Eigen::Quaternionf quat = yawAngle * pitchAngle * rollAngle;  // ZYX顺序
-               
-                // mj_data_->qpos[3] = quat.w();
-                // mj_data_->qpos[4] = quat.x();
-                // mj_data_->qpos[5] = quat.y();
-                // mj_data_->qpos[6] = quat.z();
-                mj_data_->qpos[3] = imu.quaternion()[0];
-                mj_data_->qpos[4] = imu.quaternion()[1];
-                mj_data_->qpos[5] = imu.quaternion()[2];
-                mj_data_->qpos[6] = imu.quaternion()[3];
-
-                // 写入 base angular velocity（IMU gyroscope → base twist 的旋转部分）
-                mj_data_->qvel[3] = imu.gyroscope()[0];  // ωx
-                mj_data_->qvel[4] = imu.gyroscope()[1];  // ωy
-                mj_data_->qvel[5] = imu.gyroscope()[2];  // ωz
-                
-                // 写入关节数据
-                for (int i = 0; i < joint_num; ++i) {
-                    mj_data_->qpos[7 + i] = motor_state.pos()[i];
-                    mj_data_->qvel[6 + i] = motor_state.w()[i];
-                }
+                std::lock_guard<std::mutex> lock(lowStateMutex);
+                imu = latestLowState.imu_state();
+                motor_state = latestLowState.motor_state();
             }
             
+            int joint_num = std::min(int(motor_state.w().size()), jointDim_);
+
+            // root xyz
+            mj_data_->qpos[0] = 0;
+            mj_data_->qpos[1] = 0;
+            mj_data_->qpos[2] = 0.5;
+            
+            mj_data_->qpos[3] = imu.quaternion()[0];
+            mj_data_->qpos[4] = imu.quaternion()[1];
+            mj_data_->qpos[5] = imu.quaternion()[2];
+            mj_data_->qpos[6] = imu.quaternion()[3];
+
+            // 写入 base angular velocity（IMU gyroscope → base twist 的旋转部分）
+            mj_data_->qvel[3] = imu.gyroscope()[0];  // ωx
+            mj_data_->qvel[4] = imu.gyroscope()[1];  // ωy
+            mj_data_->qvel[5] = imu.gyroscope()[2];  // ωz
+            
+            // 写入关节数据
+            for (int i = 0; i < joint_num; ++i) {
+                mj_data_->qpos[7 + i] = motor_state.pos()[i];
+                mj_data_->qvel[6 + i] = motor_state.w()[i];
+            }
+
             worldTimer.wait();
         }
     }
@@ -273,60 +239,17 @@ private:
 };
 
 void lowstate_callback(const LowState& msg) {
-    {
-        std::lock_guard<std::mutex> lock(imuStateMutex);
-        latestImuState = msg.imu_state();  // 直接缓存 IMU 原始数据
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(motorStatesMutex);
-
-        const auto& pos_in  = msg.motor_state().pos();
-        const auto& vel_in  = msg.motor_state().w();
-        const auto& tau_in  = msg.motor_state().t();
-        const auto& temp_in = msg.motor_state().temperature();
-        const auto& mode_in = msg.motor_state().mode();
-
-        float real_pos[12], real_vel[12], real_tau[12];
-        int real_temp[12], real_mode[12];
-
-        for (int i = 0; i < 12; ++i) {
-            int leg = i / 3;
-            int joint = i % 3;
-
-            float sign = (joint == 0) ? abad_sign[leg] :
-                         (joint == 1) ? hip_sign[leg] :
-                                        knee_sign[leg];
-            float offset = zero_offset[leg][joint];
-
-            real_pos[i]  = (pos_in[i] - offset) * sign;
-            real_vel[i]  = vel_in[i] * sign;
-            real_tau[i]  = tau_in[i] * sign;
-            real_temp[i] = temp_in[i];
-            real_mode[i] = mode_in[i];
-        }
-
-        auto& pos_out  = latestMotorStates.pos();
-        auto& vel_out  = latestMotorStates.w();
-        auto& tau_out  = latestMotorStates.t();
-        auto& temp_out = latestMotorStates.temperature();
-        auto& mode_out = latestMotorStates.mode();
-
-        for (int sim_idx = 0; sim_idx < 12; ++sim_idx) {
-            int real_idx = real2sim_dof_map[sim_idx];
-            pos_out[sim_idx]  = real_pos[real_idx];
-            vel_out[sim_idx]  = real_vel[real_idx];
-            tau_out[sim_idx]  = real_tau[real_idx];
-            temp_out[sim_idx] = real_temp[real_idx];
-            mode_out[sim_idx] = real_mode[real_idx];
-        }
+    {   
+        // get LowState
+        std::lock_guard<std::mutex> lock(lowStateMutex);
+        latestLowState = msg;
     }
 }
 
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;
 
 int main(int argc, char** argv) {
-    cxxopts::Options options("check_dog_input", "Check robot input and visualize using Mujoco viewer");
+    cxxopts::Options options("robot sim sync", "Sync with robot and visualize using Mujoco");
     options.add_options()
         ("c,config", "Config name (e.g., mdl)", cxxopts::value<std::string>())
         ("h,help", "Print usage");
@@ -336,27 +259,30 @@ int main(int argc, char** argv) {
         FRC_INFO(options.help());
         return 0;
     }
-
     std::string config_name = result["config"].as<std::string>();
-
-    //  启动 LowStateAggregator 异步聚合（无需订阅者干预）
-    auto aggregator = std::make_shared<LowStateAggregator>(
-        "/low_level/imu/state",
-        "/low_level/motor/state",
-        "/low_level/lowstate",
-        1
+    std::string imu_topic       = "/low_level/imu/state";
+    std::string motor_topic     = "/low_level/motor/state";
+    std::string lowstate_topic  = "/low_level/lowstate";
+    
+    cfg = tools::loadConfig(config_name);
+    
+    //  start lowStateAggregator (combine imu and motor)
+    auto lowstate_aggregator = std::make_unique<LowStateAggregator>(
+        imu_topic,
+        motor_topic,
+        lowstate_topic,             // define by yourself
+        cfg->domain_id              // domain id
     );
-    aggregator->Start();
+    lowstate_aggregator->Start();
 
-    // 初始化通道
-    ChannelFactory::Instance()->Init(1);
+    // initialize channel
+    ChannelFactory::Instance()->Init(cfg->domain_id);
 
-    // 仅订阅 /low_level/lowstate，一并获取 IMU 和 Motor 信息
-    auto lowstate_sub = std::make_unique<ChannelSubscriber<LowState>>("/low_level/lowstate");
-    lowstate_sub->InitChannel(lowstate_callback, 20);  // 可配置 queue_len
+    // subscriber lowstate topic
+    auto lowstate_sub = std::make_unique<ChannelSubscriber<LowState>>(lowstate_topic);
+    lowstate_sub->InitChannel(lowstate_callback, 20); 
 
     try {
-        cfg = tools::loadConfig(config_name);
         MinimalMujocoViewer viewer(cfg);
         std::thread integrate_thread(&MinimalMujocoViewer::integrate, &viewer);
         viewer.renderLoop();

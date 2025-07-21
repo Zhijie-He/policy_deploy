@@ -3,12 +3,12 @@
 #pragma once
 #include <Eigen/Dense>
 #include <memory>
+#include <mujoco/mujoco.h>
+#include <torch/torch.h>
 #include "config/EmanRobotConfig.h"
 #include "config/UnitreeRobotConfig.h"
 #include "policy_wrapper/EmanPolicyWrapper.h"
 #include "policy_wrapper/UnitreePolicyWrapper.h"
-#include <mujoco/mujoco.h>
-#include <torch/torch.h>
 #include "utility/logger.h"
 
 namespace tools {

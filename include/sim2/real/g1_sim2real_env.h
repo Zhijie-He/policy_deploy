@@ -3,26 +3,7 @@
 #include <memory>
 #include "types/system_defined.h"
 #include "sim2/base_env.h"
-#include "state_machine/StateMachine.h"
-
-// unitree
-// DDS
-#include <unitree/robot/channel/channel_publisher.hpp>
-#include <unitree/robot/channel/channel_subscriber.hpp>
-
-// IDL
-#include <unitree/idl/hg/IMUState_.hpp>
-#include <unitree/idl/hg/LowCmd_.hpp>
-#include <unitree/idl/hg/LowState_.hpp>
-#include <unitree/robot/b2/motion_switcher/motion_switcher_client.hpp>
-
-using namespace unitree::robot;
-using namespace unitree_hg::msg::dds_;
-
-enum class Mode {
-  PR = 0,  // Series Control for Ptich/Roll Joints
-  AB = 1   // Parallel Control for A/B Joints
-};
+#include "utility/real/unitree_tools.h"
 
 class G1Sim2RealEnv : public BaseEnv {
 public:
@@ -30,14 +11,8 @@ public:
             std::shared_ptr<const BaseRobotConfig> cfg,
             std::shared_ptr<StateMachine> state_machine);   
 
-  G1Sim2RealEnv(const std::string& net_interface,
-          std::shared_ptr<const BaseRobotConfig> cfg,
-          std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-          std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr);   
-
   void stop() override { running_ = false;}
   void LowStateHandler(const void *message);
-  void initState();
   void updateRobotState();
   void waitForLowState();
 
@@ -48,7 +23,6 @@ public:
   void run() override;
 
 private:
-  std::shared_ptr<StateMachine> state_machine_ = nullptr;
   // 对应构造参数的成员变量
   std::string net_interface_;
   int counter_ = 0;

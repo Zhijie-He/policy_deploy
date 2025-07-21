@@ -3,61 +3,14 @@
 #include "utility/logger.h"
 #include <thread>
 #include "utility/timer.h"
-#include "utility/real/unitree_tools.h"
-
-void print_lowcmd(const LowCmd_& cmd) {
-    std::cout << "=== LowCmd_ ===" << std::endl;
-    std::cout << "Mode PR: " << (int)cmd.mode_pr() << std::endl;
-    std::cout << "Mode Machine: " << (int)cmd.mode_machine() << std::endl;
-
-    for (size_t i = 0; i < cmd.motor_cmd().size(); ++i) {
-        const auto& m = cmd.motor_cmd().at(i);
-        std::cout << "Motor[" << i << "]"
-                  << "  mode=" << (int)m.mode()
-                  << "  tau=" << m.tau()
-                  << "  q=" << m.q()
-                  << "  dq=" << m.dq()
-                  << "  kp=" << m.kp()
-                  << "  kd=" << m.kd()
-                  << std::endl;
-    }
-}
-
-void init_cmd_hg(LowCmd_& cmd, uint8_t mode_machine, Mode mode_pr) {
-  cmd.mode_machine() = mode_machine;
-  cmd.mode_pr() = static_cast<uint8_t>(mode_pr);
-  
-  // here should use num actions
-  size_t size = cmd.motor_cmd().size();
-  for (size_t i = 0; i < size; ++i) {
-      cmd.motor_cmd()[i].mode() = 1;
-      cmd.motor_cmd()[i].q() = 0;
-      cmd.motor_cmd()[i].dq() = 0;
-      cmd.motor_cmd()[i].kp() = 0;
-      cmd.motor_cmd()[i].kd() = 0;
-      cmd.motor_cmd()[i].tau() = 0;
-  }
-}
-
-void create_zero_cmd(LowCmd_& cmd) {
-  size_t size = cmd.motor_cmd().size();
-  for (size_t i = 0; i < size; ++i) {
-    cmd.motor_cmd()[i].q() = 0.0f;
-    cmd.motor_cmd()[i].dq() = 0.0f;
-    cmd.motor_cmd()[i].kp() = 0.0f;
-    cmd.motor_cmd()[i].kd() = 0.0f;
-    cmd.motor_cmd()[i].tau() = 0.0f;
-  }
-}
 
 G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
-            std::shared_ptr<const BaseRobotConfig> cfg,
-            std::shared_ptr<StateMachine> state_machine)
-    : BaseEnv(cfg, state_machine->getJointCMDBufferPtr(), state_machine->getRobotStatusBufferPtr()),
+                            std::shared_ptr<const BaseRobotConfig> cfg,
+                            std::shared_ptr<StateMachine> state_machine)
+    : BaseEnv(cfg, state_machine),
       net_interface_(net_interface),
       mode_pr_(Mode::PR),
-      mode_machine_(0),
-      state_machine_(state_machine)
+      mode_machine_(0)
 {   
     FRC_INFO("[G1Sim2RealEnv.Const] net_interface: " << net_interface);
 
@@ -88,72 +41,9 @@ G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
     waitForLowState();
 
     // Initialize the command msg
-    init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);
+    unitree_tools::init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);
 
-    // print_lowcmd(low_cmd_);
-}
-
-G1Sim2RealEnv::G1Sim2RealEnv(const std::string& net_interface,
-            std::shared_ptr<const BaseRobotConfig> cfg,
-            std::shared_ptr<DataBuffer<jointCMD>> jointCMDBufferPtr,
-            std::shared_ptr<DataBuffer<robotStatus>> robotStatusBufferPtr)
-    : BaseEnv(cfg, jointCMDBufferPtr, robotStatusBufferPtr),
-      net_interface_(net_interface),
-      mode_pr_(Mode::PR),
-      mode_machine_(0)
-{   
-    FRC_INFO("[G1Sim2RealEnv.Const] net_interface: " << net_interface);
-
-    // initialize DDS communication
-    // ChannelFactory::Instance()->Init(0, net_interface.c_str()); 
-    ChannelFactory::Instance()->Init(0);
-
-    if(cfg_->msg_type == "hg"){
-      // create publisher
-      lowcmd_publisher_ = std::make_unique<ChannelPublisher<LowCmd_>>(cfg_->lowcmd_topic);
-      lowcmd_publisher_->InitChannel();
-      
-      // create subscriber
-      lowstate_subscriber_ = std::make_unique<ChannelSubscriber<LowState_>>(cfg_->lowstate_topic);
-      lowstate_subscriber_->InitChannel(
-        [this](const void *message) {
-          this->LowStateHandler(message);
-        }, 10
-      ); // TODO change the freq
-    } else {
-      FRC_ERROR("[G1Sim2RealEnv.Const] Invalid msg_type" << cfg_->msg_type);
-      throw std::invalid_argument("Invalid msg_type: " + cfg_->msg_type);
-    }
-    
-    initState();
-    
-    // wait for the subscriber to receive data
-    waitForLowState();
-
-    // Initialize the command msg
-    init_cmd_hg(low_cmd_, mode_machine_, mode_pr_);
-
-    // print_lowcmd(low_cmd_);
-}
-
-void G1Sim2RealEnv::initState() {
-  gcDim_    = cfg_->num_actions + 7; 
-  gvDim_    = cfg_->num_actions + 6; 
-  jointDim_ = cfg_->num_actions; 
-
-  // ① 机器人状态变量
-  gc_.setZero(gcDim_);      //  当前 generalized coordinate（广义坐标，位置）
-  gv_.setZero(gvDim_);      //  当前 generalized velocity（广义速度）
-
-  // ② 控制增益
-  jointPGain = cfg_->kP;
-  jointDGain = cfg_->kD;
-
-  // ③ 动作目标
-  pTarget.setZero(jointDim_);
-  // pTarget = cfg_->default_angles;// desired position（用于位置控制）
-  // FRC_INFO("[G1Sim2RealEnv.initState] default_angles: " << cfg_->default_angles.transpose());
-  vTarget.setZero(jointDim_); // desired velocity（用于速度控制）
+    unitree_tools::print_lowcmd(low_cmd_);
 }
 
 void G1Sim2RealEnv::waitForLowState() {
@@ -195,56 +85,42 @@ void G1Sim2RealEnv::updateRobotState() {
   LowState_ state = low_state_buffer_.GetCopy();
 
   // === 获取广义坐标 (generalized coordinates) ===
-  Eigen::Vector3d rootPos = Eigen::Vector3d::Zero();  // 设为 0
-  Eigen::Vector4d rootQuat;  
-  // imu_state quaternion: w, x, y, z
+  Eigen::Vector3f rootPos = Eigen::Vector3f::Zero();  
+  Eigen::Vector4f rootQuat;  
   rootQuat << state.imu_state().quaternion()[0],
               state.imu_state().quaternion()[1],
               state.imu_state().quaternion()[2],
               state.imu_state().quaternion()[3];
-
-  Eigen::VectorXd jointPos(jointDim_);
+  Eigen::VectorXf jointPos(jointDim_);
   for (int i = 0; i < jointDim_; ++i) {
     jointPos[i] = state.motor_state()[i].q();
   }
 
   // === 获取速度项 ===
-  Eigen::Vector3d rootVel = Eigen::Vector3d::Zero();  // 暂设为 0
-  Eigen::Vector3d rootAngVel;
+  Eigen::Vector3f rootVel = Eigen::Vector3f::Zero(); 
+  Eigen::Vector3f rootAngVel;
   rootAngVel << state.imu_state().gyroscope()[0],
                 state.imu_state().gyroscope()[1],
                 state.imu_state().gyroscope()[2];
-
-  Eigen::VectorXd jointVel(jointDim_);
+  Eigen::VectorXf jointVel(jointDim_);
   for (int i = 0; i < jointDim_; ++i) {
     jointVel[i] = state.motor_state()[i].dq();
   }
   
   if(cfg_->imu_type == "torso"){
-    // h1 and h1_2 imu is on the torso
-    // imu data needs to be transformed to the pelvis frame
     FRC_INFO("[G1Sim2RealEnv.updateRobotState] TODO: torso IMU type");
     throw std::runtime_error("torso IMU type is not supported!");
-    // waist_yaw = state.motor_state()[cfg_->arm_waist_joint2motor_idx[0]].q();
-    // waist_yaw_omega = state.motor_state()[cfg_->arm_waist_joint2motor_idx[0]].dq();
-    // rootQuat, rootAngVel = transform_imu_data(waist_yaw, waist_yaw_omega, rootQuat, rootAngVel);
   }
 
   gc_ << rootPos, rootQuat, jointPos;
   gv_ << rootVel, rootAngVel, jointVel;
   
-  // === 转换为 float 用于 status 共享 ===
-  Eigen::VectorXf positionVec = gc_.cast<float>();
-  Eigen::VectorXf velocityVec = gv_.cast<float>();
-  float timestamp = state.tick();  // use tick() as timestamp
-
   // === 更新 robotStatus 共享结构 ===
   if (robotStatusBufferPtr_) {
     robotStatus status;
-    memcpy(status.data.position, positionVec.data(), gcDim_ * sizeof(float));
-    memcpy(status.data.velocity, velocityVec.data(), gvDim_ * sizeof(float));
-    // status.data.jointTorques if needed
-    status.data.timestamp = timestamp;
+    memcpy(status.data.position, gc_.data(), gcDim_ * sizeof(float));
+    memcpy(status.data.velocity, gv_.data(), gvDim_ * sizeof(float));
+    status.data.timestamp = state.tick();  
     robotStatusBufferPtr_->SetData(status);
   }
 }
@@ -260,7 +136,7 @@ void G1Sim2RealEnv::zeroTorqueState() {
   Timer zeroTorqueStateTimer(control_dt_);
 
   while (listenerPtr_ && listenerPtr_->gamepad_.start.pressed != 1) {
-    create_zero_cmd(low_cmd_);  
+    unitree_tools::create_zero_cmd(low_cmd_);  
     sendCmd(low_cmd_);        
     zeroTorqueStateTimer.wait();
   }

@@ -1,5 +1,10 @@
 #pragma once
 
+#include <memory>
+#include <mutex>
+#include <functional>
+#include <string>
+
 #include <fastdds/dds/domain/DomainParticipant.hpp>
 #include <fastdds/dds/publisher/Publisher.hpp>
 #include <fastdds/dds/publisher/DataWriter.hpp>
@@ -8,11 +13,6 @@
 #include <fastdds/dds/subscriber/SampleInfo.hpp>
 #include <fastdds/dds/subscriber/DataReaderListener.hpp>
 #include <fastdds/dds/subscriber/DataReader.hpp>
-
-#include <memory>
-#include <mutex>
-#include <functional>
-#include <string>
 
 #include <wlrobot/robot/channel/pubsub_type_resolver.hpp>
 
@@ -28,7 +28,8 @@ public:
     bool Init(uint32_t domain_id, const std::string& nic = "");
 
     template<typename T>
-    eprosima::fastdds::dds::DataWriter* CreateSendChannel(const std::string& channel_name) {
+    eprosima::fastdds::dds::DataWriter* CreateSendChannel(const std::string& channel_name)
+    {
         using namespace eprosima::fastdds::dds;
 
         auto type = TypeSupport(new typename PubSubTypeResolver<T>::type());
@@ -39,10 +40,10 @@ public:
     }
 
     template<typename T>
-    eprosima::fastdds::dds::DataReader* CreateRecvChannel(
-        const std::string& channel_name,
-        std::function<void(const T&)> callback,
-        int /*queue_len*/ = 10) {
+    eprosima::fastdds::dds::DataReader* CreateRecvChannel(const std::string& channel_name,
+                                                          std::function<void(const T&)> callback,
+                                                          int queue_len = 1) 
+    {
 
         using namespace eprosima::fastdds::dds;
 
@@ -65,8 +66,15 @@ public:
             std::function<void(const T&)> callback_;
         };
 
-        auto listener = new InternalListener(callback);  // 留给程序整体管理释放
-        return subscriber_->create_datareader(topic, DATAREADER_QOS_DEFAULT, listener);
+        auto listener = std::make_shared<InternalListener>(callback);
+        reader_listeners_.emplace_back(listener);
+
+        // set queue len
+        DataReaderQos reader_qos = DATAREADER_QOS_DEFAULT;
+        reader_qos.history().kind = KEEP_LAST_HISTORY_QOS;
+        reader_qos.history().depth = queue_len; 
+
+        return subscriber_->create_datareader(topic, reader_qos, listener.get());
     }
 
     eprosima::fastdds::dds::DomainParticipant* Participant() {
@@ -85,6 +93,7 @@ private:
     ChannelFactory() = default;
     ~ChannelFactory() = default;
 
+    std::vector<std::shared_ptr<eprosima::fastdds::dds::DataReaderListener>> reader_listeners_;
     static std::shared_ptr<eprosima::fastdds::dds::DomainParticipant> participant_;
     static std::shared_ptr<eprosima::fastdds::dds::Publisher> publisher_;
     static std::shared_ptr<eprosima::fastdds::dds::Subscriber> subscriber_;

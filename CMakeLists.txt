@@ -180,8 +180,6 @@ if (USE_TENSORRT)
 endif()
 
 # # ===== 添加可执行文件 =====
-# add_executable(g1 exec/g1.cpp ${SRC_FILES})
-# target_link_libraries(g1 ${COMMON_LIBS})
 
 # 真机部署（仅在启用Unitree SDK时编译）
 # if (USE_UNITREE_SDK)
@@ -195,9 +193,12 @@ endif()
 # 递归收集所有 .cpp 文件
 file(GLOB_RECURSE WLROBOT_SDK_SRC_FILES ${WLROBOT_DIR}/src/*.cpp)
 
+add_executable(g1 exec/g1.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
+target_link_libraries(g1 fastdds fastcdr ${COMMON_LIBS})
 
-add_executable(check_dog_input exec/check_dog_input.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
-target_link_libraries(check_dog_input fastdds fastcdr ${COMMON_LIBS})
+# sync with real robot
+add_executable(robot_sim_sync exec/robot_sim_sync.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
+target_link_libraries(robot_sim_sync fastdds fastcdr ${COMMON_LIBS})
 
 add_executable(publisher exec/publisher.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
 target_link_libraries(publisher fastdds fastcdr ${COMMON_LIBS})

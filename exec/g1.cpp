@@ -2,9 +2,7 @@
 #include <csignal>
 #include "state_machine/StateMachine.h"
 #include "hardware/listener.h"
-#ifdef USE_UNITREE_SDK
-#include "sim2/real/g1_sim2real_env.h"
-#endif
+#include "sim2/real/sim2wlrobot_env.h"
 #include "sim2/simulator/g1_sim2mujoco_env.h"
 #include "utility/tools.h"
 #include "utility/cxxopts.hpp"
@@ -24,14 +22,11 @@ public:
                torch::Device device,
                const std::string& inference_engine_type,
                const std::string& precision)
-      : cfg_(cfg), 
-        mode_(mode)
+      : mode_(mode)
   {
         state_machine_ = std::make_shared<StateMachine>(cfg, config_name, device, inference_engine_type, precision);
         if (mode == "sim2mujoco") hu_env_ = std::make_shared<G1Sim2MujocoEnv>(cfg, state_machine_);
-#ifdef USE_UNITREE_SDK
-        else if(mode == "sim2real") hu_env_ = std::make_shared<G1Sim2RealEnv>(net, cfg, state_machine_);
-#endif
+        else if (mode == "sim2real") hu_env_ = std::make_shared<Sim2WlRobotEnv>(net, cfg, state_machine_);
         else throw std::runtime_error("Unsupported mode: " + mode);
 
         listener_ = std::make_shared<Listener>();
@@ -40,7 +35,6 @@ public:
         state_machine_->setInputPtr(listener_->getKeyInputPtr(), nullptr);
 
         threads_.emplace_back([listener = listener_]() { listener->listenKeyboard(); });             // start keyboard listener
-        // threads_.emplace_back([&]() { state_machine_->run(); });                                 // start async policy
   }
 
   void zero_torque_state(){
@@ -74,7 +68,6 @@ public:
   std::shared_ptr<BaseEnv> hu_env_ = nullptr;
 
 private:
-  std::shared_ptr<BaseRobotConfig> cfg_ = nullptr;
   std::string mode_;
   std::vector<std::thread> threads_;
 };
@@ -139,7 +132,7 @@ int main(int argc, char** argv) {
     }
 
     // 配置合法性检查
-    const std::vector<std::string> valid_configs = {"g1_unitree", "g1_eman", "mdl"};
+    const std::vector<std::string> valid_configs = {"mdl"};
     if (std::find(valid_configs.begin(), valid_configs.end(), config_name) == valid_configs.end()) {
       std::ostringstream oss;
       oss << "Available config names: ";
@@ -160,8 +153,8 @@ int main(int argc, char** argv) {
     }
 
     // sim2real 限制：只支持 g1_eman，不支持 other config
-    if (mode == "sim2real" && config_name != "g1_eman") {
-      FRC_ERROR("Only 'g1_eman' is supported in sim2real mode.");
+    if (mode == "sim2real" && config_name != "mdl") {
+      FRC_ERROR("Only 'mdl' is supported in sim2real mode.");
       return -1;
     }
 

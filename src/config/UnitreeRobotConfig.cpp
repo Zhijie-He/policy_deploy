@@ -12,6 +12,7 @@ UnitreeRobotConfig::UnitreeRobotConfig(const std::string& yaml_path)
     simulation_dt = root_["simulation_dt"].as<float>();
     control_decimation = root_["control_decimation"].as<int>();
     policy_dt = simulation_dt *  control_decimation;
+    domain_id = root_["domain_id"].as<int>();
     
     // ========== 控制增益 ==========
     const auto& kps = root_["kps"].as<std::vector<float>>();
@@ -57,6 +58,8 @@ UnitreeRobotConfig::UnitreeRobotConfig(const std::string& yaml_path)
 
     // ========== 自定义参数 ==========
     robot_name = root_["robot_name"].as<std::string>();
+    lowcmd_topic = root_["lowcmd_topic"].as<std::string>();
+    lowstate_topic = root_["lowstate_topic"].as<std::string>();
 }
 
 const YAML::Node& UnitreeRobotConfig::raw() const {

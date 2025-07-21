@@ -14,7 +14,7 @@ public:
     explicit ChannelSubscriber(const std::string& channel_name)
         : channel_name_(channel_name) {}
 
-    void InitChannel(Callback cb, int queue_len = 0) {
+    void InitChannel(Callback cb, int queue_len = 1) {
         reader_ = ChannelFactory::Instance()->CreateRecvChannel<T>(channel_name_, cb, queue_len);
     }
 

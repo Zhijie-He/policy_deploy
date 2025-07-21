@@ -13,6 +13,7 @@ public:
     float simulation_dt;
     float policy_dt;
     int control_decimation;
+    int domain_id;
 
     Eigen::VectorXf kP;
     Eigen::VectorXf kD;
