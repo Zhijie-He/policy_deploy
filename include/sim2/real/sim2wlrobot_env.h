@@ -50,4 +50,16 @@ private:
   std::unique_ptr<ChannelPublisher<MotorCmds>> lowcmd_publisher_;
   // subscriber
   std::unique_ptr<ChannelSubscriber<LowState>> lowstate_subscriber_;
+
+  //related to calibartion
+  std::array<float, 4> abad_sign_  = { 1.0f,  1.0f, -1.0f, -1.0f };
+  std::array<float, 4> hip_sign_   = {-1.0f,  1.0f, -1.0f,  1.0f };
+  std::array<float, 4> knee_sign_  = {-1.0f,  1.0f, -1.0f,  1.0f };
+  std::array<std::array<float, 3>, 4> zero_offset_ = {{
+      { 0.882785f,  1.56933f,  -3.15066f },
+      {-0.245677f, -0.873517f,  2.25232f },
+      { 0.169374f,  1.31086f,  -2.8007f  },
+      { 0.422843f, -0.535587f,  2.45248f }
+  }};
+  std::array<int, 12> real2sim_dof_map_ = { 3,4,5, 0,1,2, 9,10,11, 6,7,8 };
 };

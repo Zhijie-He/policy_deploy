@@ -9,8 +9,7 @@ void LowStateAggregator::imu_callback(const wlrobot::msg::IMUState& msg) {
 
 void LowStateAggregator::motor_callback(const wlrobot::msg::MotorStates& msg) {
     std::lock_guard<std::mutex> lock(mutex_);
-    // process_motor_data(msg);
-    latest_motor_ = msg;
+    process_motor_data(msg);
     has_motor_ = true;
 }
 

@@ -85,15 +85,62 @@ public:
         );
     }
 
+    // void LowCmdHandler(const MotorCmds& message) {
+    //     std::lock_guard<std::mutex> actionLock(action_lock_);
+    //     pTarget    = Eigen::Map<const Eigen::VectorXf>(message.pos().data(), jointDim_);
+    //     vTarget    = Eigen::Map<const Eigen::VectorXf>(message.w().data(), jointDim_);
+    //     jointPGain = Eigen::Map<const Eigen::VectorXf>(message.kp().data(), jointDim_);
+    //     jointDGain = Eigen::Map<const Eigen::VectorXf>(message.kd().data(), jointDim_);
+    // }
+    
     void LowCmdHandler(const MotorCmds& message) {
-        { 
-            std::lock_guard<std::mutex> actionLock(action_lock_);
-            pTarget    = Eigen::Map<const Eigen::VectorXf>(message.pos().data(), jointDim_);
-            vTarget    = Eigen::Map<const Eigen::VectorXf>(message.w().data(), jointDim_);
-            jointPGain = Eigen::Map<const Eigen::VectorXf>(message.kp().data(), jointDim_);
-            jointDGain = Eigen::Map<const Eigen::VectorXf>(message.kd().data(), jointDim_);
+        std::lock_guard<std::mutex> actionLock(action_lock_);
+
+        // Step 1: 先 real 顺序 → sim 顺序
+        std::array<float, 12> pos_real{}, vel_real{}, kp_real{}, kd_real{};
+        std::array<float, 12> pos_sim{}, vel_sim{}, kp_sim{}, kd_sim{};
+
+        for (int i = 0; i < 12; ++i) {
+            pos_real[i] = message.pos()[i];
+            vel_real[i] = message.w()[i];
+            kp_real[i]  = message.kp()[i];
+            kd_real[i]  = message.kd()[i];
         }
+
+        for (int sim_idx = 0; sim_idx < 12; ++sim_idx) {
+            int real_idx = real2sim_dof_map_[sim_idx];
+            pos_sim[sim_idx] = pos_real[real_idx];
+            vel_sim[sim_idx] = vel_real[real_idx];
+            kp_sim[sim_idx]  = kp_real[real_idx];
+            kd_sim[sim_idx]  = kd_real[real_idx];
+        }
+
+        // Step 2: sim 顺序 → 做校准（仿真使用的是校准后的值）
+        Eigen::VectorXf pos_calib(jointDim_), vel_calib(jointDim_);
+        Eigen::VectorXf kp_vec(jointDim_), kd_vec(jointDim_);
+
+        for (int i = 0; i < jointDim_; ++i) {
+            int leg = i / 3;
+            int joint = i % 3;
+
+            float sign = (joint == 0) ? abad_sign_[leg] :
+                        (joint == 1) ? hip_sign_[leg] :
+                                        knee_sign_[leg];
+            float offset = zero_offset_[leg][joint];
+
+            pos_calib(i) = (pos_sim[i] - offset) * sign;
+            vel_calib(i) = vel_sim[i] * sign;
+            kp_vec(i)    = kp_sim[i];
+            kd_vec(i)    = kd_sim[i];
+        }
+
+        // 最终赋值
+        pTarget    = pos_calib;
+        vTarget    = vel_calib;
+        jointPGain = kp_vec;
+        jointDGain = kd_vec;
     }
+
 
     void launchServer() {
         if (!glfwInit()) mju_error("Could not initialize GLFW");
@@ -207,12 +254,39 @@ public:
     }
     
 private:
+    // void updateData() {
+    //     for (int i = 0; i < gcDim_; ++i) gc_(i) = mj_data_->qpos[i];
+    //     for (int i = 0; i < gvDim_; ++i) gv_(i) = mj_data_->qvel[i];
+    //     for (int i = 0; i < jointDim_; ++i) {
+    //         jointPos(i) = mj_data_->qpos[7 + i];
+    //         jointVel(i) = mj_data_->qvel[6 + i];
+    //     }
+    // }
+
+    // minic real robot motor state value and order 
     void updateData() {
         for (int i = 0; i < gcDim_; ++i) gc_(i) = mj_data_->qpos[i];
         for (int i = 0; i < gvDim_; ++i) gv_(i) = mj_data_->qvel[i];
-        for (int i = 0; i < jointDim_; ++i) {
-            jointPos(i) = mj_data_->qpos[7 + i];
-            jointVel(i) = mj_data_->qvel[6 + i];
+
+        // Step 1: 仿真顺序 → 真实顺序（只变顺序）
+        std::array<float, 12> sim_pos, sim_vel;
+        for (int i = 0; i < 12; ++i) {
+            sim_pos[i] = mj_data_->qpos[7 + real2sim_dof_map_[i]];
+            sim_vel[i] = mj_data_->qvel[6 + real2sim_dof_map_[i]];
+        }
+
+        // Step 2: 对真实顺序数据进行反校准（sign, offset）
+        for (int i = 0; i < 12; ++i) {
+            int leg = i / 3;
+            int joint = i % 3;
+
+            float sign = (joint == 0) ? abad_sign_[leg] :
+                        (joint == 1) ? hip_sign_[leg] :
+                                        knee_sign_[leg];
+            float offset = zero_offset_[leg][joint];
+
+            jointPos(i) = sim_pos[i] * sign + offset;  // 反向零位校准
+            jointVel(i) = sim_vel[i] * sign;
         }
     }
 
@@ -275,6 +349,18 @@ private:
     mjvOption opt_;
     mjvScene scn_;
     mjrContext con_;
+        
+    //related to calibartion
+    std::array<float, 4> abad_sign_  = { 1.0f,  1.0f, -1.0f, -1.0f };
+    std::array<float, 4> hip_sign_   = {-1.0f,  1.0f, -1.0f,  1.0f };
+    std::array<float, 4> knee_sign_  = {-1.0f,  1.0f, -1.0f,  1.0f };
+    std::array<std::array<float, 3>, 4> zero_offset_ = {{
+        { 0.882785f,  1.56933f,  -3.15066f },
+        {-0.245677f, -0.873517f,  2.25232f },
+        { 0.169374f,  1.31086f,  -2.8007f  },
+        { 0.422843f, -0.535587f,  2.45248f }
+    }};
+    std::array<int, 12> real2sim_dof_map_ = { 3,4,5, 0,1,2, 9,10,11, 6,7,8 };
 };
 
 int main(int argc, char** argv) {
@@ -310,4 +396,3 @@ int main(int argc, char** argv) {
 
     return 0;
 }
-

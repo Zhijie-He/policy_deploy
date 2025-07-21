@@ -79,10 +79,55 @@ void Sim2WlRobotEnv::updateRobotState() {
   }
 }
 
-void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
+// void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
   
-  lowcmd_publisher_->Write(cmd);        
+//   lowcmd_publisher_->Write(cmd);        
+// }
+
+void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
+    // Step 1: sim 顺序 → real 顺序
+    std::array<float, 12> pos_sim{}, vel_sim{}, kp_sim{}, kd_sim{};
+    std::array<float, 12> pos_real{}, vel_real{}, kp_real{}, kd_real{};
+
+    for (int sim_idx = 0; sim_idx < 12; ++sim_idx) {
+        pos_sim[sim_idx] = pTarget[sim_idx];
+        vel_sim[sim_idx] = vTarget[sim_idx];
+        kp_sim[sim_idx]  = jointPGain[sim_idx];
+        kd_sim[sim_idx]  = jointDGain[sim_idx];
+    }
+
+    for (int real_idx = 0; real_idx < 12; ++real_idx) {
+        int sim_idx = real2sim_dof_map_[real_idx];
+        pos_real[real_idx] = pos_sim[sim_idx];
+        vel_real[real_idx] = vel_sim[sim_idx];
+        kp_real[real_idx]  = kp_sim[sim_idx];
+        kd_real[real_idx]  = kd_sim[sim_idx];
+    }
+
+    // Step 2: real 顺序 → 做反校准（从 sim 控制 → 真机）
+    for (int i = 0; i < 12; ++i) {
+        int leg = i / 3;
+        int joint = i % 3;
+
+        float sign = (joint == 0) ? abad_sign_[leg] :
+                     (joint == 1) ? hip_sign_[leg] :
+                                    knee_sign_[leg];
+        float offset = zero_offset_[leg][joint];
+
+        pos_real[i] = pos_real[i] / sign + offset;
+        vel_real[i] = vel_real[i] / sign;
+        // kp/kd 不做处理，直接使用
+    }
+
+    // Step 3: 写入 cmd 并发送
+    cmd.pos(pos_real);
+    cmd.w(vel_real);
+    cmd.kp(kp_real);
+    cmd.kd(kd_real);
+
+    lowcmd_publisher_->Write(cmd);
 }
+
 
 void Sim2WlRobotEnv::zeroTorqueState() {
   FRC_INFO("[Sim2WlRobotEnv.zeroTorqueState] Enter zero torque state.");
