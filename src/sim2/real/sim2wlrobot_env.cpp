@@ -80,6 +80,7 @@ void Sim2WlRobotEnv::updateRobotState() {
 }
 
 void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
+  
   lowcmd_publisher_->Write(cmd);        
 }
 
@@ -88,7 +89,8 @@ void Sim2WlRobotEnv::zeroTorqueState() {
   FRC_INFO("[Sim2WlRobotEnv.zeroTorqueState] Waiting for the start signal...");
   Timer zeroTorqueStateTimer(control_dt_);
 
-  while (listenerPtr_ && listenerPtr_->gamepad_.start.pressed != 1) {
+  // while (listenerPtr_ && listenerPtr_->gamepad_.start.pressed != 1) {
+  while (listenerPtr_ && *listenerPtr_->getKeyInputPtr() != 's') {
     sendCmd(low_cmd_);        
     zeroTorqueStateTimer.wait();
   }
@@ -145,7 +147,8 @@ void Sim2WlRobotEnv::defaultPosState() {
   const auto& default_joint_pos = cfg_->default_angles;
   int dof_size = jointDim_;
 
-  while (listenerPtr_ && listenerPtr_->gamepad_.A.pressed != 1) {
+  // while (listenerPtr_ && listenerPtr_->gamepad_.A.pressed != 1) {
+  while (listenerPtr_ && *listenerPtr_->getKeyInputPtr() != 'a') {
     for (int i = 0; i < dof_size; ++i) {
       int motor_idx = i;
       low_cmd_.pos()[motor_idx] = default_joint_pos[motor_idx];
@@ -159,69 +162,33 @@ void Sim2WlRobotEnv::defaultPosState() {
   }
 }
 
-void Sim2WlRobotEnv::run() {
-  RateLimiter controlTimer(1.0 / control_dt_, "real main loop");
-  
-  while (running_) {
-    counter_++;
-
-    // emergency stop button
+bool Sim2WlRobotEnv::isRunning() const {
     if (listenerPtr_ && listenerPtr_->gamepad_.select.pressed == 1) {
-      FRC_INFO("[Sim2WlRobotEnv.run] Emergency Stop! at " << counter_ << "count");
-      running_ = false;
-      break;
+        FRC_INFO("[Sim2WlRobotEnv] Emergency Stop!");
+        FRC_INFO("[Sim2WlRobotEnv.run] Emergency Stop! at " << run_count << "count");
+        return false;
     }
-    
-    if(state_machine_) {
-      auto t_start = std::chrono::high_resolution_clock::now();
-      state_machine_->step();
-      auto t_end = std::chrono::high_resolution_clock::now();
-      
-      double run_time_us = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-      run_sum_us += run_time_us;
-      run_sum_sq_us += run_time_us * run_time_us;
-      ++run_count;
-
-      if (run_count % 100 == 0) {
-          double avg = run_sum_us / run_count;
-          double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
-          FRC_INFO("[StateMachine.step] Step 100 runs AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
-          
-          // 重置
-          run_sum_us = 0;
-          run_sum_sq_us = 0;
-          run_count = 0;
-      }
-    }
-    
-    auto actionPtr = jointCMDBufferPtr_->GetData();  
-    while (!actionPtr) { 
-      FRC_INFO("[Sim2WlRobotEnv.run] Waiting For actions!");
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      actionPtr = jointCMDBufferPtr_->GetData(); 
-    }
-
-    {
-      std::lock_guard<std::mutex> actionLock(action_lock_);
-      const auto& cmd = *actionPtr;
-      memcpy(pTarget.data(), cmd.data.position, sizeof(float) * jointDim_);
-      memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
-      memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
-      memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
-
-      for (int i = 0; i < jointDim_; ++i) {
-        low_cmd_.pos()[i]  = pTarget[i];
-        low_cmd_.w()[i]    = vTarget[i];
-        low_cmd_.kp()[i]   = jointPGain[i];
-        low_cmd_.kd()[i]   = jointDGain[i];
-        low_cmd_.t()[i]    = 0.0f;
-      }
-    }
-
-    sendCmd(low_cmd_);
-    controlTimer.wait();
-  }
+    return running_;
 }
 
+void Sim2WlRobotEnv::applyAction(const jointCMD& cmd) {
+  memcpy(pTarget.data(), cmd.data.position, sizeof(float) * jointDim_);
+  memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
+  memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
+  memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
+
+  for (int i = 0; i < jointDim_; ++i) {
+    low_cmd_.pos()[i]  = pTarget[i];
+    low_cmd_.w()[i]    = vTarget[i];
+    low_cmd_.kp()[i]   = jointPGain[i];
+    low_cmd_.kd()[i]   = jointDGain[i];
+    low_cmd_.t()[i]    = 0.0f;
+  }
+  sendCmd(low_cmd_);
+}
+
+void Sim2WlRobotEnv::run() {
+  runControlLoop();
+}
 
 

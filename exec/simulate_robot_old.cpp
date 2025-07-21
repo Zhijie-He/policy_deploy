@@ -3,6 +3,7 @@
 #include <chrono>
 #include <array>
 #include <random>
+
 #include <wlrobot/robot/channel/channel_publisher.hpp>
 #include <wlrobot/idl/hd/IMUStatePubSubTypes.hpp>
 #include <wlrobot/idl/hd/MotorStatesPubSubTypes.hpp>

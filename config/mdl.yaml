@@ -32,5 +32,8 @@ robot_name: mdl
 
 lowcmd_topic: "/low_level/motor/cmd"
 lowstate_topic: "/low_level/lowstate"
+imu_topic: "/low_level/imu/state"
+motor_topic: "/low_level/motor/state"
 
 domain_id: 1
+print_interval: 300

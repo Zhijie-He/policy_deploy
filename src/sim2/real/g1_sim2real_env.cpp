@@ -207,70 +207,31 @@ void G1Sim2RealEnv::defaultPosState() {
   }
 }
 
-void G1Sim2RealEnv::run() {
-  // Timer controlTimer(control_dt_);
-  RateLimiter controlTimer(1.0 / control_dt_, "real main loop");
-  
-  while (running_) {
-    counter_++;
-
-    // emergency stop button
+bool G1Sim2RealEnv::isRunning() const {
     if (listenerPtr_ && listenerPtr_->gamepad_.select.pressed == 1) {
-      FRC_INFO("[G1Sim2RealEnv.run] Emergency Stop! at " << counter_ << "count");
-      running_ = false;
-      break;
+        FRC_INFO("[Sim2WlRobotEnv] Emergency Stop!");
+        FRC_INFO("[Sim2WlRobotEnv.run] Emergency Stop! at " << run_count << "count");
+        return false;
     }
-    
-    if(state_machine_) {
-      auto t_start = std::chrono::high_resolution_clock::now();
-      state_machine_->step();
-      auto t_end = std::chrono::high_resolution_clock::now();
-      
-      double run_time_us = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-      run_sum_us += run_time_us;
-      run_sum_sq_us += run_time_us * run_time_us;
-      ++run_count;
-
-      if (run_count % 100 == 0) {
-          double avg = run_sum_us / run_count;
-          double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
-          FRC_INFO("[StateMachine.step] Step 100 runs AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
-          
-          // 重置
-          run_sum_us = 0;
-          run_sum_sq_us = 0;
-          run_count = 0;
-      }
-    }
-    
-    auto actionPtr = jointCMDBufferPtr_->GetData();  
-    while (!actionPtr) { 
-      FRC_INFO("[G1Sim2RealEnv.run] Waiting For actions!");
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      actionPtr = jointCMDBufferPtr_->GetData();  // 重新尝试获取
-    }
-
-    {
-      std::lock_guard<std::mutex> actionLock(action_lock_);
-      const auto& cmd = *actionPtr;
-      memcpy(pTarget.data(), cmd.data.position, sizeof(float) * jointDim_);
-      memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
-      memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
-      memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
-
-      for (int i = 0; i < jointDim_; ++i) {
-        low_cmd_.motor_cmd()[i].q()   = pTarget[i];
-        low_cmd_.motor_cmd()[i].dq()  = vTarget[i];
-        low_cmd_.motor_cmd()[i].kp()  = jointPGain[i];
-        low_cmd_.motor_cmd()[i].kd()  = jointDGain[i];
-        low_cmd_.motor_cmd()[i].tau() = 0.0f;
-      }
-    }
-
-    sendCmd(low_cmd_);
-    controlTimer.wait();
-  }
+    return running_;
 }
 
+void G1Sim2RealEnv::applyAction(const jointCMD& cmd) {
+  memcpy(pTarget.data(), cmd.data.position, sizeof(float) * jointDim_);
+  memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
+  memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
+  memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
 
+  for (int i = 0; i < jointDim_; ++i) {
+    low_cmd_.motor_cmd()[i].q()   = pTarget[i];
+    low_cmd_.motor_cmd()[i].dq()  = vTarget[i];
+    low_cmd_.motor_cmd()[i].kp()  = jointPGain[i];
+    low_cmd_.motor_cmd()[i].kd()  = jointDGain[i];
+    low_cmd_.motor_cmd()[i].tau() = 0.0f;
+  }
+  sendCmd(low_cmd_);
+}
 
+void G1Sim2RealEnv::run() {
+  runControlLoop();
+}

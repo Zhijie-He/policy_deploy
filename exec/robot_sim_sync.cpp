@@ -185,7 +185,6 @@ public:
 
     void renderLoop() {
         // 每秒渲染频率
-        // const float render_dt = 1.0 / 120.0;
         Timer renderTimer(control_dt_);
 
         while (!glfwWindowShouldClose(window_)) {
@@ -260,26 +259,22 @@ int main(int argc, char** argv) {
         return 0;
     }
     std::string config_name = result["config"].as<std::string>();
-    std::string imu_topic       = "/low_level/imu/state";
-    std::string motor_topic     = "/low_level/motor/state";
-    std::string lowstate_topic  = "/low_level/lowstate";
-    
     cfg = tools::loadConfig(config_name);
-    
-    //  start lowStateAggregator (combine imu and motor)
-    auto lowstate_aggregator = std::make_unique<LowStateAggregator>(
-        imu_topic,
-        motor_topic,
-        lowstate_topic,             // define by yourself
-        cfg->domain_id              // domain id
-    );
-    lowstate_aggregator->Start();
+
+    // //  start lowStateAggregator (combine imu and motor)
+    // auto lowstate_aggregator = std::make_unique<LowStateAggregator>(
+    //     cfg->imu_topic,
+    //     cfg->motor_topic,
+    //     cfg->lowstate_topic,             // define by yourself
+    //     cfg->domain_id              // domain id
+    // );
+    // lowstate_aggregator->Start();
 
     // initialize channel
     ChannelFactory::Instance()->Init(cfg->domain_id);
 
     // subscriber lowstate topic
-    auto lowstate_sub = std::make_unique<ChannelSubscriber<LowState>>(lowstate_topic);
+    auto lowstate_sub = std::make_unique<ChannelSubscriber<LowState>>(cfg->lowstate_topic);
     lowstate_sub->InitChannel(lowstate_callback, 20); 
 
     try {

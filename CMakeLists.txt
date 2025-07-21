@@ -200,5 +200,5 @@ target_link_libraries(g1 fastdds fastcdr ${COMMON_LIBS})
 add_executable(robot_sim_sync exec/robot_sim_sync.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
 target_link_libraries(robot_sim_sync fastdds fastcdr ${COMMON_LIBS})
 
-add_executable(publisher exec/publisher.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
-target_link_libraries(publisher fastdds fastcdr ${COMMON_LIBS})
+add_executable(simulate_robot exec/simulate_robot.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
+target_link_libraries(simulate_robot fastdds fastcdr ${COMMON_LIBS})

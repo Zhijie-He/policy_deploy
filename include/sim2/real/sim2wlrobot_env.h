@@ -33,6 +33,9 @@ public:
   void defaultPosState() override;
   void run() override;
 
+  bool isRunning() const override; 
+  void applyAction(const jointCMD& cmd) override;  
+
 private:
   // 对应构造参数的成员变量
   std::string net_interface_;

@@ -9,6 +9,7 @@
 #include "state_machine/StateMachine.h"
 #include "utility/logger.h"
 #include "utility/timer.h"
+#include "utility/tools.h"
 
 class BaseEnv {
 public:
@@ -26,6 +27,11 @@ public:
   virtual void moveToDefaultPos() {}
   virtual void defaultPosState() {}
   
+
+  virtual void applyAction(const jointCMD& cmd) = 0;  // 子类实现控制信号的应用（sim/real）
+  virtual bool isRunning() const { return running_; } // 可被 override
+  void runControlLoop(); // 公共控制主循环（供子类调用）
+
 protected:
   std::shared_ptr<StateMachine> state_machine_ = nullptr;
   std::shared_ptr<const BaseRobotConfig> cfg_;

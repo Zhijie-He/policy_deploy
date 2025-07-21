@@ -1,8 +1,5 @@
 // G1Sim2MujocoEnv.cpp
 #include "sim2/simulator/g1_sim2mujoco_env.h"
-#include "utility/logger.h"
-#include "utility/timer.h"
-#include "utility/tools.h"
 #include <cstring>
 #include <cmath>
 #include <thread>
@@ -134,48 +131,19 @@ void G1Sim2MujocoEnv::updateRobotState() {
   }
 }
 
+bool G1Sim2MujocoEnv::isRunning() const {
+  return running_ && (headless_ || !glfwWindowShouldClose(window_));
+}
+
+void G1Sim2MujocoEnv::applyAction(const jointCMD& cmd) {
+  memcpy(pTarget.data(), cmd.data.position, sizeof(float) * actuatorDim_);
+  memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * actuatorDim_);
+  memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * actuatorDim_);
+  memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * actuatorDim_);
+}
+
 void G1Sim2MujocoEnv::step() {
-  RateLimiter controlTimer(1.0 / control_dt_, "mujoco main loop");
-  while ((headless_ || !glfwWindowShouldClose(window_)) && running_){
-
-    if(state_machine_) {
-      auto t_start = std::chrono::high_resolution_clock::now();
-      state_machine_->step();
-      auto t_end = std::chrono::high_resolution_clock::now();
-      
-      double run_time_us = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-      run_sum_us += run_time_us;
-      run_sum_sq_us += run_time_us * run_time_us;
-      ++run_count;
-
-      if (run_count % 100 == 0) {
-          double avg = run_sum_us / run_count;
-          double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
-          FRC_INFO("[StateMachine.step] 100 steps AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
-          
-          // 重置
-          run_sum_us = 0;
-          run_sum_sq_us = 0;
-          run_count = 0;
-      }
-    }
-
-    auto actionPtr = jointCMDBufferPtr_->GetData();
-    while (!actionPtr) { // 等待policy 传递action
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      actionPtr = jointCMDBufferPtr_->GetData();  // 重新尝试获取
-    }
-    
-    {
-      std::lock_guard<std::mutex> actionLock(action_lock_);  // 自动锁定 action
-      const auto& cmd = *actionPtr; // 直接解引用使用数据（推荐写法）
-      memcpy(pTarget.data(), cmd.data.position, sizeof(float) * actuatorDim_);
-      memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * actuatorDim_);
-      memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * actuatorDim_);
-      memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * actuatorDim_);
-    }
-    controlTimer.wait();
-  }
+  runControlLoop();
 }
 
 void G1Sim2MujocoEnv::run() {
@@ -187,7 +155,7 @@ void G1Sim2MujocoEnv::run() {
 
   step_thread_ = std::thread(&G1Sim2MujocoEnv::step, this);
   RateLimiter renderTimer(1.0 / control_dt_, "mujoco render loop", false);
-  while (running_ && (headless_ || !glfwWindowShouldClose(window_))) {
+  while (isRunning()) {
     integrate();  // 控制数据集成
     if (!headless_) {
       {
@@ -275,18 +243,25 @@ void G1Sim2MujocoEnv::moveToDefaultPos() {
   FRC_INFO("[G1Sim2MujocoEnv.moveToDefaultPos] Default pose initialized.");
 }
 
-void G1Sim2MujocoEnv::stop(){
+void G1Sim2MujocoEnv::stop() {
   running_ = false;
+  if (step_thread_.joinable()) {
+    step_thread_.join(); 
+  }
 }
 
 G1Sim2MujocoEnv::~G1Sim2MujocoEnv() {
   if (mj_data_) mj_deleteData(mj_data_);
   if (mj_model_) mj_deleteModel(mj_model_);
- 
+
   if (!headless_) {
     mjv_freeScene(&scn_);
     mjr_freeContext(&con_);
-    if (window_) glfwDestroyWindow(window_);
-    glfwTerminate();
+
+    // 安全销毁 window
+    if (window_ && !glfwWindowShouldClose(window_)) {
+        glfwDestroyWindow(window_);
+        window_ = nullptr;
+    }
   }
 }

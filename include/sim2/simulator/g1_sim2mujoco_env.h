@@ -28,6 +28,9 @@ public:
   void stop() override;
   void moveToDefaultPos() override;
 
+  bool isRunning() const override; 
+  void applyAction(const jointCMD& cmd) override;  
+
 private:
   double lastx_ = 0, lasty_ = 0;
   std::string robotName_;

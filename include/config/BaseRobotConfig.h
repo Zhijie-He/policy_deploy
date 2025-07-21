@@ -14,6 +14,7 @@ public:
     float policy_dt;
     int control_decimation;
     int domain_id;
+    int print_interval;
 
     Eigen::VectorXf kP;
     Eigen::VectorXf kD;
@@ -39,6 +40,9 @@ public:
     std::string imu_type;
     std::string lowcmd_topic;
     std::string lowstate_topic;
+    std::string imu_topic;
+    std::string motor_topic;
+    
     float obs_scale_projected_gravity_b;
     std::vector<std::string> actor_joint_names;
     std::vector<std::string> env_joint_names;
