@@ -41,14 +41,16 @@ public:
     if(mode_=="sim2real") hu_env_->zeroTorqueState();
   }
 
+  void move_to_transfer_pose(){
+    hu_env_->moveToTransferPos();
+    if(mode_=="sim2real") hu_env_->transferPosState();
+  }
+
   void move_to_default_pose(){
     hu_env_->moveToDefaultPos();
-  }
-
-  void default_pos_state(){
     if(mode_=="sim2real") hu_env_->defaultPosState();
   }
-
+  
   void run(){
     hu_env_->run();
   }
@@ -205,9 +207,9 @@ int main(int argc, char** argv) {
     // Enter the zero torque state, press the start key to continue executing
     controller->zero_torque_state();
     // Move to the default position
-    controller->move_to_default_pose();
+    controller->move_to_transfer_pose();
     // Enter the default position state, press the A key to continue executing
-    controller->default_pos_state();
+    controller->move_to_default_pose();
 
     controller->run();
 

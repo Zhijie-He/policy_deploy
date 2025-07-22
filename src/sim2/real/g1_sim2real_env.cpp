@@ -207,7 +207,7 @@ void G1Sim2RealEnv::defaultPosState() {
   }
 }
 
-bool G1Sim2RealEnv::isRunning() const {
+bool G1Sim2RealEnv::isRunning() {
     if (listenerPtr_ && listenerPtr_->gamepad_.select.pressed == 1) {
         FRC_INFO("[Sim2WlRobotEnv] Emergency Stop!");
         FRC_INFO("[Sim2WlRobotEnv.run] Emergency Stop! at " << run_count << "count");

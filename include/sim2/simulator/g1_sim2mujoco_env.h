@@ -28,7 +28,7 @@ public:
   void stop() override;
   void moveToDefaultPos() override;
 
-  bool isRunning() const override; 
+  bool isRunning() override; 
   void applyAction(const jointCMD& cmd) override;  
 
 private:

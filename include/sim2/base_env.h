@@ -24,12 +24,14 @@ public:
   virtual void run() {}
 
   virtual void zeroTorqueState() {}
+  virtual void moveToTransferPos() {}
+  virtual void transferPosState() {}
   virtual void moveToDefaultPos() {}
   virtual void defaultPosState() {}
-  
+
 
   virtual void applyAction(const jointCMD& cmd) = 0;  // 子类实现控制信号的应用（sim/real）
-  virtual bool isRunning() const { return running_; } // 可被 override
+  virtual bool isRunning() { return running_; } // 可被 override
   void runControlLoop(); // 公共控制主循环（供子类调用）
 
 protected:

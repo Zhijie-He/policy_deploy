@@ -131,7 +131,7 @@ void G1Sim2MujocoEnv::updateRobotState() {
   }
 }
 
-bool G1Sim2MujocoEnv::isRunning() const {
+bool G1Sim2MujocoEnv::isRunning() {
   return running_ && (headless_ || !glfwWindowShouldClose(window_));
 }
 

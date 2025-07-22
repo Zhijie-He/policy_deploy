@@ -65,7 +65,13 @@ CustomTypes::Action UnitreePolicyWrapper::getControlAction(const CustomTypes::Ro
     // 2. 推理输出
     action = engine_->predict(observation);
 
-    // 3. 构造控制命令
+    // 3. clip 动作到合理范围 [-10, 10]
+    for (int i = 0; i < action.size(); ++i) {
+        if (action[i] > 10.0f) action[i] = 10.0f;
+        if (action[i] < -10.0f) action[i] = -10.0f;
+    }
+
+    // 4. 构造控制命令
     CustomTypes::Action robotAction = CustomTypes::zeroAction(acDim);
     robotAction.timestamp = robotData.timestamp;
     robotAction.motorPosition = action * cfg_->action_scale + cfg_->default_angles;

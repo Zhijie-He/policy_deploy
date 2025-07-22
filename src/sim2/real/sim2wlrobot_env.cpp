@@ -2,6 +2,18 @@
 #include <thread>
 #include "sim2/real/sim2wlrobot_env.h"
 
+void create_zero_cmd(MotorCmds& cmd) {
+    size_t size = cmd.pos().size();
+    for (size_t i = 0; i < size; ++i) {
+        cmd.pos()[i] = 0.0f;
+        cmd.w()[i] = 0.0f;
+        cmd.kp()[i] = 0.0f;
+        cmd.kd()[i] = 0.0f;
+        cmd.t()[i] = 0.0f;
+        cmd.mode()[i] = 10;
+    }
+}
+
 Sim2WlRobotEnv::Sim2WlRobotEnv(const std::string& net_interface,
                                std::shared_ptr<const BaseRobotConfig> cfg,
                                std::shared_ptr<StateMachine> state_machine)
@@ -80,22 +92,18 @@ void Sim2WlRobotEnv::updateRobotState() {
 }
 
 // void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
-  
 //   lowcmd_publisher_->Write(cmd);        
 // }
 
 void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
-    // Step 1: sim 顺序 → real 顺序
-    std::array<float, 12> pos_sim{}, vel_sim{}, kp_sim{}, kd_sim{};
+    // Step 1: 提取 sim 顺序数据（从 cmd 中获取）
+    std::array<float, 12> pos_sim = cmd.pos();
+    std::array<float, 12> vel_sim = cmd.w();
+    std::array<float, 12> kp_sim  = cmd.kp();
+    std::array<float, 12> kd_sim  = cmd.kd();
+
+    // Step 2: sim → real 顺序
     std::array<float, 12> pos_real{}, vel_real{}, kp_real{}, kd_real{};
-
-    for (int sim_idx = 0; sim_idx < 12; ++sim_idx) {
-        pos_sim[sim_idx] = pTarget[sim_idx];
-        vel_sim[sim_idx] = vTarget[sim_idx];
-        kp_sim[sim_idx]  = jointPGain[sim_idx];
-        kd_sim[sim_idx]  = jointDGain[sim_idx];
-    }
-
     for (int real_idx = 0; real_idx < 12; ++real_idx) {
         int sim_idx = real2sim_dof_map_[real_idx];
         pos_real[real_idx] = pos_sim[sim_idx];
@@ -104,7 +112,7 @@ void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
         kd_real[real_idx]  = kd_sim[sim_idx];
     }
 
-    // Step 2: real 顺序 → 做反校准（从 sim 控制 → 真机）
+    // Step 3: 反校准（为真机使用）
     for (int i = 0; i < 12; ++i) {
         int leg = i / 3;
         int joint = i % 3;
@@ -114,30 +122,96 @@ void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
                                     knee_sign_[leg];
         float offset = zero_offset_[leg][joint];
 
-        pos_real[i] = pos_real[i] / sign + offset;
-        vel_real[i] = vel_real[i] / sign;
-        // kp/kd 不做处理，直接使用
+        pos_real[i] = pos_real[i] * sign + offset;
+        vel_real[i] = vel_real[i] * sign;
+        // kp/kd 无需校准
     }
 
-    // Step 3: 写入 cmd 并发送
+    // Step 4: 覆盖 cmd（确保发送的是 real 顺序 + 反校准后数据）
     cmd.pos(pos_real);
     cmd.w(vel_real);
     cmd.kp(kp_real);
     cmd.kd(kd_real);
 
+    // Step 5: 发布
     lowcmd_publisher_->Write(cmd);
 }
 
-
 void Sim2WlRobotEnv::zeroTorqueState() {
-  FRC_INFO("[Sim2WlRobotEnv.zeroTorqueState] Enter zero torque state.");
-  FRC_INFO("[Sim2WlRobotEnv.zeroTorqueState] Waiting for the start signal...");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.zeroTorqueState] Sending zero Cmd...");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.zeroTorqueState] Waiting for the start signal and then move to transfer position...");
   Timer zeroTorqueStateTimer(control_dt_);
 
   // while (listenerPtr_ && listenerPtr_->gamepad_.start.pressed != 1) {
   while (listenerPtr_ && *listenerPtr_->getKeyInputPtr() != 's') {
+    create_zero_cmd(low_cmd_);  
     sendCmd(low_cmd_);        
     zeroTorqueStateTimer.wait();
+  }
+}
+
+void Sim2WlRobotEnv::moveToTransferPos() {
+  FRC_INFO("[Sim2WlRobotEnv.moveToTransferPos] Moving to transfer position...");
+  Timer moveToTransferPosTimer(control_dt_);
+
+  const float total_time = 3.0f;
+  int num_step = static_cast<int>(total_time / control_dt_);
+
+  // config 参数
+  const auto& kps = cfg_->kP;
+  const auto& kds = cfg_->kD;
+  const float transfer_joint_pos[12] = {0., 1.2, -2.7, -0., 1.2, -2.7, 0., 2.2, -2.7, -0., 2.2, -2.7};
+  int dof_size = jointDim_;
+
+  // 初始位置
+  std::vector<float> init_dof_pos(dof_size, 0.0f);
+  LowState state = low_state_buffer_.GetCopy();
+  for (int i = 0; i < dof_size; ++i) {
+      init_dof_pos[i] = state.motor_state().pos()[i];
+  }
+
+  // move to default pos
+  for (int i = 0; i < num_step; ++i) {
+      float alpha = static_cast<float>(i) / num_step;
+      for (int j = 0; j < dof_size; ++j) {
+          int motor_idx = j;
+          float target_q = init_dof_pos[motor_idx] * (1.0f - alpha) + transfer_joint_pos[motor_idx] * alpha;
+          low_cmd_.pos()[motor_idx] = target_q;
+          low_cmd_.w()[motor_idx] = 0;
+          low_cmd_.kp()[motor_idx] = kps[motor_idx];
+          low_cmd_.kd()[motor_idx] = kds[motor_idx];
+          low_cmd_.t()[motor_idx]= 0;
+      }
+      sendCmd(low_cmd_);
+      moveToTransferPosTimer.wait();
+  }
+  FRC_INFO("[Sim2WlRobotEnv.moveToTransferPos] Reached transfer position.");
+}
+
+void Sim2WlRobotEnv::transferPosState() {
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.transferPosState] Sending transfer position cmd...");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.transferPosState] Waiting for the Button A signal and then move to default position...");
+
+  Timer transferPosStateTimer(control_dt_);
+
+  // config 参数
+  const auto& kps = cfg_->kP;
+  const auto& kds = cfg_->kD;
+  const float transfer_joint_pos[12] = {0., 1.2, -2.7, -0., 1.2, -2.7, 0., 2.2, -2.7, -0., 2.2, -2.7};
+  int dof_size = jointDim_;
+
+  // while (listenerPtr_ && listenerPtr_->gamepad_.A.pressed != 1) {
+  while (listenerPtr_ && *listenerPtr_->getKeyInputPtr() != 'a') {
+    for (int i = 0; i < dof_size; ++i) {
+      int motor_idx = i;
+      low_cmd_.pos()[motor_idx] = transfer_joint_pos[motor_idx];
+      low_cmd_.w()[motor_idx] = 0;
+      low_cmd_.kp()[motor_idx] = kps[motor_idx];
+      low_cmd_.kd()[motor_idx] = kds[motor_idx];
+      low_cmd_.t()[motor_idx]= 0;
+    }
+    sendCmd(low_cmd_);
+    transferPosStateTimer.wait();
   }
 }
 
@@ -145,7 +219,7 @@ void Sim2WlRobotEnv::moveToDefaultPos() {
   FRC_INFO("[Sim2WlRobotEnv.moveToDefaultPos] Moving to default position...");
   Timer moveToDefaultPosTimer(control_dt_);
 
-  const float total_time = 2.0f;
+  const float total_time = 3.0f;
   int num_step = static_cast<int>(total_time / control_dt_);
 
   // config 参数
@@ -177,12 +251,12 @@ void Sim2WlRobotEnv::moveToDefaultPos() {
       moveToDefaultPosTimer.wait();
   }
 
-  FRC_INFO("[Sim2WlRobotEnv.moveToDefaultPos] Reached default position.");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.moveToDefaultPos] Reached default position.");
 }
 
 void Sim2WlRobotEnv::defaultPosState() {
-  FRC_INFO("[Sim2WlRobotEnv.defaultPosState] Enter default pos state.");
-  FRC_INFO("[Sim2WlRobotEnv.defaultPosState] Waiting for the Button A signal...");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.defaultPosState] Sending default pos cmd...");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.defaultPosState] Waiting for the Button A signal and then start the policy...");
 
   Timer defaultPosStateTimer(control_dt_);
 
@@ -207,10 +281,27 @@ void Sim2WlRobotEnv::defaultPosState() {
   }
 }
 
-bool Sim2WlRobotEnv::isRunning() const {
-    if (listenerPtr_ && listenerPtr_->gamepad_.select.pressed == 1) {
+bool Sim2WlRobotEnv::isRunning() {
+    // if (listenerPtr_ && listenerPtr_->gamepad_.select.pressed == 1) {
+    if (listenerPtr_ && *listenerPtr_->getKeyInputPtr() == 'e') {
         FRC_INFO("[Sim2WlRobotEnv] Emergency Stop!");
-        FRC_INFO("[Sim2WlRobotEnv.run] Emergency Stop! at " << run_count << "count");
+        FRC_INFO("[Sim2WlRobotEnv.run] Emergency Stop! at " << run_count << " count!");
+
+        MotorCmds terminateCmd;
+        for (int i = 0; i < jointDim_; ++i) {
+          int motor_idx = i;
+          terminateCmd.pos()[motor_idx] = 0;
+          terminateCmd.w()[motor_idx] = 0;
+          terminateCmd.kp()[motor_idx] = 0;
+          terminateCmd.kd()[motor_idx] = 2;
+          terminateCmd.t()[motor_idx]= 0;
+          terminateCmd.mode()[motor_idx] = 10;
+        }
+
+        for (int j = 0; j < 100; j++){
+          sendCmd(terminateCmd);
+          std::this_thread::sleep_for(std::chrono::duration<double>(control_dt_));
+        }
         return false;
     }
     return running_;

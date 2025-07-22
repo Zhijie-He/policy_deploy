@@ -70,12 +70,6 @@ void LowStateAggregator::Start() {
     publish_thread_ = std::thread(&LowStateAggregator::publish_loop, this);
 }
 
-void LowStateAggregator::Stop() {
-    running_ = false;
-    if (publish_thread_.joinable()) {
-        publish_thread_.join();
-    }
-}
 
 void LowStateAggregator::publish_loop() {
     int64_t tick = 0;
@@ -91,5 +85,12 @@ void LowStateAggregator::publish_loop() {
             state.motor_state() = latest_motor_;
             lowstate_pub_->Write(state);
         }
+    }
+}
+
+void LowStateAggregator::Stop() {
+    running_ = false;
+    if (publish_thread_.joinable()) {
+        publish_thread_.join();
     }
 }

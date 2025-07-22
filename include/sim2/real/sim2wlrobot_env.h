@@ -29,11 +29,13 @@ public:
 
   void sendCmd(MotorCmds& cmd);
   void zeroTorqueState() override;
+  void moveToTransferPos() override;
+  void transferPosState() override;
   void moveToDefaultPos() override;
   void defaultPosState() override;
   void run() override;
 
-  bool isRunning() const override; 
+  bool isRunning() override; 
   void applyAction(const jointCMD& cmd) override;  
 
 private:

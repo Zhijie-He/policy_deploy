@@ -258,17 +258,9 @@ int main(int argc, char** argv) {
         FRC_INFO(options.help());
         return 0;
     }
+    
     std::string config_name = result["config"].as<std::string>();
     cfg = tools::loadConfig(config_name);
-
-    // //  start lowStateAggregator (combine imu and motor)
-    // auto lowstate_aggregator = std::make_unique<LowStateAggregator>(
-    //     cfg->imu_topic,
-    //     cfg->motor_topic,
-    //     cfg->lowstate_topic,             // define by yourself
-    //     cfg->domain_id              // domain id
-    // );
-    // lowstate_aggregator->Start();
 
     // initialize channel
     ChannelFactory::Instance()->Init(cfg->domain_id);
