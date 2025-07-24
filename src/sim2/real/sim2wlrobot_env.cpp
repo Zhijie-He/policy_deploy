@@ -134,11 +134,11 @@ void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
 }
 
 void Sim2WlRobotEnv::zeroTorqueState() {
-  FRC_HIGHLIGHT("[Sim2WlRobotEnv.zeroTorqueState] Sending zero Cmd...");
-  FRC_HIGHLIGHT("[Sim2WlRobotEnv.zeroTorqueState] Waiting for the Button S signal and then move to transfer position...");
+  FRC_INFO("[Sim2WlRobotEnv.zeroTorqueState] Sending zero Cmd...");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.zeroTorqueState] Waiting for the Button y signal and then move to transfer position...");
   Timer zeroTorqueStateTimer(control_dt_);
 
-  while (listenerPtr_ && listenerPtr_->getKeyboardInput() != 's') {
+  while (listenerPtr_ && listenerPtr_->getKeyboardInput() != 'y') {
     create_zero_cmd(low_cmd_);  
     sendCmd(low_cmd_);        
     zeroTorqueStateTimer.wait();
@@ -185,8 +185,8 @@ void Sim2WlRobotEnv::moveToTransferPos() {
 }
 
 void Sim2WlRobotEnv::transferPosState() {
-  FRC_HIGHLIGHT("[Sim2WlRobotEnv.transferPosState] Sending transfer position cmd...");
-  FRC_HIGHLIGHT("[Sim2WlRobotEnv.transferPosState] Waiting for the Button A signal and then start the policy...");
+  FRC_INFO("[Sim2WlRobotEnv.transferPosState] Sending transfer position cmd...");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.transferPosState] Waiting for the Button u signal and then start the policy...");
 
   Timer transferPosStateTimer(control_dt_);
 
@@ -196,7 +196,7 @@ void Sim2WlRobotEnv::transferPosState() {
   const auto& transfer_joint_pos = cfg_->transfer_joint_angles;
   int dof_size = actuatorDim_;
 
-  while (listenerPtr_ && listenerPtr_->getKeyboardInput() != 'a') {
+  while (listenerPtr_ && listenerPtr_->getKeyboardInput() != 'u') {
     for (int i = 0; i < dof_size; ++i) {
       int motor_idx = i;
       low_cmd_.pos()[motor_idx] = transfer_joint_pos[motor_idx];
@@ -251,7 +251,7 @@ void Sim2WlRobotEnv::moveToDefaultPos() {
 }
 
 void Sim2WlRobotEnv::defaultPosState() {
-  FRC_HIGHLIGHT("[Sim2WlRobotEnv.defaultPosState] Sending default pos cmd...");
+  FRC_INFO("[Sim2WlRobotEnv.defaultPosState] Sending default pos cmd...");
   Timer defaultPosStateTimer(control_dt_);
 
   // config 参数
@@ -275,7 +275,7 @@ void Sim2WlRobotEnv::defaultPosState() {
 }
 
 bool Sim2WlRobotEnv::isRunning() {
-    if (listenerPtr_ && listenerPtr_->getKeyboardInput() == 'p') {
+    if (listenerPtr_ && listenerPtr_->getKeyboardInput() == 'n') {
         FRC_INFO("[Sim2WlRobotEnv] Emergency Stop!");
         FRC_INFO("[Sim2WlRobotEnv.run] Emergency Stop! at " << run_count << " count!");
 

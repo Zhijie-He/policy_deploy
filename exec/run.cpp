@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
   std::string precision = "fp32";
   
   try {
-    cxxopts::Options options(exec_name, "Run Mujoco-based simulation Or Real for Human Legged Robot");
+    cxxopts::Options options(exec_name, "Run Mujoco-based simulation Or Real for mdl Robot");
     options.add_options()
       ("m,mode", "Mode: sim2mujoco or sim2real", cxxopts::value<std::string>())
       ("c,config", "Config name: mdl", cxxopts::value<std::string>())

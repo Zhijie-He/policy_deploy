@@ -18,23 +18,38 @@ export TENSORRT_DIR=/path/to/TensorRT
 export CUDA_DIR=/path/to/cuda
 ```
 
+## Key Action
+w	  Walk forward
+a	  Move left
+s	  Walk backward
+d	  Move right
+q	  Turn left
+e	  Turn right
+
+y	  Move to transfer pose (typically used before starting policy)
+u	  Move to default home pose and start policy
+n	  🚨 Emergency stop — immediately halts motion
+
 ## Executables Overview
-1. check_G1Robot_input.cpp
+1. robot_sim_sync.cpp
+```sh
+Usage:
+  robot sim sync [OPTION...]
 
-A standalone tool to verify whether the G1 robot's state data received via DDS matches the MuJoCo simulation data.
+  -c, --config arg  Config name (e.g., mdl)
+  -h, --help        Print usage
+```
+`./robot_sim_sync -c mdl`
 
-Useful for debugging and data consistency checks.
-`./check_G1Robot_input`
-
-2. g1.cpp
+2. run.cpp
 
 Main control entry, supporting two execution modes:
 ```sh
 Usage:
-  g1 [OPTION...]
+  run [OPTION...]
 
   -m, --mode arg       Mode: sim2mujoco or sim2real
-  -c, --config arg     Config name: g1_unitree | g1_eman | mdl
+  -c, --config arg     Config name: mdl
       --headless       Run in headless mode (no GUI)
   -d, --device arg     Device to use: cpu or cuda (default: cpu)
   -n, --net arg        Network interface name for sim2real (default: "")
@@ -48,42 +63,26 @@ Usage:
 Mode 1: Sim2Mujoco (Simulation Deployment)
 
 Deploys the trained policy into a MuJoCo-based simulated environment.
-`./g1 -m sim2mujoco -c g1_eman  -d cpu --headless `
+`./run -m sim2mujoco -c mdl -d cpu --headless `
 
 Available robot model options:
-- g1_unitree
-- g1_eman
 - mdl
 
 Mode 2: Sim2Real (Real Robot Deployment)
 
-Deploys the policy onto the real G1 robot and controls it via DDS.
-` ./g1 -m sim2real -c g1_eman -net [net_interface] -d cuda`
+Deploys the policy onto the real mdl robot and controls it via DDS.
+` ./run -m sim2real -c mdl -net [net_interface] -d cuda`
 
 Parameters:
-- g1_eman: Currently, only this robot configuration is supported for real deployment.
-- net_interface: Network interface used for communication, e.g., eno1, wlan0.
+- mdl: Currently, only this robot configuration is supported for real deployment.
+- net_interface: Network interface used for communication, e.g., eno1, wlan0. currently not used in reality.
 
 It is recommended to run simulate_robot alongside in this mode to simulate control command input.
 
 3. simulate_robot.cpp
-
-Simulates policy outputs and sends command data over DDS, typically used to test sim2real deployments without actual control code.
-`./simulate_robot`
-
-4. deploy_mujoco.cpp
-
-Quickly deploys a trained policy into a MuJoCo simulation for testing or visualization.
-```sh
-Usage:
-  deploy_mujoco [OPTION...]
-
-  -c, --config arg  Config name (e.g., g1_unitree, g1_eman, h1, h1_2)
-      --headless    Run in headless mode (no GUI)
-  -d, --device arg  Device to use: cpu or cuda (default: cpu)
-  -h, --help        Show help
-```
-
-Used for test in the non-linux system, e.g. MacOS.
+`./simulate_robot -c mdl`
 
 
+4. start_low_state — Custom LowState Aggregator
+Subscribes to IMU and motor state topics, merges them into a unified LowState message, and republishes it over DDS. Required in real robot mode.
+`./start_low_state -c mdl`

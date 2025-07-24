@@ -71,7 +71,7 @@ set(MUJOCO_DIR ${CMAKE_SOURCE_DIR}/library/mujoco)                  # Set Mujoco
 set(TENSORRT_DIR $ENV{TENSORRT_DIR})                                # Set TensorRT path
 set(CUDA_DIR $ENV{CUDA_DIR})                                        # Set CUDA path
 set(FASTDDS_DIR ${CMAKE_SOURCE_DIR}/library/fastdds)                # Set FastDDS path
-set(WLROBOT_DIR ${CMAKE_SOURCE_DIR}/library/wlrobot_sdk)                # Set wlrobot_sdk path
+set(WLROBOT_DIR ${CMAKE_SOURCE_DIR}/library/wlrobot_sdk)            # Set wlrobot_sdk path
 
 # 根据 TENSORRT_DIR 是否存在自动判断是否使用 TensorRT
 if(DEFINED TENSORRT_DIR AND EXISTS "${TENSORRT_DIR}/lib")
@@ -151,8 +151,8 @@ endif()
 # 递归收集所有 .cpp 文件
 file(GLOB_RECURSE WLROBOT_SDK_SRC_FILES ${WLROBOT_DIR}/src/*.cpp)
 
-add_executable(g1 exec/g1.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
-target_link_libraries(g1 fastdds fastcdr ${COMMON_LIBS})
+add_executable(run exec/run.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
+target_link_libraries(run fastdds fastcdr ${COMMON_LIBS})
 
 # sync with real robot
 add_executable(robot_sim_sync exec/robot_sim_sync.cpp ${SRC_FILES} ${WLROBOT_SDK_SRC_FILES})
