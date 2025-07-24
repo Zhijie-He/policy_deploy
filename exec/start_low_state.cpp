@@ -43,10 +43,11 @@ int main(int argc, char** argv) {
         cfg->imu_topic,
         cfg->motor_topic,
         cfg->lowstate_topic,             // define by yourself
-        cfg->domain_id,                // domain id
-        800
+        cfg->domain_id,                  // domain id
+        cfg->lowstate_pub_hz
     );
-
+    FRC_HIGHLIGHT("[main] Publishing low state with " << cfg->lowstate_pub_hz << " HZ!");
+    
     lowstate_aggregator->Start();
      while (running) {
         std::this_thread::sleep_for(std::chrono::seconds(1));

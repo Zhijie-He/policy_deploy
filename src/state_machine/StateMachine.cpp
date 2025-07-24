@@ -29,39 +29,10 @@ StateMachine::StateMachine(std::shared_ptr<const BaseRobotConfig> cfg,
   if (!cfg_->cmd_init.isZero()) {
     robotData.targetCMD = cfg_->cmd_init;
     FRC_INFO("[StateMachine.Const] Initial target cmd: " << robotData.targetCMD.transpose()); 
-  }
+  } 
   
   // 4. get control policy
   _neuralCtrl = tools::loadPolicyWrapper(config_name, cfg, device, inference_engine_type, precision);
-}
-
-void StateMachine::run(){
-  Timer _loopTimer(_policyDt); // 创建一个定时器，周期是 _policyDt 秒（比如 0.01s，表示 100Hz）
-  // while(_loopTimer.getMs() < 100) _loopTimer.wait(); // 等待系统至少运行 100ms 再开始主循环，常用于启动缓冲/初始化等待。  这个的延迟好像会导致policy的大幅变化
-  while(_isRunning){
-    
-    auto t_start = std::chrono::high_resolution_clock::now();
-    step();
-    auto t_end = std::chrono::high_resolution_clock::now();
-    
-    double run_time_us = std::chrono::duration<double, std::milli>(t_end - t_start).count();
-    run_sum_us += run_time_us;
-    run_sum_sq_us += run_time_us * run_time_us;
-    ++run_count;
-
-    if (run_count % 100 == 0) {
-        double avg = run_sum_us / run_count;
-        double stddev = std::sqrt(run_sum_sq_us / run_count - avg * avg);
-        FRC_INFO("[StateMachine.run] 100 runs AVG: " << avg << " ms | STDDEV: " << stddev << " ms");
-        
-         // 重置
-        run_sum_us = 0;
-        run_sum_sq_us = 0;
-        run_count = 0;
-    }
-
-    _loopTimer.wait(); 
-  }
 }
 
 void StateMachine::step(){
@@ -69,7 +40,7 @@ void StateMachine::step(){
   updateCommands();
   robotAction = _neuralCtrl->getControlAction(robotData);
   packJointAction();
-  if (*_keyState != '\0') *_keyState = '\0';
+  if (listenerPtr_ && listenerPtr_->getKeyboardInput() != '\0') listenerPtr_->clearKeyboardInput();
 }
 
 void StateMachine::getRawObs() {
@@ -99,12 +70,11 @@ void StateMachine::stop() { _isRunning = false; }
 
 void StateMachine::updateCommands(){
   float deltaYaw = 0; // deltaYaw 表示当前目标朝向与机器人当前朝向的差值
-  // Vec3f maxVelCmd{1.0, 0.3, 1.0}; // 最大线速度限制（1.0 前进，0.3 横向，0 竖直）；
   Vec3f maxVelCmd = cfg_->max_cmd;
-  constexpr float maxYaw = 1.0f;
+  const float maxYaw = maxVelCmd[2];
 
   // 键盘输入控制逻辑
-  if (_keyState != nullptr && *_keyState != '\0') {
+  if (listenerPtr_ != nullptr && listenerPtr_->getKeyboardInput() != '\0') {
     //  构造键盘增量指令
     Vec3<float> deltaVelTarg{0, 0, 0};
     Vec3<float> deltaAngTarg{0, 0, 0};
@@ -114,25 +84,25 @@ void StateMachine::updateCommands(){
     constexpr float kThresh = 1e-2f;
 
     // 对每个按键设置线速度/角速度的增量。
-    if (*_keyState == 'w') {
+    if (listenerPtr_->getKeyboardInput() == 'w') {
       deltaVelTarg << kStep, 0, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'w' → Forward +" << kStep);
-    } else if (*_keyState == 's') {
+    } else if (listenerPtr_->getKeyboardInput() == 's') {
       deltaVelTarg << -kStep, 0, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 's' → Backward -"  << kStep);
-    } else if (*_keyState == 'a') {
+    } else if (listenerPtr_->getKeyboardInput() == 'a') {
       deltaVelTarg << 0, kStep, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'a' → Left +"  << kStep);
-    } else if (*_keyState == 'd') {
+    } else if (listenerPtr_->getKeyboardInput() == 'd') {
       deltaVelTarg << 0, -kStep, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'd' → Right -"  << kStep);
-    } else if (*_keyState == 'q') {
+    } else if (listenerPtr_->getKeyboardInput() == 'q') {
       deltaAngTarg << 0, 0, kYawStep;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'q' → Turn left +" << kYawStep << "rad");
-    } else if (*_keyState == 'e') {
+    } else if (listenerPtr_->getKeyboardInput() == 'e') {
       deltaAngTarg << 0, 0, -kYawStep;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'e' → Turn right -" << kYawStep << "rad");
-    } else if (*_keyState == ' ') {
+    } else if (listenerPtr_->getKeyboardInput() == ' ') {
       robotData.targetCMD.setZero();
       yawTarg = 0.f;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'space' → Reset target velocity and yaw to zero.");
@@ -147,8 +117,7 @@ void StateMachine::updateCommands(){
     }
 
     // 角速度目标（yawTarg）
-    if (deltaAngTarg.norm() > kThresh) {  // .norm() 是什么？ 这是 Eigen 提供的函数，表示向量的 欧几里得范数（L2 范数），也就是： deltaAngTarg.norm() = sqrt(x² + y² + z²)
-      // 在这个场景里，只有 z 分量会被赋值，所以其实就是：deltaAngTarg.norm() = abs(deltaAngTarg[2])
+    if (deltaAngTarg.norm() > kThresh) { 
       float targYaw = robotData.targetCMD[2] + deltaAngTarg[2];  // 增量叠加
       targYaw = fmod(targYaw + static_cast<float>(M_PI), 2.0f * static_cast<float>(M_PI)) - static_cast<float>(M_PI); // wrap
       targYaw = std::clamp(targYaw, -maxYaw, maxYaw);  // 限幅

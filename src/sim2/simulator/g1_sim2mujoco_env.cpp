@@ -186,12 +186,6 @@ void G1Sim2MujocoEnv::integrate() {
       Eigen::VectorXf joint_pos = Eigen::Map<Eigen::VectorXd>(mj_data_->qpos + 7, actuatorDim_).cast<float>();
       Eigen::VectorXf joint_vel = Eigen::Map<Eigen::VectorXd>(mj_data_->qvel + 6, actuatorDim_).cast<float>();
       tauCmd = tools::pd_control(pTarget, joint_pos, jointPGain, vTarget, joint_vel, jointDGain);
-      for (int i = 0; i < tauCmd.size(); ++i) {
-        float limit = cfg_->effort_limit[i];
-        if(std::isfinite(limit)){
-          tauCmd[i] = std::clamp(tauCmd[i], -limit, limit);
-        }
-      }
       for (int i = 0; i < actuatorDim_; ++i) mj_data_->ctrl[i] = tauCmd[i];
       // FRC_INFO("tauCmd: " << tauCmd.transpose());
     }

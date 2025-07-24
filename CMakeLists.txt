@@ -38,12 +38,10 @@ function(color_message TYPE COLOR TEXT)
     message(${TYPE} "${COLOR_CODE}${TEXT}${RESET}")
 endfunction()
 
-# ========== 平台识别与 Unitree SDK 设置（仅限 macOS / Linux） ==========
+# ========== 平台识别（仅限 macOS / Linux） ==========
 if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
     set(CURRENT_PLATFORM "macos")
-    set(USE_UNITREE_SDK_DEFAULT OFF)
 elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
-    set(USE_UNITREE_SDK_DEFAULT ON)
     if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
         set(CURRENT_PLATFORM "linux-x86_64")
     elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
@@ -55,13 +53,8 @@ else()
     color_message(FATAL_ERROR red "[ERROR] Unsupported platform: ${CMAKE_SYSTEM_NAME}")
 endif()
 
-option(USE_UNITREE_SDK "Enable Unitree SDK support (only for Linux)" ${USE_UNITREE_SDK_DEFAULT})
-if(USE_UNITREE_SDK)
-    add_definitions(-DUSE_UNITREE_SDK)
-endif()
 color_message(STATUS cyan "[INFO] System: ${CMAKE_SYSTEM_NAME}")
 color_message(STATUS cyan "[INFO] Detected platform: ${CURRENT_PLATFORM}")
-color_message(STATUS cyan "[INFO] USE_UNITREE_SDK: ${USE_UNITREE_SDK}")
 
 # === AddressSanitizer 选项（默认关闭）===
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
@@ -75,7 +68,6 @@ endif()
 
 set(CMAKE_PREFIX_PATH $ENV{LIBTORCH_DIR} ${CMAKE_PREFIX_PATH})      # Add libtorch path
 set(MUJOCO_DIR ${CMAKE_SOURCE_DIR}/library/mujoco)                  # Set Mujoco path
-set(UNITREE_SDK2_DIR ${CMAKE_SOURCE_DIR}/library/unitree_sdk2)      # Set Unitree SDK path
 set(TENSORRT_DIR $ENV{TENSORRT_DIR})                                # Set TensorRT path
 set(CUDA_DIR $ENV{CUDA_DIR})                                        # Set CUDA path
 set(FASTDDS_DIR ${CMAKE_SOURCE_DIR}/library/fastdds)                # Set FastDDS path
@@ -100,11 +92,6 @@ pkg_check_modules(GLFW REQUIRED glfw3)
 # 递归收集所有 .cpp 文件
 file(GLOB_RECURSE ALL_SRC_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp)
 
-# 条件排除目录
-if (NOT USE_UNITREE_SDK)
-    list(FILTER ALL_SRC_FILES EXCLUDE REGEX ".*/real/.*")
-endif()
-
 if (NOT USE_TENSORRT)
     list(FILTER ALL_SRC_FILES EXCLUDE REGEX ".*/tensorrt/.*")
 endif()
@@ -119,7 +106,6 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/exec
     ${CMAKE_SOURCE_DIR}/library
-
     ${FASTDDS_DIR}/include
     ${WLROBOT_DIR}/include
 )
@@ -129,7 +115,6 @@ link_directories(
     ${YAMLCPP_LIBRARY_DIRS}
     ${GLFW_LIBRARY_DIRS}
     ${MUJOCO_DIR}/lib/${CURRENT_PLATFORM}
-
     ${FASTDDS_DIR}/lib/${CMAKE_SYSTEM_PROCESSOR}
 )
 
@@ -141,24 +126,6 @@ set(COMMON_LIBS
     mujoco
     pthread
 )
-
-# 如果启用 Unitree SDK
-if (USE_UNITREE_SDK)
-    include_directories(
-        ${UNITREE_SDK2_DIR}/include
-        ${UNITREE_SDK2_DIR}/thirdparty/include
-        ${UNITREE_SDK2_DIR}/thirdparty/include/ddscxx
-    )
-    link_directories(
-        ${UNITREE_SDK2_DIR}/lib/${CMAKE_SYSTEM_PROCESSOR}
-        ${UNITREE_SDK2_DIR}/thirdparty/lib/${CMAKE_SYSTEM_PROCESSOR}
-    )
-    list(APPEND COMMON_LIBS
-        unitree_sdk2
-        ddscxx
-        ddsc
-    )
-endif()
 
 # 如果启动TensorRT
 if (USE_TENSORRT)
@@ -180,15 +147,6 @@ if (USE_TENSORRT)
 endif()
 
 # # ===== 添加可执行文件 =====
-
-# 真机部署（仅在启用Unitree SDK时编译）
-# if (USE_UNITREE_SDK)
-#     add_executable(simulate_robot exec/simulate_robot.cpp ${SRC_FILES})
-#     target_link_libraries(simulate_robot ${COMMON_LIBS})
-
-#     add_executable(check_G1Robot_input exec/check_G1Robot_input.cpp ${SRC_FILES})
-#     target_link_libraries(check_G1Robot_input ${COMMON_LIBS})
-# endif()
 
 # 递归收集所有 .cpp 文件
 file(GLOB_RECURSE WLROBOT_SDK_SRC_FILES ${WLROBOT_DIR}/src/*.cpp)

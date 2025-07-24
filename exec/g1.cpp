@@ -1,7 +1,7 @@
 #include <filesystem>
 #include <csignal>
-#include "state_machine/StateMachine.h"
 #include "hardware/listener.h"
+#include "state_machine/StateMachine.h"
 #include "sim2/real/sim2wlrobot_env.h"
 #include "sim2/simulator/g1_sim2mujoco_env.h"
 #include "utility/tools.h"
@@ -31,8 +31,8 @@ public:
 
         listener_ = std::make_shared<Listener>();
         hu_env_->setHeadless(headless); 
-        hu_env_->setUserInputPtr(listener_, listener_->getKeyInputPtr(), nullptr);
-        state_machine_->setInputPtr(listener_->getKeyInputPtr(), nullptr);
+        hu_env_->setUserInputPtr(listener_, nullptr);
+        state_machine_->setInputPtr(listener_, nullptr);
 
         threads_.emplace_back([listener = listener_]() { listener->listenKeyboard(); });             // start keyboard listener
   }
@@ -58,7 +58,6 @@ public:
   ~G1Controller(){
     if(state_machine_) state_machine_->stop();
     if(listener_) listener_->stop();
-    if(hu_env_) hu_env_->stop();
 
     for(auto& t : threads_){
       if(t.joinable()) t.join();
@@ -97,7 +96,7 @@ int main(int argc, char** argv) {
     cxxopts::Options options(exec_name, "Run Mujoco-based simulation Or Real for Human Legged Robot");
     options.add_options()
       ("m,mode", "Mode: sim2mujoco or sim2real", cxxopts::value<std::string>())
-      ("c,config", "Config name: g1_unitree | g1_eman | mdl", cxxopts::value<std::string>())
+      ("c,config", "Config name: mdl", cxxopts::value<std::string>())
       ("headless", "Run in headless mode (no GUI)", cxxopts::value<bool>()->default_value("false"))
       ("d,device", "Device to use: cpu or cuda", cxxopts::value<std::string>()->default_value("cpu"))
       ("n,net", "Network interface name for sim2real", cxxopts::value<std::string>()->default_value(""))

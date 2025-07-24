@@ -15,11 +15,12 @@ public:
     int control_decimation;
     int domain_id;
     int print_interval;
-
+    int lowstate_pub_hz;
+    
     Eigen::VectorXf kP;
     Eigen::VectorXf kD;
     Eigen::VectorXf default_angles;
-    Eigen::VectorXf effort_limit;
+    Eigen::VectorXf transfer_joint_angles;
     Eigen::Vector3f cmd_init;
     Eigen::Vector3f cmd_scale;
     Eigen::Vector3f max_cmd;

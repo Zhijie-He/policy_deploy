@@ -20,7 +20,7 @@ public:
   void initState();
   virtual void stop() { running_ = false;}  
   virtual void setHeadless(bool) {}
-  virtual void setUserInputPtr(std::shared_ptr<Listener> listener, char* key, JoystickData* joy) {listenerPtr_ = listener; keyPtr_ = key; joyPtr_ = joy;}
+  virtual void setUserInputPtr(std::shared_ptr<Listener> listener, JoystickData* joy) {listenerPtr_ = listener; joyPtr_ = joy;}
   virtual void run() {}
 
   virtual void zeroTorqueState() {}
@@ -45,7 +45,6 @@ protected:
   
   // listener related
   std::shared_ptr<Listener> listenerPtr_;
-  char* keyPtr_ = nullptr;
   JoystickData* joyPtr_ = nullptr;
 
   int gcDim_, gvDim_, jointDim_, actuatorDim_;

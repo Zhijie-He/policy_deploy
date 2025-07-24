@@ -5,6 +5,7 @@
 #include "types/joystickTypes.h"
 #include "types/system_defined.h"
 #include "types/CustomTypes.h"
+#include "hardware/listener.h"
 #include "utility/data_buffer.h"
 #include "policy_wrapper/BasePolicyWrapper.h"
 
@@ -19,7 +20,7 @@ public:
     virtual void step();
     virtual void stop(); 
     
-    void setInputPtr(char* key, JoystickData* joy) {_jsStates = joy; _keyState = key;}
+    void setInputPtr(std::shared_ptr<Listener> listener, JoystickData* joy) {listenerPtr_ = listener; _jsStates = joy;}
     std::shared_ptr<DataBuffer<robotStatus>> getRobotStatusBufferPtr() const {return _robotStatusBuffer;}
     std::shared_ptr<DataBuffer<jointCMD>> getJointCMDBufferPtr() const {return _jointCMDBuffer;}
 
@@ -29,7 +30,8 @@ protected:
     void packJointAction();
     
     std::shared_ptr<const BaseRobotConfig> cfg_; 
-    char* _keyState = nullptr;
+    
+    std::shared_ptr<Listener> listenerPtr_;
     JoystickData* _jsStates = nullptr;
 
     bool _isRunning = true;

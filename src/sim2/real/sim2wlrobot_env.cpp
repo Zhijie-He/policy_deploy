@@ -62,8 +62,8 @@ void Sim2WlRobotEnv::updateRobotState() {
               state.imu_state().quaternion()[1],
               state.imu_state().quaternion()[2],
               state.imu_state().quaternion()[3];
-  Eigen::VectorXf jointPos(jointDim_);
-  for (int i = 0; i < jointDim_; ++i) {
+  Eigen::VectorXf jointPos(actuatorDim_);
+  for (int i = 0; i < actuatorDim_; ++i) {
     jointPos[i] = state.motor_state().pos()[i];
   }
 
@@ -73,8 +73,8 @@ void Sim2WlRobotEnv::updateRobotState() {
   rootAngVel << state.imu_state().gyroscope()[0],
                 state.imu_state().gyroscope()[1],
                 state.imu_state().gyroscope()[2];
-  Eigen::VectorXf jointVel(jointDim_);
-  for (int i = 0; i < jointDim_; ++i) {
+  Eigen::VectorXf jointVel(actuatorDim_);
+  for (int i = 0; i < actuatorDim_; ++i) {
     jointVel[i] =  state.motor_state().w()[i];
   }
 
@@ -91,20 +91,16 @@ void Sim2WlRobotEnv::updateRobotState() {
   }
 }
 
-// void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
-//   lowcmd_publisher_->Write(cmd);        
-// }
-
 void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
     // Step 1: 提取 sim 顺序数据（从 cmd 中获取）
-    std::array<float, 12> pos_sim = cmd.pos();
-    std::array<float, 12> vel_sim = cmd.w();
-    std::array<float, 12> kp_sim  = cmd.kp();
-    std::array<float, 12> kd_sim  = cmd.kd();
+    auto pos_sim = cmd.pos();
+    auto vel_sim = cmd.w();
+    auto kp_sim  = cmd.kp();
+    auto kd_sim  = cmd.kd();
 
     // Step 2: sim → real 顺序
     std::array<float, 12> pos_real{}, vel_real{}, kp_real{}, kd_real{};
-    for (int real_idx = 0; real_idx < 12; ++real_idx) {
+    for (int real_idx = 0; real_idx < actuatorDim_; ++real_idx) {
         int sim_idx = real2sim_dof_map_[real_idx];
         pos_real[real_idx] = pos_sim[sim_idx];
         vel_real[real_idx] = vel_sim[sim_idx];
@@ -113,7 +109,7 @@ void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
     }
 
     // Step 3: 反校准（为真机使用）
-    for (int i = 0; i < 12; ++i) {
+    for (int i = 0; i < actuatorDim_; ++i) {
         int leg = i / 3;
         int joint = i % 3;
 
@@ -139,15 +135,15 @@ void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
 
 void Sim2WlRobotEnv::zeroTorqueState() {
   FRC_HIGHLIGHT("[Sim2WlRobotEnv.zeroTorqueState] Sending zero Cmd...");
-  FRC_HIGHLIGHT("[Sim2WlRobotEnv.zeroTorqueState] Waiting for the start signal and then move to transfer position...");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.zeroTorqueState] Waiting for the Button S signal and then move to transfer position...");
   Timer zeroTorqueStateTimer(control_dt_);
 
-  // while (listenerPtr_ && listenerPtr_->gamepad_.start.pressed != 1) {
-  while (listenerPtr_ && *listenerPtr_->getKeyInputPtr() != 's') {
+  while (listenerPtr_ && listenerPtr_->getKeyboardInput() != 's') {
     create_zero_cmd(low_cmd_);  
     sendCmd(low_cmd_);        
     zeroTorqueStateTimer.wait();
   }
+  if (listenerPtr_ && listenerPtr_->getKeyboardInput()  != '\0') listenerPtr_->clearKeyboardInput();
 }
 
 void Sim2WlRobotEnv::moveToTransferPos() {
@@ -160,8 +156,8 @@ void Sim2WlRobotEnv::moveToTransferPos() {
   // config 参数
   const auto& kps = cfg_->kP;
   const auto& kds = cfg_->kD;
-  const float transfer_joint_pos[12] = {0., 1.2, -2.7, -0., 1.2, -2.7, 0., 2.2, -2.7, -0., 2.2, -2.7};
-  int dof_size = jointDim_;
+  const auto& transfer_joint_pos = cfg_->transfer_joint_angles;
+  int dof_size = actuatorDim_;
 
   // 初始位置
   std::vector<float> init_dof_pos(dof_size, 0.0f);
@@ -190,18 +186,17 @@ void Sim2WlRobotEnv::moveToTransferPos() {
 
 void Sim2WlRobotEnv::transferPosState() {
   FRC_HIGHLIGHT("[Sim2WlRobotEnv.transferPosState] Sending transfer position cmd...");
-  FRC_HIGHLIGHT("[Sim2WlRobotEnv.transferPosState] Waiting for the Button A signal and then move to default position...");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.transferPosState] Waiting for the Button A signal and then start the policy...");
 
   Timer transferPosStateTimer(control_dt_);
 
   // config 参数
   const auto& kps = cfg_->kP;
   const auto& kds = cfg_->kD;
-  const float transfer_joint_pos[12] = {0., 1.2, -2.7, -0., 1.2, -2.7, 0., 2.2, -2.7, -0., 2.2, -2.7};
-  int dof_size = jointDim_;
+  const auto& transfer_joint_pos = cfg_->transfer_joint_angles;
+  int dof_size = actuatorDim_;
 
-  // while (listenerPtr_ && listenerPtr_->gamepad_.A.pressed != 1) {
-  while (listenerPtr_ && *listenerPtr_->getKeyInputPtr() != 'a') {
+  while (listenerPtr_ && listenerPtr_->getKeyboardInput() != 'a') {
     for (int i = 0; i < dof_size; ++i) {
       int motor_idx = i;
       low_cmd_.pos()[motor_idx] = transfer_joint_pos[motor_idx];
@@ -213,6 +208,7 @@ void Sim2WlRobotEnv::transferPosState() {
     sendCmd(low_cmd_);
     transferPosStateTimer.wait();
   }
+  if (listenerPtr_ && listenerPtr_->getKeyboardInput()  != '\0') listenerPtr_->clearKeyboardInput();
 }
 
 void Sim2WlRobotEnv::moveToDefaultPos() {
@@ -226,7 +222,7 @@ void Sim2WlRobotEnv::moveToDefaultPos() {
   const auto& kps = cfg_->kP;
   const auto& kds = cfg_->kD;
   const auto& default_joint_pos = cfg_->default_angles;
-  int dof_size = jointDim_;
+  int dof_size = actuatorDim_;
 
   // 初始位置
   std::vector<float> init_dof_pos(dof_size, 0.0f);
@@ -256,39 +252,35 @@ void Sim2WlRobotEnv::moveToDefaultPos() {
 
 void Sim2WlRobotEnv::defaultPosState() {
   FRC_HIGHLIGHT("[Sim2WlRobotEnv.defaultPosState] Sending default pos cmd...");
-  FRC_HIGHLIGHT("[Sim2WlRobotEnv.defaultPosState] Waiting for the Button A signal and then start the policy...");
-
   Timer defaultPosStateTimer(control_dt_);
 
   // config 参数
   const auto& kps = cfg_->kP;
   const auto& kds = cfg_->kD;
   const auto& default_joint_pos = cfg_->default_angles;
-  int dof_size = jointDim_;
-
-  // while (listenerPtr_ && listenerPtr_->gamepad_.A.pressed != 1) {
-  while (listenerPtr_ && *listenerPtr_->getKeyInputPtr() != 'a') {
-    for (int i = 0; i < dof_size; ++i) {
-      int motor_idx = i;
-      low_cmd_.pos()[motor_idx] = default_joint_pos[motor_idx];
-      low_cmd_.w()[motor_idx] = 0;
-      low_cmd_.kp()[motor_idx] = kps[motor_idx];
-      low_cmd_.kd()[motor_idx] = kds[motor_idx];
-      low_cmd_.t()[motor_idx]= 0;
-    }
-    sendCmd(low_cmd_);
-    defaultPosStateTimer.wait();
+  int dof_size = actuatorDim_;
+  
+  for (int i = 0; i < dof_size; ++i) {
+    int motor_idx = i;
+    low_cmd_.pos()[motor_idx] = default_joint_pos[motor_idx];
+    low_cmd_.w()[motor_idx] = 0;
+    low_cmd_.kp()[motor_idx] = kps[motor_idx];
+    low_cmd_.kd()[motor_idx] = kds[motor_idx];
+    low_cmd_.t()[motor_idx]= 0;
   }
+  sendCmd(low_cmd_);
+  defaultPosStateTimer.wait();
+
+  if (listenerPtr_ && listenerPtr_->getKeyboardInput()  != '\0') listenerPtr_->clearKeyboardInput();
 }
 
 bool Sim2WlRobotEnv::isRunning() {
-    // if (listenerPtr_ && listenerPtr_->gamepad_.select.pressed == 1) {
-    if (listenerPtr_ && *listenerPtr_->getKeyInputPtr() == 'e') {
+    if (listenerPtr_ && listenerPtr_->getKeyboardInput() == 'p') {
         FRC_INFO("[Sim2WlRobotEnv] Emergency Stop!");
         FRC_INFO("[Sim2WlRobotEnv.run] Emergency Stop! at " << run_count << " count!");
 
         MotorCmds terminateCmd;
-        for (int i = 0; i < jointDim_; ++i) {
+        for (int i = 0; i < actuatorDim_; ++i) {
           int motor_idx = i;
           terminateCmd.pos()[motor_idx] = 0;
           terminateCmd.w()[motor_idx] = 0;
@@ -302,18 +294,21 @@ bool Sim2WlRobotEnv::isRunning() {
           sendCmd(terminateCmd);
           std::this_thread::sleep_for(std::chrono::duration<double>(control_dt_));
         }
+
+        if (listenerPtr_ && listenerPtr_->getKeyboardInput()  != '\0') listenerPtr_->clearKeyboardInput();
+                
         return false;
     }
     return running_;
 }
 
 void Sim2WlRobotEnv::applyAction(const jointCMD& cmd) {
-  memcpy(pTarget.data(), cmd.data.position, sizeof(float) * jointDim_);
-  memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * jointDim_);
-  memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * jointDim_);
-  memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * jointDim_);
+  memcpy(pTarget.data(), cmd.data.position, sizeof(float) * actuatorDim_);
+  memcpy(vTarget.data(), cmd.data.velocity, sizeof(float) * actuatorDim_);
+  memcpy(jointPGain.data(), cmd.data.kp, sizeof(float) * actuatorDim_);
+  memcpy(jointDGain.data(), cmd.data.kd, sizeof(float) * actuatorDim_);
 
-  for (int i = 0; i < jointDim_; ++i) {
+  for (int i = 0; i < actuatorDim_; ++i) {
     low_cmd_.pos()[i]  = pTarget[i];
     low_cmd_.w()[i]    = vTarget[i];
     low_cmd_.kp()[i]   = jointPGain[i];

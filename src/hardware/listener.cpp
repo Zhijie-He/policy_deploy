@@ -13,8 +13,8 @@ void Listener::listenKeyboard() {
       auto c = getchar();
       if (c < 'Z' && c > 'A') c = c - 'A' + 'a';
       if (c != 10) {
-        key_input_ = c;
-        FRC_INFO("[Listener.kbd] Pressed Button: " << c << ", " << key_input_);
+        key_input_.store(c);
+        FRC_INFO("[Listener.kbd] Pressed Button: " << c << ", " << key_input_.load());
       }
       switch (c) {
         case 'z':
