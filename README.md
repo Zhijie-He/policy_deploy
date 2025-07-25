@@ -28,7 +28,7 @@ e	  Turn right
 
 y	  Move to transfer pose (typically used before starting policy)
 u	  Move to default home pose and start policy
-n	  🚨 Emergency stop — immediately halts motion
+x	  🚨 Emergency stop — immediately halts motion
 
 ## Executables Overview
 1. robot_sim_sync.cpp

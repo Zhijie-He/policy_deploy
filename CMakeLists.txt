@@ -86,6 +86,7 @@ endif()
 # 查找依赖库
 find_package(Torch REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(SDL2 REQUIRED)
 pkg_check_modules(YAMLCPP REQUIRED yaml-cpp)
 pkg_check_modules(GLFW REQUIRED glfw3)
 
@@ -103,6 +104,7 @@ include_directories(
     ${MUJOCO_DIR}/include
     ${YAMLCPP_INCLUDE_DIRS}
     ${GLFW_INCLUDE_DIRS}
+    ${SDL2_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/exec
     ${CMAKE_SOURCE_DIR}/library
@@ -125,6 +127,7 @@ set(COMMON_LIBS
     ${GLFW_LIBRARIES}
     mujoco
     pthread
+    ${SDL2_LIBRARIES}
 )
 
 # 如果启动TensorRT

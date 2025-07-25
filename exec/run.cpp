@@ -33,8 +33,9 @@ public:
         hu_env_->setHeadless(headless); 
         hu_env_->setUserInputPtr(listener_, nullptr);
         state_machine_->setInputPtr(listener_, nullptr);
-
-        threads_.emplace_back([listener = listener_]() { listener->listenKeyboard(); });             // start keyboard listener
+        // start listener
+        listener_->startKeyboardListener();
+        listener_->startJoystickListener();
   }
 
   void zero_torque_state(){
@@ -57,10 +58,9 @@ public:
 
   ~G1Controller(){
     if(state_machine_) state_machine_->stop();
-    if(listener_) listener_->stop();
-
-    for(auto& t : threads_){
-      if(t.joinable()) t.join();
+    if(listener_) {
+      listener_->stop();
+      listener_->join();
     }
   }
 
@@ -70,7 +70,6 @@ public:
 
 private:
   std::string mode_;
-  std::vector<std::thread> threads_;
 };
 
 std::shared_ptr<BaseRobotConfig> cfg = nullptr;

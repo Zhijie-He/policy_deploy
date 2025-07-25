@@ -135,15 +135,22 @@ void Sim2WlRobotEnv::sendCmd(MotorCmds& cmd) {
 
 void Sim2WlRobotEnv::zeroTorqueState() {
   FRC_INFO("[Sim2WlRobotEnv.zeroTorqueState] Sending zero Cmd...");
-  FRC_HIGHLIGHT("[Sim2WlRobotEnv.zeroTorqueState] Waiting for the Button y signal and then move to transfer position...");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.zeroTorqueState] Waiting for 'y' (keyboard) or 'Start' (gamepad) to continue...");
   Timer zeroTorqueStateTimer(control_dt_);
 
-  while (listenerPtr_ && listenerPtr_->getKeyboardInput() != 'y') {
-    create_zero_cmd(low_cmd_);  
-    sendCmd(low_cmd_);        
+  while (listenerPtr_) {
+    auto key = listenerPtr_->getKeyboardInput();
+    auto joy = listenerPtr_->getJoystickState();
+
+    // 任意一种触发条件都可退出
+    if (key == 'y' || joy.start.pressed == 1) break;
+
+    create_zero_cmd(low_cmd_);
+    sendCmd(low_cmd_);
     zeroTorqueStateTimer.wait();
   }
-  if (listenerPtr_ && listenerPtr_->getKeyboardInput()  != '\0') listenerPtr_->clearKeyboardInput();
+
+  if (listenerPtr_) listenerPtr_->clearKeyboardInput();  //  清除一次性指令
 }
 
 void Sim2WlRobotEnv::moveToTransferPos() {
@@ -186,30 +193,37 @@ void Sim2WlRobotEnv::moveToTransferPos() {
 
 void Sim2WlRobotEnv::transferPosState() {
   FRC_INFO("[Sim2WlRobotEnv.transferPosState] Sending transfer position cmd...");
-  FRC_HIGHLIGHT("[Sim2WlRobotEnv.transferPosState] Waiting for the Button u signal and then start the policy...");
+  FRC_HIGHLIGHT("[Sim2WlRobotEnv.transferPosState] Waiting for 'u' (keyboard) or 'A' (gamepad) to start policy...");
 
   Timer transferPosStateTimer(control_dt_);
 
-  // config 参数
   const auto& kps = cfg_->kP;
   const auto& kds = cfg_->kD;
   const auto& transfer_joint_pos = cfg_->transfer_joint_angles;
-  int dof_size = actuatorDim_;
+  const int dof_size = actuatorDim_;
 
-  while (listenerPtr_ && listenerPtr_->getKeyboardInput() != 'u') {
+  while (listenerPtr_) {
+    char key = listenerPtr_->getKeyboardInput();
+    const auto& joy = listenerPtr_->getJoystickState();
+
+    if (key == 'u' || joy.A.pressed == 1) break;
+
     for (int i = 0; i < dof_size; ++i) {
-      int motor_idx = i;
-      low_cmd_.pos()[motor_idx] = transfer_joint_pos[motor_idx];
-      low_cmd_.w()[motor_idx] = 0;
-      low_cmd_.kp()[motor_idx] = kps[motor_idx];
-      low_cmd_.kd()[motor_idx] = kds[motor_idx];
-      low_cmd_.t()[motor_idx]= 0;
+      low_cmd_.pos()[i] = transfer_joint_pos[i];
+      low_cmd_.w()[i]   = 0;
+      low_cmd_.kp()[i]  = kps[i];
+      low_cmd_.kd()[i]  = kds[i];
+      low_cmd_.t()[i]   = 0;
     }
+
     sendCmd(low_cmd_);
     transferPosStateTimer.wait();
   }
-  if (listenerPtr_ && listenerPtr_->getKeyboardInput()  != '\0') listenerPtr_->clearKeyboardInput();
+
+  if (listenerPtr_) listenerPtr_->clearKeyboardInput();  //  清除一次性指令
 }
+
+
 
 void Sim2WlRobotEnv::moveToDefaultPos() {
   FRC_INFO("[Sim2WlRobotEnv.moveToDefaultPos] Moving to default position...");
@@ -271,11 +285,12 @@ void Sim2WlRobotEnv::defaultPosState() {
   sendCmd(low_cmd_);
   defaultPosStateTimer.wait();
 
-  if (listenerPtr_ && listenerPtr_->getKeyboardInput()  != '\0') listenerPtr_->clearKeyboardInput();
+   if (listenerPtr_) listenerPtr_->clearKeyboardInput();  //  清除一次性指令
 }
 
 bool Sim2WlRobotEnv::isRunning() {
-    if (listenerPtr_ && listenerPtr_->getKeyboardInput() == 'n') {
+    if (listenerPtr_ &&  (listenerPtr_->getKeyboardInput() == 'x' || listenerPtr_->getJoystickState().X.pressed == 1)) 
+    {
         FRC_INFO("[Sim2WlRobotEnv] Emergency Stop!");
         FRC_INFO("[Sim2WlRobotEnv.run] Emergency Stop! at " << run_count << " count!");
 
@@ -295,10 +310,10 @@ bool Sim2WlRobotEnv::isRunning() {
           std::this_thread::sleep_for(std::chrono::duration<double>(control_dt_));
         }
 
-        if (listenerPtr_ && listenerPtr_->getKeyboardInput()  != '\0') listenerPtr_->clearKeyboardInput();
-                
+        listenerPtr_->clearKeyboardInput();  
         return false;
     }
+    
     return running_;
 }
 
@@ -321,5 +336,3 @@ void Sim2WlRobotEnv::applyAction(const jointCMD& cmd) {
 void Sim2WlRobotEnv::run() {
   runControlLoop();
 }
-
-

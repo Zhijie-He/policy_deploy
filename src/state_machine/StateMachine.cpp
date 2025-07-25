@@ -72,37 +72,81 @@ void StateMachine::updateCommands(){
   float deltaYaw = 0; // deltaYaw 表示当前目标朝向与机器人当前朝向的差值
   Vec3f maxVelCmd = cfg_->max_cmd;
   const float maxYaw = maxVelCmd[2];
+  constexpr float kStep = 0.05f;
+  constexpr float kYawStep = 0.05f;
+  constexpr float kThresh = 1e-2f;
+  constexpr float kDeadZone = 0.05f;
 
-  // 键盘输入控制逻辑
-  if (listenerPtr_ != nullptr && listenerPtr_->getKeyboardInput() != '\0') {
-    //  构造键盘增量指令
+  // ==========================
+  // 🎮 Joystick 控制逻辑
+  // ==========================
+  if (listenerPtr_ && listenerPtr_->gamepad_.isConnected()) {
+    const auto joy = listenerPtr_->getJoystickState();
+
+    // 对摇杆输入做 DeadZone 防抖（避免 0.001 等小输入抖动）
+    float lx = (std::fabs(joy.lx) > kDeadZone) ? joy.lx : 0.0f;
+    float ly = (std::fabs(joy.ly) > kDeadZone) ? joy.ly : 0.0f;
+    float rx = (std::fabs(joy.rx) > kDeadZone) ? joy.rx : 0.0f;
+
+    bool joyUsed = std::fabs(lx) > 0.0f || std::fabs(ly) > 0.0f || std::fabs(rx) > 0.0f;
+
+    if (joyUsed) {
+      Vec3f cmdVel;
+      cmdVel[0] = -maxVelCmd[0] * ly;   // 前后
+      cmdVel[1] = -maxVelCmd[1] * lx;   // 左右
+      cmdVel[2] = -maxVelCmd[2] * rx;   // yaw（右摇杆）
+
+      // 只有当有明显变化时才赋值
+      if ((cmdVel - robotData.targetCMD).norm() > kThresh) {
+        robotData.targetCMD = cmdVel;
+        yawTarg = cmdVel[2];
+        FRC_INFO("[Joy] targetCMD ← " << robotData.targetCMD.transpose());
+      }
+    } else {
+      // 若当前 targetCMD 不为零，说明之前有操作，需要清零
+      if (robotData.targetCMD.norm() > kThresh) {
+        robotData.targetCMD.setZero();
+        yawTarg = 0.f;
+        FRC_INFO("[Joy] targetCMD cleared");
+      }
+    }
+
+    // 手动清零（按 B 键）
+    if (joy.B.on_press) {
+      robotData.targetCMD.setZero();
+      yawTarg = 0.f;
+      FRC_INFO("[Joy] targetCMD manually cleared by B");
+    }
+  }
+
+  // ==========================
+  // ⌨️ 键盘控制逻辑（fallback）
+  // ==========================
+  if (listenerPtr_ && listenerPtr_->getKeyboardInput() != '\0') {
     Vec3<float> deltaVelTarg{0, 0, 0};
     Vec3<float> deltaAngTarg{0, 0, 0};
-
-    constexpr float kStep = 0.05f;
-    constexpr float kYawStep = 0.05f;
-    constexpr float kThresh = 1e-2f;
+    char key = listenerPtr_->getKeyboardInput();
 
     // 对每个按键设置线速度/角速度的增量。
-    if (listenerPtr_->getKeyboardInput() == 'w') {
+    if (key == 'w') {
       deltaVelTarg << kStep, 0, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'w' → Forward +" << kStep);
-    } else if (listenerPtr_->getKeyboardInput() == 's') {
+    } else if (key == 's') {
       deltaVelTarg << -kStep, 0, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 's' → Backward -"  << kStep);
-    } else if (listenerPtr_->getKeyboardInput() == 'a') {
+    } else if (key == 'a') {
       deltaVelTarg << 0, kStep, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'a' → Left +"  << kStep);
-    } else if (listenerPtr_->getKeyboardInput() == 'd') {
+    } else if (key == 'd') {
       deltaVelTarg << 0, -kStep, 0;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'd' → Right -"  << kStep);
-    } else if (listenerPtr_->getKeyboardInput() == 'q') {
+    } else if (key == 'q') {
       deltaAngTarg << 0, 0, kYawStep;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'q' → Turn left +" << kYawStep << "rad");
-    } else if (listenerPtr_->getKeyboardInput() == 'e') {
+    } else if (key == 'e') {
       deltaAngTarg << 0, 0, -kYawStep;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'e' → Turn right -" << kYawStep << "rad");
-    } else if (listenerPtr_->getKeyboardInput() == ' ') {
+    } else if (key == ' ') {
       robotData.targetCMD.setZero();
       yawTarg = 0.f;
       FRC_INFO("[StateMachine.updateCommands] Pressed 'space' → Reset target velocity and yaw to zero.");
